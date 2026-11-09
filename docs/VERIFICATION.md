@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-09 (America/New_York)
 
-**Source version:** 0.1.3 (M0.3)
+**Source version:** 0.1.3 (M0.3 accepted; M1.1 is documentation-only)
 
 **Target:** Ubuntu 26.04, OpenCV **5.1.0**, Dear ImGui **1.93.0**, CMake + Ninja.
 
@@ -33,7 +33,7 @@ I reproduced the updated C++ rules with the available OpenCV **4.13** Python bin
 
 The previously incorrect orange locations were both classified as **orange** in the reference implementation. Both s1/s2 red regression locations remained **red**. All four original input JPEGs are preserved byte-for-byte.
 
-**This reference is not an OpenCV 5.1.0 native C++ result.** I have not compiled or executed the M0.3 C++ test suite against the installed Ubuntu 26.04 toolchain in this environment. M0.3 acceptance remains **pending the native build, CTest, and GUI/CLI review**.
+**The OpenCV 4.13 reference above was exploratory rather than native evidence.** The subsequent Ubuntu 26.04 OpenCV 5.1.0 native build and CTest pass are recorded in the acceptance update below. That later result does not retroactively make the exploratory reference a native test.
 
 ## Native Ubuntu 26.04 acceptance procedure
 
@@ -63,10 +63,20 @@ ctest --test-dir build -V
 - [ ] CLI JSON counts and annotated exports agree with the GUI; unrelated still-image loading/export remains functional.
 - [ ] The original sample photographs are unchanged.
 
-I will not mark M0.3 accepted until these native checks pass.
+The original checklist above records the requested M0.3 acceptance procedure; the subsequently reported results are documented below, without claiming that every optional CLI/export check was performed.
 
 ## Milestone history
 
 - **M0 (0.1.0):** I introduced the C++ core, CLI, Dear ImGui GUI, and original photo regression suite. Initial Ubuntu CTest reported 3/4 pass due to an overly strict category assertion.
 - **M0.1 (0.1.1):** I corrected the red hue-wrap median, the inaccurate sample-3 color assertion, and compiler narrowing warnings; the red objects missing from s1/s2 were subsequently visible in the GUI. The initial s1/s3 orange classification was still imperfect.
 - **M0.3 (0.1.3):** I refined the bright orange / red overlap and added orange spatial regressions. There is no separate M0.2 delivery in this history; the milestone number follows my requested naming.
+
+## M0.3 native acceptance update (reported November 9, 2026)
+
+I confirmed that the M0.3 GUI now draws and correctly classifies every Skittles circle in the four reference photographs, including the two orange/red corrections in s1 and s3. I configured and built the project on Ubuntu 26.04 (GCC 15.2.0, Release, OpenCV 5.1.0) with the GUI and tests enabled and recorded **4/4 passing CTests**, zero failed. The build log shared for this acceptance did not show C++ warnings. This is the accepted baseline for M1.
+
+I did **not** receive additional CLI JSON/export logs, a Windows build report, or cross-distribution results with this acceptance. I do not claim them here.
+
+## M1.1 repository-governance checks
+
+I added repository issue forms, a PR template, contribution guidance, and a security policy. These changes do not alter executable sources, CMake configuration, dependency pins, test behavior, or the version number. Configuration syntax and patch integrity are verified separately during package preparation; I will confirm the rendered issue chooser and pull request template after this change is merged into the default branch. I will also explicitly enable GitHub private vulnerability reporting in repository settings, since a SECURITY.md file alone cannot enable it.

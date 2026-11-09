@@ -1,0 +1,51 @@
+name: Development task
+description: Create a roadmap issue for tests, documentation, research, build, or maintenance
+title: "[Task] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        I use one issue per independently verifiable milestone requirement.
+        Assign one appropriate type label and one area label manually; this
+        form does not preset a type because tasks can be tests, documentation,
+        research, release work, or other engineering work.
+  - type: input
+    id: milestone
+    attributes:
+      label: Roadmap reference
+      description: Milestone and planning identifier, if applicable.
+      placeholder: "M1.2 — Normalize repository layout"
+    validations:
+      required: false
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective and scope
+      description: Explain the problem and the concrete work in scope.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and exclusions
+      description: Link related issues and identify what must not change.
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Write checkable outcomes rather than vague completion statements.
+      value: |
+        - [ ] Implementation or requested artifact is complete.
+        - [ ] Relevant automated and/or manual verification is recorded.
+        - [ ] Documentation is updated if behavior or workflow changes.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: Include CTest commands, local checks, or review evidence expected for this task.
+    validations:
+      required: false

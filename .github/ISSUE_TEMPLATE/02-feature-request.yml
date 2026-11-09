@@ -1,0 +1,69 @@
+name: Feature request
+description: Propose an improvement or new processing capability
+title: "[Feature] "
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        I prioritize roadmap-aligned, testable changes that preserve the shared
+        core and CLI/GUI parity. Please search the milestones and existing issues
+        before proposing duplicate work.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What limitation should this change solve, and for which workflow?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe how the feature should work from the CLI, GUI, and core when applicable.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Primary area
+      description: I will assign area labels during review.
+      options:
+        - Core / architecture
+        - Still images
+        - Video playback
+        - Object/person inference
+        - Camera / live detection
+        - Tracking
+        - GUI
+        - CLI
+        - Performance / security
+        - Testing / CI / packaging
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Proposed acceptance criteria
+      description: What observable result and test evidence would establish completion?
+      placeholder: |
+        - [ ] A specific input produces the expected output.
+        - [ ] Unit/integration/regression coverage is added.
+        - [ ] CLI/GUI behavior and docs are updated where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Alternatives, dependencies, and tradeoffs
+      description: Link related milestone issues; mention performance, privacy, licensing, or portability implications.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched for related issues and considered the current roadmap.
+          required: true

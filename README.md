@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3 accepted (v0.1.3); M1.1 repository governance accepted; M1.2 CMake presets accepted after local review; M1.3 structured tests pending native verification. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded a native Release build with **4/4 passing CTests** against OpenCV 5.1.0. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
+> **Development stage:** M0.3–M1.3 accepted (v0.1.3); M1.4 Ubuntu Actions CI is prepared and awaiting its first hosted run. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded **9/9 passing CTests** in Release, Debug, and CLI-only Release configurations against OpenCV 5.1.0. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
 
 ## What works in M0–M0.3
 
@@ -37,7 +37,8 @@ ChromascopeIP/
 ├── tests/                     # Unit, integration, regression, CLI, fixture checks
 ├── samples/skittles/          # Original s1.jpg ... s4.jpg, unchanged
 ├── scripts/                   # Isolated OpenCV 5.1.0 installer
-└── docs/                      # Architecture, build presets, origin, verification
+├── .github/workflows/         # Ubuntu 24.04/26.04 build and test matrix
+└── docs/                      # Architecture, CI, build presets, verification
 ```
 
 ## Development prerequisites (Ubuntu 26.04)
@@ -59,7 +60,7 @@ The project **requires OpenCV 5.1.0 exactly**, rather than accepting a distribut
 ./scripts/bootstrap_opencv_ubuntu_26_04.sh
 ```
 
-The bootstrap script clones the official OpenCV `5.1.0` tag and builds `core`, `imgproc`, and `imgcodecs`. It avoids replacing `/usr` libraries or writing to a privileged installation prefix. For a normal source build, CMake will fetch **Dear ImGui `v1.93.0`** directly from its official repository; the checkout is a build dependency, not committed into my source tree.
+The bootstrap script clones the official OpenCV `5.1.0` tag; CI additionally verifies its immutable source revision. It builds `core`, `imgproc`, and `imgcodecs`. It avoids replacing `/usr` libraries or writing to a privileged installation prefix. For a normal source build, CMake will fetch **Dear ImGui `v1.93.0`** directly from its official repository; the checkout is a build dependency, not committed into my source tree.
 
 **Offline ImGui option:** I can manually download the `v1.93.0` source and configure with `-DCHROMASCOPE_IMGUI_DIR=/absolute/path/to/imgui` instead of fetching it. The build validates the version macro.
 
@@ -127,7 +128,11 @@ ctest --preset linux-release
 ctest --test-dir build/presets/linux-release -V
 ```
 
-M1.3 organizes checks into independent **unit**, **integration**, **regression**, **fixture-integrity**, and **CLI** CTests, including the historical M0.1/M0.3 red/orange spatial regressions and a new PNG/JSON export contract test. See [`docs/TESTING.md`](docs/TESTING.md) for the nine-test matrix, CTest label filters, and fixture manifest; [`docs/VERIFICATION.md`](docs/VERIFICATION.md) tracks recorded native acceptance results. The new M1.3 tests are not yet claimed as passing on Ubuntu until they have been run there.
+M1.3 organizes checks into independent **unit**, **integration**, **regression**, **fixture-integrity**, and **CLI** CTests, including the historical M0.1/M0.3 red/orange spatial regressions and a new PNG/JSON export contract test. See [`docs/TESTING.md`](docs/TESTING.md) for the nine-test matrix, CTest label filters, and fixture manifest; [`docs/VERIFICATION.md`](docs/VERIFICATION.md) tracks recorded native acceptance results. I accepted M1.3 after **9/9 native CTests passed** in Release, Debug, and CLI-only Release builds. Hosted Ubuntu 24.04/26.04 Actions results are tracked separately and remain pending until GitHub executes the new workflow.
+
+## Ubuntu GitHub Actions CI (M1.4)
+
+I added `.github/workflows/ci-ubuntu.yml` to compile the GUI and CLI on **Ubuntu 24.04** and **Ubuntu 26.04**, then run all nine CTests. Each runner also verifies a CLI-only build and reruns the suite. OpenCV 5.1.0 is built into an isolated, per-OS cached prefix with an upstream source-revision check. The workflow is intended to run on PRs, on pushes to `main`, and via manual dispatch; **hosted check results are pending until GitHub runs it**. The GUI is compiled but not manually exercised in CI. See [docs/CI_UBUNTU.md](docs/CI_UBUNTU.md) for the exact matrix and acceptance process.
 
 ## Source origin and image licensing
 

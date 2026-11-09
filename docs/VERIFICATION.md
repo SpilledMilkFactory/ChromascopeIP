@@ -131,3 +131,15 @@ ctest --test-dir build/presets/linux-release --output-on-failure -L cli
 ```
 
 **Acceptance pending:** Native compilation of the split C++ tests and full 9/9 CTest execution against OpenCV 5.1.0, followed by any relevant manual GUI smoke check. Source-structure, CMake-configure, SHA-256, and patch checks performed outside the Ubuntu machine must be reported separately, without implying that they establish a native passing test run.
+
+## M1.3 native acceptance (reported November 9, 2026)
+
+I accepted the M1.3 testing reorganization after running all **9/9 CTests** successfully under the `linux-release`, `linux-debug`, and `linux-cli-release` presets on Ubuntu 26.04 with OpenCV 5.1.0. I also ran CTest label filters for `unit` (2/2), `regression` (2/2), and `cli` (4/4). The GUI continued to behave correctly during my manual review. These are reported native results, not checks independently run inside the packaging environment.
+
+## M1.4 Ubuntu GitHub Actions — implementation and pending acceptance
+
+I introduced `.github/workflows/ci-ubuntu.yml` with explicit `ubuntu-24.04` and `ubuntu-26.04` matrix jobs. Each job installs build prerequisites, uses isolated OpenCV 5.1.0 from a verified revision (building it on cache miss), builds the GUI and CLI with the Release preset, and runs all nine CTests. The job then independently configures/builds the CLI-only preset and reruns all nine CTests.
+
+During artifact preparation I verified the workflow YAML structure, bash script syntax, OpenCV source-revision assertion behavior, CMake preset names, patch application, original JPEG integrity, and source ZIP equivalence. These are **static/packaging validations only**; I have not run the new workflow on GitHub or compiled against OpenCV 5.1.0 on both hosted runners.
+
+**Acceptance pending:** I will merge M1.4 only after the real GitHub Actions matrix reports success for both Ubuntu versions, checks compile the GUI and CLI, and 9/9 native CTests pass per configured build. GUI interaction and webcam hardware are excluded from the hosted CI claim. I will preserve run links and failures if the first run identifies a portability problem.

@@ -1,55 +1,61 @@
-# M0 Verification Record
+# M0.1 Corrective Patch — Verification Record
 
-**Date:** 2026-11-08 (America/New_York)
-**Baseline:** ChromascopeIP 0.1.0 source proposal
-**Target machine:** Ubuntu 26.04, CMake + Ninja, GCC/Clang, OpenCV 5.1.0, Dear ImGui 1.93.0
+**Date:** 2026-11-09 (America/New_York)
+**Source version:** 0.1.1
+**Target:** Ubuntu 26.04, OpenCV **5.1.0**, Dear ImGui **1.93.0**, CMake/Ninja
 
-## Qualification status
+## Native M0 evidence received
 
-**PENDING NATIVE SIGN-OFF.** I have not yet compiled or executed the C++ source against OpenCV 5.1.0 on the target Ubuntu machine. I will not mark the milestone complete solely because an earlier OpenCV build produced encouraging results.
+I configured and built M0 (0.1.0) on Ubuntu 26.04 with OpenCV 5.1.0. The application opened all four original photographs in the GUI. CTest ran 4 cases: **3 passed, 1 failed**. `chromascope_core` stopped after 42 checks with the old assertion `expected all five colors on sample 1 and 3`. The GUI confirmed that s3 counted 19 candies but displayed **0 orange**: the old assertion assumed the presence of a color that the classifier did not report. During manual inspection I also observed one undetected, dark red candy near the center of s1 and one near the center of s2.
 
-The development sandbox available for this draft includes GCC 14.2.0, CMake 3.31.6, Ninja, and Python OpenCV **4.13.0**, but it does not contain an OpenCV 5.1.0 C++ SDK, GLFW development package, or a usable GitHub network connection. Consequently, I cannot claim the native library/GUI was built or that CTest passed in this sandbox.
+The M0 native compiler reported three narrowing-conversion warnings at `tests/test_detection.cpp:65` in `hsv_as_bgr`.
 
-## Provisional algorithm experiment — NOT an OpenCV 5.1.0 acceptance result
+## Root cause and M0.1 changes
 
-I inspected the four untouched JPEGs (4032×3024 each), then ran a comparable OpenCV 4.13 Python experiment with Hough detection and HSV classification. At a 1200-pixel long edge, Hough `dp=1.2`, `minDist=36`, `param1=95`, `param2=31`, and radii 18–54, I observed:
+1. **Circular hue median.** OpenCV stores hue in `[0,179]`. The red range spans both endpoints. The old per-channel linear median could produce a hue in the middle of the range when red pixels straddled 179/0. I now unwrap hue to `[-89,90]`, take the median, and wrap it back to `[0,179]`. Saturation and value retain their original linear medians.
+2. **Red/orange cutoff.** After hue unwrapping, I use hue 7 as the inclusive red upper boundary and hue 8 as the orange lower boundary. This preserves the orange candy classifications in the original samples (especially s1 and s4), instead of relabeling them red.
+3. **Test correction.** I removed the unfounded requirement that every s3 color category be nonzero. I instead check unambiguous colors, the overall count, and dedicated location-based regression assertions for the two missed red candies. The s1/s2 minimum total thresholds are now 19 and 8 at default settings.
+4. **Compiler hygiene.** I explicitly convert `cv::Vec3b` channels to `double` when returning `cv::Scalar`, eliminating the three reported narrowing warnings.
 
-| Sample | Detected candidates | Red | Orange | Yellow | Lime | Purple |
+The fix lives in the shared C++ processing core and therefore applies to **both** the CLI and GUI. Default detection sensitivity and confidence settings are unchanged.
+
+## Local exploratory reference (not native C++ acceptance)
+
+I ran a Python reimplementation of the **actual corrected C++ median algorithm** using OpenCV **4.13.0** with the four byte-preserved legacy photographs, at default detection settings (`max_dimension=1200`, `param1=95`, `param2=31`, `dp=1.2`). This predicts:
+
+| Photo | Total | Red | Orange | Yellow | Lime | Purple |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | s1.jpg | 19 | 3 | 1 | 6 | 3 | 6 |
 | s2.jpg | 8 | 2 | 0 | 1 | 3 | 2 |
 | s3.jpg | 19 | 3 | 1 | 6 | 3 | 6 |
 | s4.jpg | 16 | 2 | 1 | 5 | 3 | 5 |
 
-These counts are provisional observations, **not independently annotated ground truth** or verified detection accuracy percentages. I have allowed small tolerance bands in the C++ photo regression checks until I characterize exact 5.1.0 behavior; an unexpectedly large change will still fail the suite.
+These counts agree with the visible candidate totals in the M0 native GUI except for the two red omissions and the red/orange boundary on s3. **They are not a substitute for CTest using OpenCV 5.1.0 on Ubuntu 26.04.** The sandbox available for this patch lacks the native 5.1.0 C++ libraries and GLFW/ImGui development environment; I therefore have not built the native M0.1 release here and do not claim CTest passed.
 
-I also generated five artificial colored circles with small white highlights, plus a blank gray control, to exercise the intended geometry/color strategy using the Python reference. Native C++ tests for these scenarios are included but not yet run.
-
-## Acceptance checklist to run on Ubuntu 26.04
-
-- [ ] `./scripts/bootstrap_opencv_ubuntu_26_04.sh` completes against official OpenCV tag `5.1.0`.
-- [ ] CMake configures with `OpenCV_VERSION=5.1.0` and Dear ImGui `1.93.0`.
-- [ ] `cmake --build build --parallel` succeeds with both CLI and GUI enabled.
-- [ ] `ctest --test-dir build --output-on-failure` is 100% PASS.
-- [ ] `./build/chromascope-cli --version` reports OpenCV 5.1.0.
-- [ ] The CLI processes each of the four photos and prints plausible color counts.
-- [ ] JSON output from `--json -` parses cleanly and has one entry per detected circle.
-- [ ] Exported images preserve the source dimensions and show properly positioned outlines.
-- [ ] The GUI launches on Ubuntu 26.04, loads all four photographs, browses to an additional image, displays both preview modes, and exports annotated output.
-- [ ] The GUI reacts to sensitivity/confidence controls without an application error.
-- [ ] The Git patch applies cleanly to the archived SkittlesIP tree, or the clean ZIP source builds independently.
-
-## Commands to preserve as verification evidence
+## Required Ubuntu acceptance
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+cmake -S . -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH="$HOME/.local/opt/opencv-5.1.0" \
-  -DCHROMASCOPE_BUILD_GUI=ON -DCHROMASCOPE_BUILD_TESTS=ON
+  -DCHROMASCOPE_BUILD_GUI=ON \
+  -DCHROMASCOPE_BUILD_TESTS=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
+ctest --test-dir build -V
 ./build/chromascope-cli --version
-./build/chromascope-cli --input samples/skittles/s1.jpg --output annotated.jpg --json results.json
+./build/chromascope-cli --input samples/skittles/s1.jpg --json s1-m01.json --output s1-m01.jpg
+./build/chromascope-cli --input samples/skittles/s2.jpg --json s2-m01.json --output s2-m01.jpg
 ./build/chromascope-gui
 ```
 
-When I complete the target-machine run I will replace this provisional record with the exact compiler, CMake cache information, OpenCV/ImGui versions, full CTest results, observed image counts, GUI screenshots, and any known deviations. A green native build and test suite—not this planning document—will determine whether I can accept M0.
+- [ ] CMake finds exactly OpenCV 5.1.0 and ImGui 1.93.0.
+- [ ] Release build completes without C++ compiler warnings.
+- [ ] All 4 CTest cases pass, including `chromascope_core`.
+- [ ] s1 has **19** and s2 has **8** circles at default settings, or I record why the native totals differ while preserving both targeted red detections.
+- [ ] s1 contains a **red** detection near `(655,483)` and s2 near `(566,565)` in **1200-pixel analysis coordinates** (tests check with a 22px tolerance).
+- [ ] s3 and s4 remain approximately 19 and 16 detections; no category obviously disappears or changes incorrectly.
+- [ ] CLI JSON counts agree with GUI counts for s1/s2; exported circles cover both central red candies.
+- [ ] Original source photographs remain unchanged; CLI and GUI both still process arbitrary still images.
+
+**M0.1 remains pending native acceptance until these conditions are checked.**

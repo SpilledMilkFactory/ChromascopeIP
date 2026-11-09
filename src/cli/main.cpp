@@ -20,7 +20,7 @@ struct Options {
 };
 
 void usage(std::ostream& os) {
-    os << "ChromascopeIP 0.1.0 - image processing CLI\n"
+    os << "ChromascopeIP 0.1.1 - image processing CLI\n"
           "Usage: chromascope-cli --input IMAGE [options]\n\n"
           "  -i, --input FILE       Input JPG/PNG/BMP/TIFF image (required)\n"
           "  -o, --output FILE      Save annotated image\n"
@@ -125,7 +125,7 @@ int main(int argc, char* argv[]) {
                 return 0;
             }
             if (std::string_view(argv[i]) == "--version") {
-                std::cout << "ChromascopeIP 0.1.0 (OpenCV " << CV_VERSION << ")\n";
+                std::cout << "ChromascopeIP 0.1.1 (OpenCV " << CV_VERSION << ")\n";
                 return 0;
             }
         }

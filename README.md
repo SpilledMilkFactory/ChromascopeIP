@@ -4,9 +4,9 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0 source baseline, v0.1.0. Native Ubuntu 26.04 qualification and OpenCV 5.1.0 sign-off remain pending until I build and run the suite on that machine. No release artifacts or camera/video capabilities are claimed yet.
+> **Development stage:** M0.1 corrective patch, v0.1.1. I have completed an initial native Ubuntu 26.04 build and GUI review on OpenCV 5.1.0, but I am not accepting M0.1 until the corrected CTest suite and both red-candy regressions pass again on that machine. No release artifacts or camera/video capabilities are claimed yet.
 
-## What works in M0
+## What works in M0/M0.1
 
 | Capability | C++ library | CLI | GUI |
 | --- | :---: | :---: | :---: |
@@ -113,7 +113,7 @@ ctest --test-dir build --output-on-failure
 ctest --test-dir build -V
 ```
 
-Tests include HSV classification, invalid configuration, synthetic circles, a blank negative control, the original four photographs, CLI help, CLI smoke execution, and a negative CLI image-path test. See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the provisional reference and uncompleted platform gates.
+Tests include HSV classification (including the red/orange boundary), invalid configuration, synthetic circles, a blank negative control, sample color-count assertions, **explicit spatial regressions for the formerly missed red candies in s1/s2**, CLI help, CLI smoke execution, and a negative CLI image-path test. See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the M0.1 corrections and native acceptance gates.
 
 ## Source origin and image licensing
 
@@ -123,6 +123,6 @@ The new code is MIT licensed. The historical photographs are **not** included in
 
 OpenCV is available under Apache-2.0, Dear ImGui under MIT, and GLFW under zlib/libpng; I fetch/use them separately and will review redistribution notices before making packaged releases.
 
-## M0 acceptance and next steps
+## M0.1 acceptance and next steps
 
-My immediate acceptance gate is a successful native Ubuntu 26.04 configure/build, a clean `ctest`, a manual GUI inspection of the four original samples, and verification that CLI JSON and annotated outputs open correctly. Only after those pass will I finalize the detailed roadmap for video input, live camera capture, object detection, and other processing profiles.
+My immediate acceptance gate is a clean native Ubuntu 26.04 build with **zero C++ warnings**, a clean `ctest`, and a manual GUI inspection verifying the central red candies in both s1 and s2 at default settings. I will also verify CLI JSON and annotated output. The new hue handling correctly treats the OpenCV HSV hue boundary (179 adjacent to 0), rather than averaging the two as if hue were linear. Only after all these checks pass will I finalize the roadmap for video input, live camera capture, object detection, and other processing profiles.

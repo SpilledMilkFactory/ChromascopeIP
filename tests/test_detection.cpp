@@ -23,9 +23,13 @@ void check(bool valid, const std::string& message) {
 void test_hsv() {
     using chromascope::CandyColor;
     struct Case { cv::Vec3b hsv; CandyColor expected; };
-    const std::array<Case, 7> cases = {{
+    const std::array<Case, 11> cases = {{
         {{0, 185, 145}, CandyColor::Red},
+        {{7, 185, 145}, CandyColor::Red},
         {{172, 170, 110}, CandyColor::Red},
+        {{179, 185, 110}, CandyColor::Red},
+        {{8, 220, 220}, CandyColor::Orange},
+        {{9, 220, 220}, CandyColor::Orange},
         {{10, 220, 220}, CandyColor::Orange},
         {{27, 230, 225}, CandyColor::Yellow},
         {{60, 210, 135}, CandyColor::Lime},
@@ -62,7 +66,8 @@ cv::Scalar hsv_as_bgr(int h, int s, int v) {
     cv::Mat bgr;
     cv::cvtColor(hsv, bgr, cv::COLOR_HSV2BGR);
     const cv::Vec3b pixel = bgr.at<cv::Vec3b>(0, 0);
-    return {pixel[0], pixel[1], pixel[2]};
+    return {static_cast<double>(pixel[0]), static_cast<double>(pixel[1]),
+            static_cast<double>(pixel[2])};
 }
 
 void test_synthetic() {
@@ -107,9 +112,10 @@ void test_synthetic() {
 
 void test_original_samples() {
     const std::filesystem::path base(CHROMASCOPE_FIXTURES_DIR);
-    // These ranges were observed in an exploratory OpenCV 4.13 run.
-    // Exact OpenCV 5.1.0 results must be recorded after native qualification.
-    const std::array<std::pair<int,int>, 4> accepted = {{{16,22}, {6,10}, {16,23}, {13,21}}};
+    // The sample photographs are historical regression fixtures. These
+    // conservative bands tolerate small Hough differences across platforms,
+    // but s1/s2 must no longer drop the dark red candidate at the defaults.
+    const std::array<std::pair<int, int>, 4> accepted = {{{19,22}, {8,10}, {16,23}, {13,21}}};
     for (int i = 1; i <= 4; ++i) {
         const auto image = chromascope::read_image(base / ("s" + std::to_string(i) + ".jpg"));
         check(image.cols == 4032 && image.rows == 3024, "legacy fixture dimensions changed");
@@ -122,9 +128,43 @@ void test_original_samples() {
         int sum = 0;
         for (const int value : result.counts) sum += value;
         check(sum == static_cast<int>(result.objects.size()), "per-color counts don't add up");
-        if (i == 1 || i == 3) {
+        // s3's warm reddish-orange piece lies at the red/orange boundary.
+        // Requiring an orange in that particular image is not a sound test:
+        // under the M0 OpenCV 5.1.0 run, all 19 candies were counted but the
+        // classifier labeled that one red. Test the unambiguous categories.
+        if (i == 1) {
             for (int c : result.counts)
-                check(c >= 1, "expected all five colors on sample 1 and 3");
+                check(c >= 1, "s1 must have all five candy colors");
+        }
+        if (i == 3) {
+            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Red)] >= 3,
+                  "s3 must contain at least three red candies");
+            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Yellow)] >= 5,
+                  "s3 must contain at least five yellow candies");
+            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Lime)] >= 3,
+                  "s3 must contain at least three lime candies");
+            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Purple)] >= 5,
+                  "s3 must contain at least five purple candies");
+        }
+
+        if (i == 1 || i == 2) {
+            // Observed analysis-space centers (1200px long edge) of the two
+            // previously missed RED Skittles. A total-count check alone could
+            // pass if a false positive happened to replace a missed candy.
+            const cv::Point2f expected = (i == 1) ? cv::Point2f(655, 483)
+                                                   : cv::Point2f(566, 565);
+            const float to_original = static_cast<float>(image.cols) / 1200.0f;
+            const cv::Point2f center = expected * to_original;
+            const float tolerance = 22.0f * to_original;
+            const bool found = std::any_of(result.objects.begin(), result.objects.end(),
+                [&](const chromascope::Detection& object) {
+                    return object.color == chromascope::CandyColor::Red &&
+                           cv::norm(object.center - center) <= tolerance;
+                });
+            check(found, i == 1 ? "s1 center red candy was missed"
+                                : "s2 center red candy was missed");
+            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Red)] >=
+                      (i == 1 ? 3 : 2), "s1/s2 red candy count regressed");
         }
     }
 }

@@ -209,7 +209,7 @@ struct App {
 
         ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP");
         ImGui::SameLine();
-        ImGui::TextDisabled("v0.1.0  |  Still image laboratory  |  OpenCV 5.1.0 / ImGui 1.93.0");
+        ImGui::TextDisabled("v0.1.1  |  Still image laboratory  |  OpenCV 5.1.0 / ImGui 1.93.0");
         ImGui::Separator();
 
         const float sidebar_width = 345.0f;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ChromascopeIP VERSION 0.1.0 LANGUAGES CXX)
+project(ChromascopeIP VERSION 0.1.1 LANGUAGES CXX)
 
 include(CTest)
 option(CHROMASCOPE_BUILD_GUI "Build the Dear ImGui application" ON)

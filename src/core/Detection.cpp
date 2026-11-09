@@ -35,7 +35,22 @@ cv::Vec3b median_hsv(const cv::Mat& hsv, cv::Point center, int sample_radius,
     }
     if (pixels.empty()) return {};
     cv::Vec3b median{};
-    for (int channel = 0; channel < 3; ++channel) {
+    // OpenCV encodes hue on a circle, 0..179: red lies near BOTH 0 and 179.
+    // A linear channel median can therefore turn a genuinely red sample into
+    // hue 20, 27 or 136 when it straddles this discontinuity. Center the hue
+    // representation on red before taking its median, then wrap back to HSV.
+    // Saturation and value are linear, so their medians remain unchanged.
+    std::vector<int> hues;
+    hues.reserve(pixels.size());
+    for (const auto& pixel : pixels) {
+        const int hue = pixel[0];
+        hues.push_back(hue > 90 ? hue - 180 : hue);
+    }
+    const auto hue_middle = hues.begin() + static_cast<std::ptrdiff_t>(hues.size() / 2);
+    std::nth_element(hues.begin(), hue_middle, hues.end());
+    median[0] = static_cast<unsigned char>(*hue_middle < 0 ? *hue_middle + 180 : *hue_middle);
+
+    for (int channel = 1; channel < 3; ++channel) {
         std::vector<unsigned char> values;
         values.reserve(pixels.size());
         for (const auto& pixel : pixels) values.push_back(pixel[channel]);
@@ -67,8 +82,11 @@ cv::Scalar annotation_bgr(CandyColor color) noexcept {
 CandyColor classify_hsv(cv::Vec3b hsv, bool& recognized) noexcept {
     const int h = hsv[0], s = hsv[1], v = hsv[2];
     recognized = true;
-    if ((h <= 8 || h >= 162) && s >= 115 && v >= 62) return CandyColor::Red;
-    if (h >= 5 && h < 20 && s >= 125 && v >= 140) return CandyColor::Orange;
+    // Hue 8 is the practical red/orange boundary on the archived samples;
+    // keeping it in orange avoids relabeling the bright orange candies red
+    // after hue-unwrapping their specular highlights.
+    if ((h <= 7 || h >= 162) && s >= 115 && v >= 62) return CandyColor::Red;
+    if (h >= 8 && h < 20 && s >= 125 && v >= 140) return CandyColor::Orange;
     if (h >= 19 && h <= 38 && s >= 125 && v >= 135) return CandyColor::Yellow;
     if (h >= 37 && h <= 90 && s >= 105 && v >= 60) return CandyColor::Lime;
     // The original photographs contain nearly black purple candies. Use

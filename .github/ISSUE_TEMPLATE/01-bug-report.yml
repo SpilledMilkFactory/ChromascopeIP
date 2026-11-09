@@ -1,0 +1,95 @@
+name: Bug report
+description: Report a reproducible defect in ChromascopeIP
+title: "[Bug] "
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first. Do not post security vulnerabilities here;
+        follow the private reporting instructions in SECURITY.md instead.
+        Do not attach private camera recordings, personal information, secrets, or
+        copyrighted media without permission.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      description: I will apply the corresponding area label during triage.
+      options:
+        - Core / shared processing
+        - Still-image processing
+        - Recorded video
+        - Object inference / person detection
+        - Camera / live video
+        - Tracking
+        - GUI
+        - CLI
+        - Build / packaging / CI
+        - Documentation
+        - Other / unknown
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Actual behavior
+      description: What occurred? Include the error text and what is incorrect.
+      placeholder: Describe the observed result, including any relevant output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe what should happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Include a minimal reproducible input where possible.
+      placeholder: |
+        1. Configure/build with ...
+        2. Run ...
+        3. Select profile ...
+        4. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and version
+      description: Include OS/version, architecture, ChromascopeIP version/commit, OpenCV and ImGui versions, relevant GPU/camera/codec details.
+      placeholder: |
+        OS / architecture:
+        ChromascopeIP version or commit:
+        OpenCV version:
+        Dear ImGui version (GUI issues):
+        Build type / compiler:
+    validations:
+      required: true
+  - type: textarea
+    id: tests-logs
+    attributes:
+      label: Diagnostic output and tests
+      description: Paste sanitized CTest output, CLI output, logs, or concise evidence.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Safe-to-share screenshots or sample characteristics; explain any workaround.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched for an existing report of this defect.
+          required: true
+        - label: This report does not disclose a security vulnerability or sensitive data.
+          required: true

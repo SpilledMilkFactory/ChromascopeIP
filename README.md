@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3 color-classification correction, v0.1.3. I have inspected the native Ubuntu 26.04 screenshots from M0.1 and confirmed that all candy circles are found; two orange candies are labeled red. M0.3 addresses only their classification, with dedicated spatial tests. I will accept M0.3 after rebuilding and testing the patch on Ubuntu 26.04 with OpenCV 5.1.0. No packaged release or camera/video support is claimed.
+> **Development stage:** M0.3 accepted (v0.1.3); M1.1 repository governance underway. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded a native Release build with **4/4 passing CTests** against OpenCV 5.1.0. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
 
 ## What works in M0–M0.3
 
@@ -20,7 +20,7 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 | Open the four archived examples | Yes | Yes | Yes |
 | Native video, webcam, general object/people detection | **Planned** | **No** | **No** |
 
-The current **Skittles** profile uses classical image processing, not a trained model. Hough-circle candidates and an HSV color classifier perform best on reasonably separated, roughly round candies. Real-world people, arbitrary objects, occlusions, and camera streams will require different algorithms. I will plan those explicitly after accepting this milestone.
+The current **Skittles** profile uses classical image processing, not a trained model. Hough-circle candidates and an HSV color classifier perform best on reasonably separated, roughly round candies. Real-world people, arbitrary objects, occlusions, and camera streams will require different algorithms. I am planning those as separate milestones after the accepted M0.3 baseline.
 
 ## Source tree
 
@@ -123,6 +123,10 @@ The new code is MIT licensed. The historical photographs are **not** included in
 
 OpenCV is available under Apache-2.0, Dear ImGui under MIT, and GLFW under zlib/libpng; I fetch/use them separately and will review redistribution notices before making packaged releases.
 
+## Project governance and contributions
+
+I organize planned development through GitHub milestones, issues, pull requests, and the **ChromascopeIP: Iterative Development** project board. I use dedicated [bug, feature, and development-task issue forms](.github/ISSUE_TEMPLATE), a [pull request template](.github/pull_request_template.md), and a documented [contribution workflow](CONTRIBUTING.md). For vulnerabilities, I use the private reporting instructions in [SECURITY.md](SECURITY.md), not public defect reports.
+
 ## M0.3 acceptance and next steps
 
-My immediate acceptance gate is a clean native Ubuntu 26.04 build with **zero C++ warnings**, a clean `ctest`, and a manual GUI inspection showing the previously missed red candies in s1/s2 **and** the two newly corrected orange candies in s1/s3 at the default settings. I will compare CLI JSON counts with GUI results, verify exports, and record any OpenCV-version differences. The hue handling still respects the HSV 179/0 boundary; M0.3 only refines bright red/orange overlap. Only after these checks pass will I finalize the roadmap for video input, live camera capture, object detection, and other processing profiles.
+I accepted M0.3 after the native Ubuntu 26.04 Release build and **4/4 CTests passed**, and I manually confirmed the orange/red corrections in the GUI. The historical regression expectations remain in [docs/VERIFICATION.md](docs/VERIFICATION.md). I am beginning M1 repository governance and CI work from the accepted v0.1.3 source baseline; expanding video, camera, and inference support remains future work.

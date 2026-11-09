@@ -1,0 +1,31 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "my-linux-release",
+      "displayName": "My Linux Release with a custom OpenCV prefix",
+      "inherits": "linux-release",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "/absolute/path/to/opencv-5.1.0"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "my-linux-release",
+      "configurePreset": "my-linux-release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "my-linux-release",
+      "configurePreset": "my-linux-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ]
+}

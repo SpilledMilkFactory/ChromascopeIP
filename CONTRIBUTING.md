@@ -14,14 +14,12 @@ I develop ChromascopeIP as a public, issue-driven C++20 computer-vision project.
 My initial verified environment is Ubuntu 26.04 with CMake, Ninja, C++20, and **OpenCV 5.1.0 exactly**. GUI builds additionally require GLFW/OpenGL and **Dear ImGui v1.93.0**. I document prerequisites and the isolated OpenCV bootstrap in [README.md](README.md).
 
 ```bash
-cmake -S . -B build -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_PREFIX_PATH="$HOME/.local/opt/opencv-5.1.0" \
-  -DCHROMASCOPE_BUILD_GUI=ON \
-  -DCHROMASCOPE_BUILD_TESTS=ON
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
+cmake --preset linux-release
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release
 ```
+
+I can use `linux-debug`, `linux-cli-release`, or `linux-cli-debug` to isolate other build variants. The Linux presets use the OpenCV install prefix produced by the bootstrap script; if I install OpenCV elsewhere I pass `-DCMAKE_PREFIX_PATH=/absolute/path/to/opencv-5.1.0` or configure a Git-ignored `CMakeUserPresets.json`. Existing explicit `cmake -S . -B build ...` commands still work. I keep build artifacts outside tracked source files and never commit fetched dependencies. See [docs/BUILD_PRESETS.md](docs/BUILD_PRESETS.md) for the complete preset matrix.
 
 For core/CLI-only changes, I can set `-DCHROMASCOPE_BUILD_GUI=OFF`. I do not consider a successful compile alone sufficient verification: I check relevant tests and, for GUI or camera work, manual behavior where available. CI and other platform targets will be added in the planned milestones; until then, unverified platform support must remain explicitly identified.
 
@@ -30,6 +28,7 @@ For core/CLI-only changes, I can set `-DCHROMASCOPE_BUILD_GUI=OFF`. I do not con
 I prefer one reviewable scope per issue and one focused pull request per issue. Example branch names:
 
 - `docs/m1.1-repository-governance`
+- `chore/m1.2-cmake-presets`
 - `feat/m2.1-image-frame`
 - `fix/m3.4-preview-coordinates`
 

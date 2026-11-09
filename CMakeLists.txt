@@ -1,4 +1,13 @@
 cmake_minimum_required(VERSION 3.24)
+
+# Keep the source checkout free of generated artifacts and fetched dependencies.
+# Existing out-of-source CMake commands remain supported alongside presets.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR
+        "In-source builds are not supported. Run cmake --preset linux-release "
+        "or configure with an explicit -B build directory outside the source root.")
+endif()
+
 project(ChromascopeIP VERSION 0.1.3 LANGUAGES CXX)
 
 include(CTest)

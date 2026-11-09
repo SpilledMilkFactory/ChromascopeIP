@@ -1,0 +1,183 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "ninja-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/presets/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BUILD_TESTING": "ON",
+        "CHROMASCOPE_BUILD_TESTS": "ON",
+        "CHROMASCOPE_BUILD_GUI": "ON"
+      }
+    },
+    {
+      "name": "linux-base",
+      "hidden": true,
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{HOME}/.local/opt/opencv-5.1.0"
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux Release (GUI, CLI, tests)",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux Debug (GUI, CLI, tests)",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "linux-cli-release",
+      "displayName": "Linux Release (core, CLI, tests)",
+      "inherits": "linux-release",
+      "cacheVariables": {
+        "CHROMASCOPE_BUILD_GUI": "OFF"
+      }
+    },
+    {
+      "name": "linux-cli-debug",
+      "displayName": "Linux Debug (core, CLI, tests)",
+      "inherits": "linux-debug",
+      "cacheVariables": {
+        "CHROMASCOPE_BUILD_GUI": "OFF"
+      }
+    },
+    {
+      "name": "windows-cli-release",
+      "displayName": "Windows Release (core, CLI, tests)",
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CHROMASCOPE_BUILD_GUI": "OFF"
+      }
+    },
+    {
+      "name": "windows-cli-debug",
+      "displayName": "Windows Debug (core, CLI, tests)",
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CHROMASCOPE_BUILD_GUI": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-release"
+    },
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "linux-cli-release",
+      "configurePreset": "linux-cli-release"
+    },
+    {
+      "name": "linux-cli-debug",
+      "configurePreset": "linux-cli-debug"
+    },
+    {
+      "name": "windows-cli-release",
+      "configurePreset": "windows-cli-release"
+    },
+    {
+      "name": "windows-cli-debug",
+      "configurePreset": "windows-cli-debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "linux-cli-release",
+      "configurePreset": "linux-cli-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "linux-cli-debug",
+      "configurePreset": "linux-cli-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "windows-cli-release",
+      "configurePreset": "windows-cli-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "windows-cli-debug",
+      "configurePreset": "windows-cli-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ]
+}

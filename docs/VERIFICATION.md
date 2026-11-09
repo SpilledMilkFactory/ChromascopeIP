@@ -80,3 +80,35 @@ I did **not** receive additional CLI JSON/export logs, a Windows build report, o
 ## M1.1 repository-governance checks
 
 I added repository issue forms, a PR template, contribution guidance, and a security policy. These changes do not alter executable sources, CMake configuration, dependency pins, test behavior, or the version number. Configuration syntax and patch integrity are verified separately during package preparation; I will confirm the rendered issue chooser and pull request template after this change is merged into the default branch. I will also explicitly enable GitHub private vulnerability reporting in repository settings, since a SECURITY.md file alone cannot enable it.
+
+## M1.2 build presets and repository hygiene — preparation
+
+I introduced tracked CMake configure/build/test presets with separate `build/presets/<preset>/` outputs for Linux Release, Debug, and CLI-only development, plus Windows CLI-only definitions for future verification. I added a Git-ignored `CMakeUserPresets.json` example to keep per-machine OpenCV prefixes out of the repository. I also tightened root ignore rules, text/binary attributes, and out-of-source CMake configuration checks. No source algorithms, test expectations, dependency versions, or sample images were changed.
+
+In the prepared source package I check the `cmake --list-presets`, `cmake --build --list-presets`, and `ctest --list-presets` commands, the Git patch integrity, and the ZIP contents. These checks verify preset *syntax and structure*; they do not substitute for a native OpenCV 5.1.0 compilation or CTest run. Ubuntu acceptance results should be added after executing the commands below locally:
+
+```bash
+cmake --preset linux-release
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release
+./build/presets/linux-release/chromascope-gui
+
+cmake --preset linux-cli-debug
+cmake --build --preset linux-cli-debug --parallel
+ctest --preset linux-cli-debug
+./build/presets/linux-cli-debug/chromascope-cli --version
+```
+
+### M1.2 preparation checks performed (November 9, 2026)
+
+I validated the prepared source package with **CMake 3.31.6** and **Ninja 1.12.1**, not the native Ubuntu 26.04 OpenCV installation. The following results are established:
+
+- **PASS:** All Linux configure presets appear in `cmake --list-presets` and their matching build/test presets appear in the corresponding CMake/CTest listings.
+- **PASS:** A copied `CMakeUserPresets.json` example exposes its custom configure/build/test preset; the local file is Git-ignored.
+- **PASS:** Linux CLI Release/Debug configurations generate separate build trees, set the expected build type, disable the GUI, and register four existing CTests. This configuration-only check used a **temporary test-only CMake OpenCV package stub** and **did not compile or run OpenCV**.
+- **PASS:** The existing explicit out-of-source CMake command still configures in the same test-only environment, while an in-source configure is rejected by the new guard.
+- **PASS:** `git diff --check` (for the staged patch), `git apply --check`, patch replay, ZIP integrity, byte-for-byte patched-source/ZIP comparison, executable permission on the OpenCV bootstrap script, and preservation of all four sample JPEGs and runtime C++ sources/tests.
+
+**Not verified here:** Any C++ compilation against real OpenCV 5.1.0, CTest execution, launching the GUI, or native Windows builds. The last actual Ubuntu CTest result remains the **4/4 passing M0.3 acceptance report** supplied before this patch.
+
+I will not mark M1.2 accepted until the Release and Debug presets, both baseline GUI/CLI behaviors, and the original four CTests are verified on Ubuntu 26.04. Windows CLI presets remain unverified pending Windows CI work in M1.6.

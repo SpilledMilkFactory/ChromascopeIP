@@ -47,3 +47,9 @@ I am not claiming camera access, tracking between frames, face recognition, pers
 ## Potential architectural next steps (not yet a committed roadmap)
 
 I can next consider an `ImageFrame` abstraction (for stills/video), a processor interface for pluggable recognition modes, a bounded asynchronous work queue, timestamped track IDs, independent annotation layers, model backends, GPU acceleration, capture-device discovery, and opt-in privacy-preserving camera operation. I will choose their order from measured usage needs rather than introducing all of them into this simple baseline.
+
+## M1.2 build layout and preset discipline
+
+I keep the core/CLI/GUI source layout unchanged. I added tracked `CMakePresets.json` presets that isolate Release, Debug, and headless CLI builds beneath `build/presets/<preset-name>/`. Their `CMAKE_PREFIX_PATH` on Linux points to the same isolated OpenCV 5.1.0 prefix as my bootstrap script; custom paths belong in a Git-ignored `CMakeUserPresets.json` or on the configure command line. I guard against in-source CMake builds, keep generated dependencies out of the repository, and preserve the manually configured `build/` workflow for compatibility.
+
+The Windows presets are intentionally limited to the core, CLI, and tests until Windows GUI configuration and distribution qualification are implemented. A preset defines a build configuration; it does not by itself establish a verified platform. Details and commands are recorded in [BUILD_PRESETS.md](BUILD_PRESETS.md).

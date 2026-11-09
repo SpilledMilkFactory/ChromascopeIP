@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3 accepted (v0.1.3); M1.1 repository governance underway. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded a native Release build with **4/4 passing CTests** against OpenCV 5.1.0. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
+> **Development stage:** M0.3 accepted (v0.1.3); M1.1 repository governance accepted; M1.2 CMake presets prepared for native verification. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded a native Release build with **4/4 passing CTests** against OpenCV 5.1.0. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
 
 ## What works in M0–M0.3
 
@@ -27,6 +27,9 @@ The current **Skittles** profile uses classical image processing, not a trained 
 ```text
 ChromascopeIP/
 ├── CMakeLists.txt
+├── CMakePresets.json       # Shared configure/build/test presets
+├── CMakeUserPresets.json.example  # Optional local preset example
+├── .gitignore / .gitattributes   # Build hygiene and text/binary rules
 ├── include/chromascope/       # Stable core API
 ├── src/core/                  # Detection + image I/O
 ├── src/cli/                   # Command-line front end
@@ -34,7 +37,7 @@ ChromascopeIP/
 ├── tests/                     # Native C++ and sample regression tests
 ├── samples/skittles/          # Original s1.jpg ... s4.jpg, unchanged
 ├── scripts/                   # Isolated OpenCV 5.1.0 installer
-└── docs/                      # Architecture, origin, verification
+└── docs/                      # Architecture, build presets, origin, verification
 ```
 
 ## Development prerequisites (Ubuntu 26.04)
@@ -62,7 +65,18 @@ The bootstrap script clones the official OpenCV `5.1.0` tag and builds `core`, `
 
 ### Configure and build
 
-From the ChromascopeIP source root:
+I recommend the M1.2 shared CMake presets for local development on Ubuntu 26.04. With OpenCV in the default isolated install directory:
+
+```bash
+cmake --preset linux-release
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release
+./build/presets/linux-release/chromascope-gui
+```
+
+For CLI-only development, I use `linux-cli-release`; for debug builds, `linux-debug` or `linux-cli-debug`. Each preset builds into its own directory below `build/presets/` so build caches and generated ImGui files cannot pollute source control. See [docs/BUILD_PRESETS.md](docs/BUILD_PRESETS.md) for the matrix, Windows CLI presets, custom dependency paths, and user-specific override examples.
+
+My existing explicit CMake commands are **still supported**. They continue to produce executables under `build/` rather than `build/presets/linux-release/`. From the ChromascopeIP source root:
 
 ```bash
 cmake -S . -B build -G Ninja \
@@ -78,9 +92,9 @@ If OpenCV is installed in a different location, I replace `CMAKE_PREFIX_PATH` wi
 ### Run the GUI
 
 ```bash
-./build/chromascope-gui
+./build/presets/linux-release/chromascope-gui
 # Or immediately open a specific image:
-./build/chromascope-gui /absolute/path/to/image.jpg
+./build/presets/linux-release/chromascope-gui /absolute/path/to/image.jpg
 ```
 
 I can click **s1.jpg–s4.jpg** to load the archived examples, or use **Browse...** to select another image (or type a readable JPG/PNG path into the path field). **Re-run analysis** applies updated sensitivity values. I can toggle overlays and labels, then save an annotated file. The right panel fits a preview into the available window, while analysis uses the source image at a capped processing resolution.
@@ -88,18 +102,18 @@ I can click **s1.jpg–s4.jpg** to load the archived examples, or use **Browse..
 ### Run the CLI
 
 ```bash
-./build/chromascope-cli --help
-./build/chromascope-cli --version
-./build/chromascope-cli --mode skittles \
+./build/presets/linux-release/chromascope-cli --help
+./build/presets/linux-release/chromascope-cli --version
+./build/presets/linux-release/chromascope-cli --mode skittles \
     --input samples/skittles/s1.jpg \
     --output annotated.jpg \
     --json results.json
 
 # Pure machine-readable JSON on stdout (no summary text):
-./build/chromascope-cli --input samples/skittles/s2.jpg --json -
+./build/presets/linux-release/chromascope-cli --input samples/skittles/s2.jpg --json -
 
 # Relax the Hough threshold to try finding additional candidates:
-./build/chromascope-cli --input samples/skittles/s4.jpg \
+./build/presets/linux-release/chromascope-cli --input samples/skittles/s4.jpg \
     --accumulator 28 --min-confidence 0.25
 ```
 
@@ -108,9 +122,9 @@ The JSON schema contains the image dimensions, profile, elapsed milliseconds, pe
 ### Execute the checks
 
 ```bash
-ctest --test-dir build --output-on-failure
+ctest --preset linux-release
 # Optional extra inspection:
-ctest --test-dir build -V
+ctest --test-dir build/presets/linux-release -V
 ```
 
 Tests include HSV classification (including the red/orange boundary), invalid configuration, synthetic circles, a blank negative control, sample color-count assertions, **explicit spatial regressions for the formerly missed red candies in s1/s2 and the newly corrected orange candies in s1/s3**, CLI help, CLI smoke execution, and a negative CLI image-path test. See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the M0.3 corrections and native acceptance gates.

@@ -1,16 +1,36 @@
-# Native build products and editor/cache state
-build/
-build-*/
-cmake-build-*/
-.cache/
-.idea/
-.vscode/
+# CMake / Ninja / FetchContent outputs: never commit downloaded ImGui or build products.
+/build/
+/build-*/
+/cmake-build-*/
+/out/build/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/CTestTestfile.cmake
+/DartConfiguration.tcl
+/Testing/
+/compile_commands.json
+/.ninja_deps
+/.ninja_log
+
+# Local toolchain, IDE and developer-specific CMake configuration.
+/CMakeUserPresets.json
+/.cache/
+/.vs/
+/.vscode/
+/.idea/
 *.user
+*.suo
 *.swp
 *.swo
+*~
 .DS_Store
+Thumbs.db
 
-# Outputs produced by the GUI / CLI experiments
-annotated.jpg
-out/
-results/
+# Runtime exports and GUI state (not the historical sample fixtures).
+/imgui.ini
+/annotated.jpg
+/annotated.png
+/results.json
+/out/
+/results/

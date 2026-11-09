@@ -112,3 +112,22 @@ I validated the prepared source package with **CMake 3.31.6** and **Ninja 1.12.1
 **Not verified here:** Any C++ compilation against real OpenCV 5.1.0, CTest execution, launching the GUI, or native Windows builds. The last actual Ubuntu CTest result remains the **4/4 passing M0.3 acceptance report** supplied before this patch.
 
 I will not mark M1.2 accepted until the Release and Debug presets, both baseline GUI/CLI behaviors, and the original four CTests are verified on Ubuntu 26.04. Windows CLI presets remain unverified pending Windows CI work in M1.6.
+
+
+## M1.3 independent CTest suites — source preparation (November 9, 2026)
+
+I separated the existing mixed `chromascope_core` test into dedicated color and validation unit tests, an OpenCV synthetic integration test, and an original-photograph regression test. I added byte-integrity verification of the four JPEGs and a real-CLI PNG/JSON export contract test. The three existing CLI help/sample/bad-input checks remain registered. CTest labels now identify suite layers for local runs and future Actions jobs; the expected suite contains **nine tests**. The historical red/orange regression coordinates and default detector settings remain unchanged.
+
+I use [`TESTING.md`](TESTING.md) as the authoritative test map. For acceptance on Ubuntu 26.04, I will record the full output of:
+
+```bash
+cmake --preset linux-release
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release
+ctest --test-dir build/presets/linux-release -N
+ctest --test-dir build/presets/linux-release --output-on-failure -L unit
+ctest --test-dir build/presets/linux-release --output-on-failure -L regression
+ctest --test-dir build/presets/linux-release --output-on-failure -L cli
+```
+
+**Acceptance pending:** Native compilation of the split C++ tests and full 9/9 CTest execution against OpenCV 5.1.0, followed by any relevant manual GUI smoke check. Source-structure, CMake-configure, SHA-256, and patch checks performed outside the Ubuntu machine must be reported separately, without implying that they establish a native passing test run.

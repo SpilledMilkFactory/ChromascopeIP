@@ -1,0 +1,107 @@
+# M1.4: I verify native Ubuntu builds before accepting a pull request.
+# Hardware-dependent GUI interaction and webcam tests are outside this CI gate.
+name: Ubuntu CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ubuntu-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }} / Release / CTest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+
+    env:
+      OPENCV_EXPECTED_COMMIT: e4f78fbcf1a773fbed69e14500e8b734963eb585
+      OPENCV_BUILD_JOBS: '2'
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install build prerequisites
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git pkg-config \
+            libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
+            libglfw3-dev libgl1-mesa-dev \
+            libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+          cmake --version
+          ninja --version
+          c++ --version | head -n 1
+
+      - name: Restore isolated OpenCV 5.1.0 installation
+        id: opencv-cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.local/opt/opencv-5.1.0
+          key: opencv-5.1.0-${{ matrix.os }}-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap_opencv_ubuntu_26_04.sh') }}-v1
+
+      - name: Build isolated OpenCV 5.1.0 on cache miss
+        if: steps.opencv-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ./scripts/bootstrap_opencv_ubuntu_26_04.sh
+
+      - name: Verify OpenCV provenance and CMake package
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          prefix="$HOME/.local/opt/opencv-5.1.0"
+          test -f "$prefix/.chromascope-opencv-source-revision"
+          test "$(cat "$prefix/.chromascope-opencv-source-revision")" = "$OPENCV_EXPECTED_COMMIT"
+          test -f "$prefix/lib/cmake/opencv5/OpenCVConfig.cmake"
+          printf 'OpenCV source commit: %s\n' "$(cat "$prefix/.chromascope-opencv-source-revision")"
+
+      - name: Configure Release (GUI, CLI, tests)
+        run: cmake --preset linux-release
+
+      - name: Build Release (GUI and CLI)
+        run: cmake --build --preset linux-release --parallel 2
+
+      - name: Run all Release CTests
+        run: ctest --preset linux-release --parallel 2
+
+      - name: Verify CLI-only configuration
+        run: cmake --preset linux-cli-release
+
+      - name: Build CLI-only configuration
+        run: cmake --build --preset linux-cli-release --parallel 2
+
+      - name: Run all CLI-only CTests
+        run: ctest --preset linux-cli-release --parallel 2
+
+      - name: Summarize verified scope
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo '## ChromascopeIP M1.4 Ubuntu CI'
+            echo "- OS: ${{ matrix.os }}"
+            echo '- OpenCV: 5.1.0 (source revision verified)'
+            echo '- GUI + CLI: built in Release configuration'
+            echo '- GUI-enabled build: full CTest suite passed'
+            echo '- CLI-only build: full CTest suite passed'
+            echo '- GUI launch, display interaction and webcam hardware: not tested in this workflow'
+          } >> "$GITHUB_STEP_SUMMARY"

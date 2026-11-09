@@ -21,7 +21,7 @@ ctest --preset linux-release
 
 I can use `linux-debug`, `linux-cli-release`, or `linux-cli-debug` to isolate other build variants. The Linux presets use the OpenCV install prefix produced by the bootstrap script; if I install OpenCV elsewhere I pass `-DCMAKE_PREFIX_PATH=/absolute/path/to/opencv-5.1.0` or configure a Git-ignored `CMakeUserPresets.json`. Existing explicit `cmake -S . -B build ...` commands still work. I keep build artifacts outside tracked source files and never commit fetched dependencies. See [docs/BUILD_PRESETS.md](docs/BUILD_PRESETS.md) for the complete preset matrix.
 
-For core/CLI-only changes, I can set `-DCHROMASCOPE_BUILD_GUI=OFF`. I do not consider a successful compile alone sufficient verification: I check relevant tests and, for GUI or camera work, manual behavior where available. I organize tests and labels using [docs/TESTING.md](docs/TESTING.md); I run the complete CTest suite before acceptance and may use label filters for focused development. CI and other platform targets will be added in the planned milestones; until then, unverified platform support must remain explicitly identified.
+For core/CLI-only changes, I can set `-DCHROMASCOPE_BUILD_GUI=OFF`. I do not consider a successful compile alone sufficient verification: I check relevant tests and, for GUI or camera work, manual behavior where available. I organize tests and labels using [docs/TESTING.md](docs/TESTING.md); I run the complete CTest suite before acceptance and may use label filters for focused development. M1.4 adds Ubuntu 24.04/26.04 GitHub Actions build-and-test jobs. I require both matrix checks to pass before CI acceptance and continue to record native manual GUI verification separately. Debian, Windows, hardware camera tests, and packaged releases remain future milestones. I document the CI scope and limitations in [docs/CI_UBUNTU.md](docs/CI_UBUNTU.md).
 
 ## Branches, issues, and pull requests
 
@@ -34,7 +34,7 @@ I prefer one reviewable scope per issue and one focused pull request per issue. 
 
 A conventional commit subject makes history easier to scan: `docs: establish repository contribution workflows (M1.1)` or `fix: correct ... (M0.3)`. I link the PR to its issue with a closing keyword (such as `Closes #3`) only when merging that PR should close the issue.
 
-I use the project board statuses **Backlog → Ready → In Progress → In Review → Done**, with **Blocked** when a dependency or unresolved failure prevents acceptance. Implementing code is not enough to move an issue to Done; I wait for required automated checks, relevant manual verification, and review. Branch protection and mandatory Actions checks will be configured in later M1 issues, so I do not imply they exist yet.
+I use the project board statuses **Backlog → Ready → In Progress → In Review → Done**, with **Blocked** when a dependency or unresolved failure prevents acceptance. Implementing code is not enough to move an issue to Done; I wait for required automated checks, relevant manual verification, and review. Branch protection and mandatory Actions checks require explicit repository settings; I configure required checks only after a successful run has established their exact names.
 
 The PR template prompts me to record:
 

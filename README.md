@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3 accepted (v0.1.3); M1.1 repository governance accepted; M1.2 CMake presets prepared for native verification. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded a native Release build with **4/4 passing CTests** against OpenCV 5.1.0. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
+> **Development stage:** M0.3 accepted (v0.1.3); M1.1 repository governance accepted; M1.2 CMake presets accepted after local review; M1.3 structured tests pending native verification. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded a native Release build with **4/4 passing CTests** against OpenCV 5.1.0. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
 
 ## What works in M0–M0.3
 
@@ -34,7 +34,7 @@ ChromascopeIP/
 ├── src/core/                  # Detection + image I/O
 ├── src/cli/                   # Command-line front end
 ├── src/gui/                   # Dear ImGui + GLFW + OpenGL front end
-├── tests/                     # Native C++ and sample regression tests
+├── tests/                     # Unit, integration, regression, CLI, fixture checks
 ├── samples/skittles/          # Original s1.jpg ... s4.jpg, unchanged
 ├── scripts/                   # Isolated OpenCV 5.1.0 installer
 └── docs/                      # Architecture, build presets, origin, verification
@@ -127,7 +127,7 @@ ctest --preset linux-release
 ctest --test-dir build/presets/linux-release -V
 ```
 
-Tests include HSV classification (including the red/orange boundary), invalid configuration, synthetic circles, a blank negative control, sample color-count assertions, **explicit spatial regressions for the formerly missed red candies in s1/s2 and the newly corrected orange candies in s1/s3**, CLI help, CLI smoke execution, and a negative CLI image-path test. See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the M0.3 corrections and native acceptance gates.
+M1.3 organizes checks into independent **unit**, **integration**, **regression**, **fixture-integrity**, and **CLI** CTests, including the historical M0.1/M0.3 red/orange spatial regressions and a new PNG/JSON export contract test. See [`docs/TESTING.md`](docs/TESTING.md) for the nine-test matrix, CTest label filters, and fixture manifest; [`docs/VERIFICATION.md`](docs/VERIFICATION.md) tracks recorded native acceptance results. The new M1.3 tests are not yet claimed as passing on Ubuntu until they have been run there.
 
 ## Source origin and image licensing
 

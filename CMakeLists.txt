@@ -81,20 +81,5 @@ if(CHROMASCOPE_BUILD_GUI)
 endif()
 
 if(BUILD_TESTING AND CHROMASCOPE_BUILD_TESTS)
-    add_executable(chromascope-tests tests/test_detection.cpp)
-    target_link_libraries(chromascope-tests PRIVATE ChromascopeIP::Core)
-    target_compile_definitions(chromascope-tests PRIVATE
-        CHROMASCOPE_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples/skittles")
-    add_test(NAME chromascope_core COMMAND chromascope-tests)
-    set_tests_properties(chromascope_core PROPERTIES LABELS "core;synthetic;samples")
-
-    add_test(NAME chromascope_cli_help COMMAND chromascope-cli --help)
-    set_tests_properties(chromascope_cli_help PROPERTIES LABELS "cli;smoke")
-    add_test(NAME chromascope_cli_sample COMMAND chromascope-cli
-        --input "${CMAKE_CURRENT_SOURCE_DIR}/samples/skittles/s2.jpg")
-    set_tests_properties(chromascope_cli_sample PROPERTIES LABELS "cli;samples")
-    add_test(NAME chromascope_cli_bad_input COMMAND chromascope-cli
-        --input "${CMAKE_CURRENT_SOURCE_DIR}/samples/skittles/absent.jpg")
-    set_tests_properties(chromascope_cli_bad_input PROPERTIES
-        WILL_FAIL TRUE LABELS "cli;negative")
+    add_subdirectory(tests)
 endif()

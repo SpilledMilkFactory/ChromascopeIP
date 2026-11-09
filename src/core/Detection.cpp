@@ -82,11 +82,13 @@ cv::Scalar annotation_bgr(CandyColor color) noexcept {
 CandyColor classify_hsv(cv::Vec3b hsv, bool& recognized) noexcept {
     const int h = hsv[0], s = hsv[1], v = hsv[2];
     recognized = true;
-    // Hue 8 is the practical red/orange boundary on the archived samples;
-    // keeping it in orange avoids relabeling the bright orange candies red
-    // after hue-unwrapping their specular highlights.
+    // The original orange candies include warm hues 4..7, overlapping the
+    // broad red hue band. For the legacy Skittles profile, strong saturation
+    // AND brightness distinguish these orange surfaces from darker reds.
+    // Check bright orange first; keep lower-value red near the HSV 179/0 seam.
+    // This is sample-calibrated, not a general color-science classifier.
+    if (h >= 4 && h < 20 && s >= 125 && v >= 140) return CandyColor::Orange;
     if ((h <= 7 || h >= 162) && s >= 115 && v >= 62) return CandyColor::Red;
-    if (h >= 8 && h < 20 && s >= 125 && v >= 140) return CandyColor::Orange;
     if (h >= 19 && h <= 38 && s >= 125 && v >= 135) return CandyColor::Yellow;
     if (h >= 37 && h <= 90 && s >= 105 && v >= 60) return CandyColor::Lime;
     // The original photographs contain nearly black purple candies. Use

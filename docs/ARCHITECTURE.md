@@ -1,4 +1,4 @@
-# ChromascopeIP — M0/M0.1 Architecture
+# ChromascopeIP — M0–M0.3 Architecture
 
 ## Goal
 
@@ -24,7 +24,7 @@ The core uses `cv::Mat` as the image container and returns plain detection resul
 2. I downscale an analysis copy to a configurable maximum long edge (1200 pixels by default), preserving aspect ratio. I retain the original source image for exporting annotations.
 3. I blur grayscale data and find candidate circles with `cv::HoughCircles` (`HOUGH_GRADIENT`). Radius/spacing constraints scale with the analysis image dimensions rather than being hardcoded to the original 4032×3024 photographs.
 4. I convert the working image to HSV and sample each circle's inner disk. I take a **circularly unwrapped hue median** (hue 179 is adjacent to 0), plus ordinary saturation/value medians. This avoids losing dark red candies to hue-wrap artifacts while preserving robustness against printed `S` marks and highlights.
-5. I map the median HSV into a five-color palette, rejecting candidates with unrecognized median colors or insufficient per-pixel confidence. The Skittles red/orange boundary is calibrated at hue **7/8** using the original photographs.
+5. I map the median HSV into a five-color palette, rejecting candidates with unrecognized median colors or insufficient per-pixel confidence. For this legacy Skittles profile, I classify bright, saturated warm hues **4–19** as orange before applying the red hue band (0–7 or 162–179). The orange check requires HSV saturation ≥125 and value ≥140. Lower-value pixels near the red/orange overlap can still qualify as red. This profile-specific rule resolves the two orange-vs-red cases from M0.1 without disturbing the circular hue median or the Hough detector. It is not a general-purpose color classifier.
 6. I translate circle locations/radii into **original-image coordinates** and update counts.
 7. I render optional circles/labels onto a copy of the **full-resolution input**. The CLI writes this image directly; the GUI uploads a capped preview to its OpenGL texture.
 

@@ -23,9 +23,14 @@ void check(bool valid, const std::string& message) {
 void test_hsv() {
     using chromascope::CandyColor;
     struct Case { cv::Vec3b hsv; CandyColor expected; };
-    const std::array<Case, 11> cases = {{
+    const std::array<Case, 16> cases = {{
         {{0, 185, 145}, CandyColor::Red},
-        {{7, 185, 145}, CandyColor::Red},
+        {{3, 185, 145}, CandyColor::Red},
+        {{4, 200, 210}, CandyColor::Orange},
+        {{5, 187, 209}, CandyColor::Orange}, // s1 warm orange
+        {{7, 207, 219}, CandyColor::Orange}, // s3 warm orange
+        {{7, 185, 110}, CandyColor::Red},    // dark reds must remain red
+        {{3, 185, 210}, CandyColor::Red},
         {{172, 170, 110}, CandyColor::Red},
         {{179, 185, 110}, CandyColor::Red},
         {{8, 220, 220}, CandyColor::Orange},
@@ -128,17 +133,15 @@ void test_original_samples() {
         int sum = 0;
         for (const int value : result.counts) sum += value;
         check(sum == static_cast<int>(result.objects.size()), "per-color counts don't add up");
-        // s3's warm reddish-orange piece lies at the red/orange boundary.
-        // Requiring an orange in that particular image is not a sound test:
-        // under the M0 OpenCV 5.1.0 run, all 19 candies were counted but the
-        // classifier labeled that one red. Test the unambiguous categories.
-        if (i == 1) {
+        if (i == 1 || i == 3) {
             for (int c : result.counts)
-                check(c >= 1, "s1 must have all five candy colors");
+                check(c >= 1, "s1/s3 must have all five candy colors");
+            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Red)] >= 2,
+                  "s1/s3 must retain the two genuine red candies");
+            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Orange)] >= 2,
+                  "s1/s3 must contain both orange candies");
         }
         if (i == 3) {
-            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Red)] >= 3,
-                  "s3 must contain at least three red candies");
             check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Yellow)] >= 5,
                   "s3 must contain at least five yellow candies");
             check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Lime)] >= 3,
@@ -147,6 +150,23 @@ void test_original_samples() {
                   "s3 must contain at least five purple candies");
         }
 
+        if (i == 1 || i == 3) {
+            // M0.3: these orange candies were detected but mislabeled RED.
+            // Testing both coordinates and category prevents totals alone from
+            // hiding a color-swap or a false positive elsewhere in the image.
+            const cv::Point2f expected = (i == 1) ? cv::Point2f(285, 581)
+                                                   : cv::Point2f(734, 508);
+            const float to_original = static_cast<float>(image.cols) / 1200.0f;
+            const cv::Point2f center = expected * to_original;
+            const float tolerance = 22.0f * to_original;
+            const bool found = std::any_of(result.objects.begin(), result.objects.end(),
+                [&](const chromascope::Detection& object) {
+                    return object.color == chromascope::CandyColor::Orange &&
+                           cv::norm(object.center - center) <= tolerance;
+                });
+            check(found, i == 1 ? "s1 leftmost orange candy classified incorrectly"
+                                : "s3 lower orange candy classified incorrectly");
+        }
         if (i == 1 || i == 2) {
             // Observed analysis-space centers (1200px long edge) of the two
             // previously missed RED Skittles. A total-count check alone could
@@ -163,8 +183,8 @@ void test_original_samples() {
                 });
             check(found, i == 1 ? "s1 center red candy was missed"
                                 : "s2 center red candy was missed");
-            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Red)] >=
-                      (i == 1 ? 3 : 2), "s1/s2 red candy count regressed");
+            check(result.counts[static_cast<std::size_t>(chromascope::CandyColor::Red)] >= 2,
+                  "s1/s2 genuine red candy count regressed");
         }
     }
 }

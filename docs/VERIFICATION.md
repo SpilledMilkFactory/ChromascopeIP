@@ -143,3 +143,39 @@ I introduced `.github/workflows/ci-ubuntu.yml` with explicit `ubuntu-24.04` and 
 During artifact preparation I verified the workflow YAML structure, bash script syntax, OpenCV source-revision assertion behavior, CMake preset names, patch application, original JPEG integrity, and source ZIP equivalence. These are **static/packaging validations only**; I have not run the new workflow on GitHub or compiled against OpenCV 5.1.0 on both hosted runners.
 
 **Acceptance pending:** I will merge M1.4 only after the real GitHub Actions matrix reports success for both Ubuntu versions, checks compile the GUI and CLI, and 9/9 native CTests pass per configured build. GUI interaction and webcam hardware are excluded from the hosted CI claim. I will preserve run links and failures if the first run identifies a portability problem.
+
+## M1.4 Ubuntu CI acceptance (reported November 9, 2026)
+
+I confirmed that the pull request showed **two successful GitHub Actions checks**: `Ubuntu CI / ubuntu-24.04 / Release / CTest` and `Ubuntu CI / ubuntu-26.04 / Release / CTest`. The screenshot showed both green, and I merged the pull request afterward. I also ran Release and CLI-only Release locally on Ubuntu 26.04; **9/9 CTests passed** in each configuration and I verified the GUI behavior manually. The provided records do not include a hosted Actions run URL, commit SHA, or per-step logs; I do not fabricate those identifiers. These subsequent results supersede the older M1.4 *pending acceptance* preparation notes above.
+
+## M1.5 Debian 12/13 container CI — prepared, not hosted-verified
+
+I added `.github/workflows/ci-debian.yml`, which provisions independent AMD64 Debian 12 (Bookworm) and Debian 13 (Trixie) containers. Each validates its `/etc/os-release` major version, installs C++20 build dependencies and GitHub Actions support tools inside the container, restores or builds isolated OpenCV 5.1.0 with the expected commit marker, compiles the GUI/CLI Release configuration, runs all nine CTests, then separately configures the CLI-only Release build and reruns the same nine CTests.
+
+I pinned the official Debian AMD64 OCI image digests and Actions revisions, limited token permissions, isolated OpenCV caches by distribution and base-image revision, and retained the accepted Ubuntu workflow unchanged. I documented the dependency and headless-GUI qualification boundaries in [CI_DEBIAN.md](CI_DEBIAN.md). No C++ production code, CMake configuration, tests, original JPEGs, or dependency versions were changed in M1.5.
+
+### M1.5 acceptance checklist
+
+- [ ] `Debian CI / debian-12 / Release / CTest` completes successfully on a hosted Actions run.
+- [ ] `Debian CI / debian-13 / Release / CTest` completes successfully on a hosted Actions run.
+- [ ] Both jobs report the expected Debian major version, AMD64 architecture, and verified OpenCV 5.1.0 source revision.
+- [ ] Both jobs compile the core, CLI, and GUI in Release mode and pass **9/9 CTests**.
+- [ ] Both CLI-only configurations build and independently pass **9/9 CTests**.
+- [ ] Neither job relies on the Ubuntu host's OpenCV, compiler, headers, or GUI libraries for its application build.
+- [ ] Any CI-only portability problems are resolved and rerun; the accepted Ubuntu CI stays green.
+- [ ] The GitHub PR is reviewed and merged and issue #7 is closed / moved to Done.
+
+**Not yet verified:** Debian 12 and 13 hosted compilation/CTest execution, native Debian GUI launch, webcam hardware, `.deb` installation, and distribution-runtime compatibility. Local workflow syntax and patch-integrity validation is not a substitute for either hosted CI check.
+
+### M1.5 local preparation checks (November 9, 2026)
+
+I completed the following non-hosted checks while preparing this patch:
+
+- **PASS:** Parsed the new workflow YAML and confirmed the `pull_request`, `push` to `main`, and `workflow_dispatch` triggers, read-only permissions, two distinct Debian matrix entries, and full-SHA action pins.
+- **PASS:** Validated both immutable Debian image-digest formats, matrix version identifiers, independent OpenCV cache keys, and complete `linux-release` / `linux-cli-release` configure/build/CTest commands.
+- **PASS:** Parsed every new inline `run` script with `bash -n`.
+- **PASS:** Configured the unchanged CLI-only CMake project and listed **nine registered CTests** using a temporary OpenCV package stub. This did **not** compile C++ or execute those tests.
+- **PASS:** `git diff --cached --check`, clean Git patch application against the uploaded M1.4 source snapshot, and byte-for-byte equivalence between the patched source tree and the ZIP, including executable permissions.
+- **PASS:** SHA-256 hashes of the four original Skittles photographs matched the uploaded M1.4 baseline. The accepted Ubuntu workflow, production code, CMake files, and native test files were unchanged.
+
+I have **not** run native Debian 12/13 builds or CTests here. The first successful hosted GitHub Actions runs remain the required M1.5 acceptance evidence.

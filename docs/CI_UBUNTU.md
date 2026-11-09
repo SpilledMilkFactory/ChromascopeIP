@@ -54,3 +54,9 @@ If the **OpenCV provenance step fails**, I inspect the cache key, the revision m
 If **OpenCV compilation fails**, I inspect the complete bootstrap output, package-installation step and memory limits before retrying. If the **GUI build fails**, I check GLFW/OpenGL development packages and whether Dear ImGui `v1.93.0` was fetched correctly. If **CTest fails only on one Ubuntu version**, I preserve the failure logs and open a focused regression/portability issue rather than marking M1.4 Done.
 
 For M1.4 acceptance I record the pull request number, exact workflow run, both Ubuntu matrix check conclusions, and the relevant CTest counts in `docs/VERIFICATION.md` after real GitHub Actions execution. I do not claim hosted CI passes from local YAML validation alone.
+
+## M1.4 hosted acceptance (reported November 9, 2026)
+
+I verified the M1.4 pull request's two hosted checks completed successfully: `ubuntu-24.04 / Release / CTest` and `ubuntu-26.04 / Release / CTest`. I merged the pull request after the screenshot showing the two green checks. I also reran the Ubuntu 26.04 native Release and CLI-only presets locally, each with 9/9 passing CTests, and verified that the GUI remained functional. I did not record the hosted workflow run URL or run ID in this source archive.
+
+This later hosted acceptance supersedes the *pending* wording in the original M1.4 preparation notes above. M1.5 adds separate Debian container checks; it does not modify this accepted Ubuntu workflow.

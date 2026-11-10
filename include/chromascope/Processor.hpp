@@ -8,6 +8,8 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <stop_token>
+#include <stdexcept>
 #include <vector>
 
 namespace chromascope {
@@ -47,6 +49,15 @@ class IProcessor {
 public:
     virtual ~IProcessor() = default;
     [[nodiscard]] virtual ProcessedFrame process(const ImageFrame& frame) const = 0;
+    // Existing processors remain source-compatible; cooperative processors
+    // override this to insert cancellation checkpoints during computation.
+    [[nodiscard]] virtual ProcessedFrame process(
+        const ImageFrame& frame, std::stop_token token) const {
+        if (token.stop_requested()) throw std::runtime_error("Processing canceled");
+        auto result = process(frame);
+        if (token.stop_requested()) throw std::runtime_error("Processing canceled");
+        return result;
+    }
 };
 
 // Registry scope is local to the owning application or test. Registration is
@@ -62,6 +73,8 @@ public:
     [[nodiscard]] std::unique_ptr<IProcessor> create(const ProcessorProfile& profile) const;
     [[nodiscard]] ProcessedFrame run(const ProcessorProfile& profile,
                                     const ImageFrame& frame) const;
+    [[nodiscard]] ProcessedFrame run(const ProcessorProfile& profile,
+                                    const ImageFrame& frame, std::stop_token token) const;
 
 private:
     struct Entry {

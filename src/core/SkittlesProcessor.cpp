@@ -2,6 +2,7 @@
 #include "chromascope/DetectionResultBridge.hpp"
 
 #include <memory>
+#include <stdexcept>
 #include <utility>
 
 namespace chromascope {
@@ -44,7 +45,13 @@ SkittlesProcessor::SkittlesProcessor(Settings settings) : settings_(settings) {
 }
 
 ProcessedFrame SkittlesProcessor::process(const ImageFrame& frame) const {
-    const auto legacy = detect_skittles(frame, settings_);
+    return process(frame, {});
+}
+
+ProcessedFrame SkittlesProcessor::process(const ImageFrame& frame,
+                                         std::stop_token token) const {
+    const auto legacy = detect_skittles(frame, settings_, token);
+    if (token.stop_requested()) throw std::runtime_error("Processing canceled");
     return {to_general_result(legacy, frame), legacy.elapsed_ms};
 }
 

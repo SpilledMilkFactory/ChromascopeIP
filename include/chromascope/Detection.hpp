@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <string_view>
+#include <stop_token>
 #include <vector>
 
 namespace chromascope {
@@ -49,6 +50,11 @@ void validate_settings(const Settings& settings);
 Result detect_skittles(const cv::Mat& bgr, const Settings& settings = {});
 // Typed frame entry point; accepts upright, unmirrored BGR8 frames only.
 Result detect_skittles(const ImageFrame& frame, const Settings& settings = {});
+// Optional cooperative cancellation; cv::HoughCircles itself is not interruptible.
+Result detect_skittles(const ImageFrame& frame, const Settings& settings,
+                       std::stop_token token);
+Result detect_skittles(const cv::Mat& bgr, const Settings& settings,
+                       std::stop_token token);
 cv::Mat draw_annotations(const cv::Mat& bgr, const Result& result,
                          bool show_labels = true);
 

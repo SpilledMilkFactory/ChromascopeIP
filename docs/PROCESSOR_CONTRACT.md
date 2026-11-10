@@ -59,3 +59,13 @@ M2.3 acceptance requires native Release and sanitizer tests, `clang-tidy`,
 manual GUI verification, and the six GitHub Actions checks. The four historical
 photographs retain the unresolved redistribution restriction documented in
 `MEDIA_RIGHTS.md`; no release authorization is implied by the new tests.
+
+## M2.4 cancellation extension
+
+I added a stop-token-aware `IProcessor::process(frame, token)` virtual overload
+with a backward-compatible default for processors implementing M2.3. My
+`ProcessorRegistry::run(profile, frame, token)` validates the contract and
+checks cancellation before and after invoking the processor. The built-in
+Skittles processor supplies finer-grained checkpoints; the legacy synchronous
+`run(profile, frame)` and `process(frame)` remain callable without changes.
+See `ASYNC_PROCESSING.md` for queue lifecycle and UI ownership.

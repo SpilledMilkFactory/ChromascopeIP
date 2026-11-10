@@ -34,11 +34,13 @@ add_library(chromascope_core STATIC
     src/core/DetectionResultBridge.cpp
     src/core/Processor.cpp
     src/core/SkittlesProcessor.cpp
+    src/core/ProcessingQueue.cpp
 )
+find_package(Threads REQUIRED)
 add_library(ChromascopeIP::Core ALIAS chromascope_core)
 target_include_directories(chromascope_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_include_directories(chromascope_core SYSTEM PUBLIC ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(chromascope_core PUBLIC ${OpenCV_LIBS})
+target_link_libraries(chromascope_core PUBLIC ${OpenCV_LIBS} Threads::Threads)
 target_compile_features(chromascope_core PUBLIC cxx_std_20)
 chromascope_apply_quality(chromascope_core)
 

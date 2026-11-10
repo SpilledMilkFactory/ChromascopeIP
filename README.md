@@ -22,6 +22,17 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 
 The current **Skittles** profile uses classical image processing, not a trained model. Hough-circle candidates and an HSV color classifier perform best on reasonably separated, roughly round candies. Real-world people, arbitrary objects, occlusions, and camera streams will require different algorithms. I am planning those as separate milestones after the accepted M0.3 baseline.
 
+## M2.4 background processing (under verification)
+
+My GUI now submits processor requests to a bounded background worker (one
+worker and one replaceable pending job). It keeps the existing Skittles sample
+profile and output format. I can cancel an analysis or select another image
+without allowing stale results to overwrite the new selection. OpenCV's native
+Hough-circle routine is not interruptible, so cancellation uses explicit
+checkpoints and generation-based stale-result suppression. GUI texture updates
+remain on the render thread. See [docs/ASYNC_PROCESSING.md](docs/ASYNC_PROCESSING.md)
+for thread ownership and test requirements. M2.4 requires 19 passing CTests.
+
 ## Source tree
 
 ```text

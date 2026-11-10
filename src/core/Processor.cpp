@@ -111,8 +111,15 @@ std::unique_ptr<IProcessor> ProcessorRegistry::create(const ProcessorProfile& pr
 }
 
 ProcessedFrame ProcessorRegistry::run(const ProcessorProfile& profile, const ImageFrame& frame) const {
+    return run(profile, frame, {});
+}
+
+ProcessedFrame ProcessorRegistry::run(const ProcessorProfile& profile,
+                                      const ImageFrame& frame, std::stop_token token) const {
+    if (token.stop_requested()) throw std::runtime_error("Processing canceled");
     auto processor = create(profile);
-    auto output = processor->process(frame);
+    auto output = processor->process(frame, token);
+    if (token.stop_requested()) throw std::runtime_error("Processing canceled");
     const auto& result = output.detections;
     if (result.processor_id() != profile.processor_id ||
         result.width() != frame.width() || result.height() != frame.height() ||

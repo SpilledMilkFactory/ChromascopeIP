@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3–M1.5 accepted (v0.1.3); M1.6 Windows x64 core/CLI CI is prepared for hosted verification. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded **9/9 passing CTests** in Release, Debug, and CLI-only Release configurations against OpenCV 5.1.0. The Ubuntu 24.04/26.04 and Debian 12/13 CI matrices passed and their PRs were merged. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
+> **Development stage:** M0.3–M1.7 accepted (v0.1.3); M1.8 license/provenance audit is in review. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded **9/9 passing CTests** in Release, Debug, and CLI-only Release configurations against OpenCV 5.1.0. The Ubuntu 24.04/26.04 and Debian 12/13 CI matrices passed and their PRs were merged. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
 
 ## What works in M0–M0.3
 
@@ -161,3 +161,7 @@ I use `.github/workflows/ci-windows.yml` to validate the **Windows x64 C++ core 
 ## M1.7 — First-party quality and CI hardening (issue #9)
 
 I enabled warning diagnostics on all first-party C++ targets and introduced an opt-in warnings-as-errors mode. I added a CLI-only Linux Debug ASan/UBSan preset, focused clang-tidy 18 analysis, negative-tested GitHub Actions policy checks, and weekly Dependabot update PRs for pinned Actions. The GUI's fetched ImGui v1.93.0 revision is checked against its immutable release commit. I have not yet verified the new Quality GitHub Actions job on a hosted runner. See [docs/QUALITY.md](docs/QUALITY.md) for supported commands and limitations.
+
+## Rights and provenance audit (M1.8)
+
+I document the current first-party, third-party, and archival sample rights in [docs/LICENSE_AUDIT.md](docs/LICENSE_AUDIT.md). **The four original photographs have unresolved redistribution permissions and are not licensed under my MIT source-code license.** The audit does not authorize packaging them for v1.0; I must establish rights or replace/exclude them before a public release. The dependency-specific notice inventory will be finalized against actual release artifacts.

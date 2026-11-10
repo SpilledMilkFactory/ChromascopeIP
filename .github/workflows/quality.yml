@@ -36,6 +36,7 @@ jobs:
       - name: Validate CI policy and its negative regressions
         run: |
           python3 scripts/check_ci_policy.py
+          python3 scripts/check_provenance.py
           python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
 
       - name: Install compiler and analysis dependencies
@@ -102,6 +103,6 @@ jobs:
             echo '- Ubuntu 24.04, GCC first-party warnings-as-errors'
             echo '- Clang-tidy 18 correctness checks for core/CLI/test units'
             echo '- ASan + UBSan Debug CLI-only; full nine-test CTest suite'
-            echo '- Workflow SHA pin/read-only permission audit and negative tests'
+            echo '- Workflow policy and historical fixture provenance integrity (media rights unresolved)'
             echo '- GUI runtime, third-party instrumentation and Windows sanitizers: not checked'
           } >> "$GITHUB_STEP_SUMMARY"

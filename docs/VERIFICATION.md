@@ -250,3 +250,7 @@ I added first-party compiler warning policies, warnings-as-errors opt-in, Linux 
 **Local structural validation:** CMake presets and sanitizer rejection paths, workflow YAML, offline CI policy/negative tests, dependency pin integrity, patch replay, source ZIP equivalence, and unchanged historical JPEG bytes. These do **not** constitute a native ASan/UBSan test or hosted clang-tidy execution.
 
 **Native acceptance pending:** I must run first-party warnings-as-errors Release and sanitizer Debug on Ubuntu, preserve the nine CTests, and receive a green Quality Actions job alongside five green distribution CI jobs. Document results before accepting issue #9.
+
+## M1.7 acceptance and M1.8 provenance audit preparation (reported November 9, 2026)
+
+I recorded 9/9 native Release CTests, 9/9 ASan/UBSan CTests, successful local clang-tidy and CI policy checks, and the six passing GitHub Actions checks reported before merging M1.7. M1.8 adds a source-level rights assessment, SHA-256-backed rights manifest, deterministic validation, and policy regression tests. These tests check *integrity and disclosure of unresolved rights*, not proof of copyright ownership. The archival photographs remain explicitly excluded from the MIT code license, and the release rights gate stays blocked pending verified permission or replacement. Per-artifact notices and SBOMs remain future release gates.

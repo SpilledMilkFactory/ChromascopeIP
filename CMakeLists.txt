@@ -30,6 +30,8 @@ add_library(chromascope_core STATIC
     src/core/ImageIO.cpp
     src/core/ImageFrame.cpp
     src/core/ImageFrameCV.cpp
+    src/core/DetectionResult.cpp
+    src/core/DetectionResultBridge.cpp
 )
 add_library(ChromascopeIP::Core ALIAS chromascope_core)
 target_include_directories(chromascope_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")

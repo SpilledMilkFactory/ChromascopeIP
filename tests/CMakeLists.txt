@@ -17,6 +17,10 @@ chromascope_add_cpp_test(chromascope_unit_validation
     unit/test_validation.cpp "unit;core;negative" 20)
 chromascope_add_cpp_test(chromascope_unit_image_frame
     unit/test_image_frame.cpp "unit;core;frame;negative" 20)
+chromascope_add_cpp_test(chromascope_unit_detection_result
+    unit/test_detection_result.cpp "unit;core;detection;negative" 20)
+chromascope_add_cpp_test(chromascope_integration_detection_result
+    integration/test_detection_result.cpp "integration;core;detection" 40)
 chromascope_add_cpp_test(chromascope_integration_frame_cv
     integration/test_frame_cv.cpp "integration;core;frame" 40)
 chromascope_add_cpp_test(chromascope_integration_synthetic

@@ -160,7 +160,7 @@ I use `.github/workflows/ci-windows.yml` to validate the **Windows x64 C++ core 
 
 ## M1.7 — First-party quality and CI hardening (issue #9)
 
-I enabled warning diagnostics on all first-party C++ targets and introduced an opt-in warnings-as-errors mode. I added a CLI-only Linux Debug ASan/UBSan preset, focused clang-tidy 18 analysis, negative-tested GitHub Actions policy checks, and weekly Dependabot update PRs for pinned Actions. The GUI's fetched ImGui v1.93.0 revision is checked against its immutable release commit. I have not yet verified the new Quality GitHub Actions job on a hosted runner. See [docs/QUALITY.md](docs/QUALITY.md) for supported commands and limitations.
+I enabled warning diagnostics on all first-party C++ targets and introduced an opt-in warnings-as-errors mode. I added a CLI-only Linux Debug ASan/UBSan preset, focused clang-tidy 18 analysis, negative-tested GitHub Actions policy checks, and weekly Dependabot update PRs for pinned Actions. The GUI's fetched ImGui v1.93.0 revision is checked against its immutable release commit. I accepted M1.7 after all six hosted GitHub Actions jobs passed and the local diagnostics/tests completed. See [docs/QUALITY.md](docs/QUALITY.md) for supported commands and limitations.
 
 ## Rights and provenance audit (M1.8)
 
@@ -169,3 +169,16 @@ I document the current first-party, third-party, and archival sample rights in [
 ## M2.1 owned frame contract
 
 I added a strongly owned CPU `ImageFrame` with explicit pixel format, row stride, orientation, mirror metadata, and optional source-domain timestamp. The CLI and GUI analyze typed BGR8 frames through the existing Skittles detector without changing its behavior. Two new CTests validate ownership and OpenCV interoperability. See [docs/IMAGE_FRAME_CONTRACT.md](docs/IMAGE_FRAME_CONTRACT.md).
+
+## M2.2 generalized results — implementation awaiting native acceptance
+
+I added an owned, OpenCV-independent `DetectionResult` with circles,
+axis-aligned boxes, polygons, labels, per-profile class IDs and finite scores.
+The new Skittles adapter preserves existing detections exactly; it does not
+change the GUI overlays or CLI JSON schema. Two new CTests bring the suite from
+11 to **13**, with additional historical-photo equivalence checks. See
+[docs/DETECTION_RESULT_CONTRACT.md](docs/DETECTION_RESULT_CONTRACT.md).
+
+I accepted M2.1 after native Release, CLI-only and ASan/UBSan tests, manual GUI
+verification, and six green GitHub Actions checks. M2.2 requires the same
+verification; historical-photo release redistribution remains unapproved.

@@ -60,3 +60,15 @@ The Windows presets are intentionally limited to the core, CLI, and tests until 
 I register tests in `tests/CMakeLists.txt` and keep each major test layer in its own source directory. HSV/validation unit cases do not require original photographs; synthetic integration tests create images in memory; historical regression tests use the immutable original photographs in `samples/skittles/` and the SHA-256 manifest in `tests/fixtures/skittles.sha256`. The CLI tests exercise the real binary, including an export contract for PNG and JSON file/stdout output.
 
 CTest labels (`unit`, `integration`, `regression`, `fixtures`, `cli`, `negative`) allow future CI to select subsets without renaming tests. Test outputs stay under the selected build directory. No production processing code or GUI/CLI architecture changes in M1.3. Details and commands are recorded in [TESTING.md](TESTING.md).
+
+## M2.2 — Generalized detection results
+
+I introduced an OpenCV-free `DetectionResult` value contract for per-frame
+circles, boxes, and polygons, each with an owned label, bounded finite score,
+and optional profile-local class ID. The `DetectionResultBridge` translates the
+existing Skittles-only `Result` into this model without modifying detection
+logic, GUI overlays, or CLI serialization. A source timestamp can be forwarded
+from an associated M2.1 `ImageFrame`. See
+[DETECTION_RESULT_CONTRACT.md](DETECTION_RESULT_CONTRACT.md) for pixel-coordinate,
+validation, ownership, and compatibility rules. M2.3 and M2.5 will integrate
+this representation with processor registration and generalized annotations.

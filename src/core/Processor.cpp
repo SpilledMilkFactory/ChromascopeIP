@@ -130,6 +130,17 @@ ProcessedFrame ProcessorRegistry::run(const ProcessorProfile& profile,
         !matching_timestamps(result.timestamp(), frame.metadata().timestamp) ||
         !std::isfinite(output.elapsed_ms) || output.elapsed_ms < 0.0)
         throw std::runtime_error("Processor returned a result incompatible with its input frame");
+    if (output.output_frame) {
+        const auto& rendered = *output.output_frame;
+        const auto& src = frame.metadata();
+        const auto& dst = rendered.metadata();
+        if (rendered.width() != frame.width() || rendered.height() != frame.height() ||
+            dst.orientation != src.orientation || dst.mirror_horizontal != src.mirror_horizontal ||
+            !matching_timestamps(dst.timestamp, src.timestamp))
+            throw std::runtime_error("Processor returned an output raster incompatible with its input frame");
+        resources::validate_image(rendered.width(), rendered.height(), bytes_per_pixel(rendered.format()));
+        resources::validate_storage(rendered.pixels().size());
+    }
     return output;
 }
 

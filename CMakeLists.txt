@@ -40,6 +40,7 @@ add_library(chromascope_core STATIC
     src/core/DetectionResultBridge.cpp
     src/core/Processor.cpp
     src/core/SkittlesProcessor.cpp
+    src/core/ImageFilters.cpp
     src/core/ProcessingQueue.cpp
 )
 find_package(Threads REQUIRED)

@@ -4,6 +4,8 @@
 #include "chromascope/ImageFrame.hpp"
 
 #include <functional>
+#include <optional>
+#include <utility>
 #include <map>
 #include <memory>
 #include <string>
@@ -43,6 +45,14 @@ struct ProcessorProfile {
 struct ProcessedFrame {
     DetectionResult detections;
     double elapsed_ms = 0.0;
+    // Optional owned raster for image-transform profiles; legacy detectors
+    // return no raster and keep their existing detection-only contracts.
+    std::optional<ImageFrame> output_frame;
+
+    ProcessedFrame(DetectionResult result, double milliseconds,
+                   std::optional<ImageFrame> output = std::nullopt)
+        : detections(std::move(result)), elapsed_ms(milliseconds),
+          output_frame(std::move(output)) {}
 };
 
 class IProcessor {

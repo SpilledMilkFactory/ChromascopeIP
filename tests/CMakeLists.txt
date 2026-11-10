@@ -126,3 +126,24 @@ chromascope_add_cpp_test(chromascope_regression_legacy_compatibility
     regression/test_legacy_compatibility.cpp "regression;core;compatibility;fixtures;annotation" 90)
 target_compile_definitions(chromascope_regression_legacy_compatibility PRIVATE
     CHROMASCOPE_LEGACY_SAMPLE="${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg")
+
+# M3.1: generalized still-image filters; existing Skittles tests are unchanged.
+chromascope_add_cpp_test(chromascope_unit_image_filter_contract
+    unit/test_image_filter_contract.cpp "unit;core;processor;filters;negative" 20)
+chromascope_add_cpp_test(chromascope_integration_image_filters
+    integration/test_image_filters.cpp "integration;core;processor;filters;image" 40)
+add_test(NAME chromascope_cli_image_filters COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/image-filters"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_image_filters.cmake")
+set_tests_properties(chromascope_cli_image_filters PROPERTIES
+    LABELS "cli;integration;filters;fixtures" TIMEOUT 90)
+add_test(NAME chromascope_cli_bad_filter_option COMMAND chromascope-cli
+    --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --profile gaussian_blur --set kernel_size=4)
+set_tests_properties(chromascope_cli_bad_filter_option PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;filters;negative" TIMEOUT 15)
+add_test(NAME chromascope_cli_bad_filter_setting COMMAND chromascope-cli
+    --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --profile grayscale --set not_an_option=1)
+set_tests_properties(chromascope_cli_bad_filter_setting PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;filters;negative" TIMEOUT 15)

@@ -399,3 +399,16 @@ isolated environment using warnings-as-errors. I have not verified the two
 new OpenCV-dependent tests, the complete 30/30 suite, or the six hosted CI
 jobs as part of this M2.7 preparation; those gates remain **PENDING**.
 I will record their actual outcomes before marking issue #17 done.
+
+## M3.1 generalized still-image filters — implementation pending native verification
+
+I have prepared issue #18 from my accepted M2.7 archive. The change adds
+explicit grayscale, Gaussian blur, binary threshold and Canny edge profiles;
+registered parameters, owned output rasters, shared GUI/CLI presentation,
+and five headless CTests (expected suite size: **35**). The original Skittles
+profile, default settings, JSON/export compatibility and all four fixture
+photographs remain untouched. The acceptance matrix, CLI commands, and safety
+limitations are documented in `IMAGE_FILTER_PROFILES.md`. I have **not yet
+recorded** a successful native OpenCV 5.1.0 full build, GUI run, sanitizer
+matrix, or hosted GitHub Actions for this prepared patch. I will enter those
+results after execution before closing issue #18.

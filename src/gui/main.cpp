@@ -1,5 +1,6 @@
 #include "chromascope/Detection.hpp"
 #include "chromascope/ImageIO.hpp"
+#include "chromascope/ImageFrameCV.hpp"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -16,6 +17,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -67,6 +69,7 @@ struct App {
     std::array<char, 4096> browser_directory{};
     chromascope::Settings settings;
     cv::Mat input;
+    std::optional<chromascope::ImageFrame> input_frame;
     chromascope::Result result;
     Texture original_texture, annotated_texture;
     std::string status = "Open one of the legacy samples or enter an image path.";
@@ -83,9 +86,9 @@ struct App {
     }
 
     void analyze() {
-        if (input.empty()) return;
+        if (!input_frame) return;
         try {
-            result = chromascope::detect_skittles(input, settings);
+            result = chromascope::detect_skittles(*input_frame, settings);
             have_result = true;
             refresh_overlay();
             status = "Analysis complete: " + std::to_string(result.objects.size()) + " colored circles.";
@@ -104,7 +107,10 @@ struct App {
 
     void load(const std::filesystem::path& file) {
         try {
-            input = chromascope::read_image(file);
+            cv::Mat loaded = chromascope::read_image(file);
+            auto owned_frame = chromascope::from_cv_mat(loaded, chromascope::PixelFormat::BGR8);
+            input = std::move(loaded);
+            input_frame = std::move(owned_frame);
             input_width = input.cols;
             input_height = input.rows;
             std::snprintf(path.data(), path.size(), "%s", file.string().c_str());

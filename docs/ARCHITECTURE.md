@@ -16,7 +16,7 @@ chromascope-gui ------------------+
        +-- GLFW + OpenGL 3.3
 ```
 
-The core uses `cv::Mat` as the image container and returns plain detection results. It does not depend on Dear ImGui, GLFW, or an OpenGL context. Both front ends invoke `detect_skittles()` and `draw_annotations()`; neither implements a competing classifier.
+The original core used `cv::Mat` as the image container and returns plain detection results. M2.1 adds the owned `ImageFrame` value type and deep-copy OpenCV adapters, detailed in [IMAGE_FRAME_CONTRACT.md](IMAGE_FRAME_CONTRACT.md). It does not depend on Dear ImGui, GLFW, or an OpenGL context. Both front ends invoke `detect_skittles()` and `draw_annotations()`; neither implements a competing classifier.
 
 ## Processing pipeline
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "chromascope/ImageFrame.hpp"
+
 #include <opencv2/core.hpp>
 
 #include <array>
@@ -45,6 +47,8 @@ struct Result {
 CandyColor classify_hsv(cv::Vec3b hsv, bool& recognized) noexcept;
 void validate_settings(const Settings& settings);
 Result detect_skittles(const cv::Mat& bgr, const Settings& settings = {});
+// Typed frame entry point; accepts upright, unmirrored BGR8 frames only.
+Result detect_skittles(const ImageFrame& frame, const Settings& settings = {});
 cv::Mat draw_annotations(const cv::Mat& bgr, const Result& result,
                          bool show_labels = true);
 

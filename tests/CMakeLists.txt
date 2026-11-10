@@ -15,6 +15,10 @@ chromascope_add_cpp_test(chromascope_unit_color
     unit/test_color.cpp "unit;core" 20)
 chromascope_add_cpp_test(chromascope_unit_validation
     unit/test_validation.cpp "unit;core;negative" 20)
+chromascope_add_cpp_test(chromascope_unit_image_frame
+    unit/test_image_frame.cpp "unit;core;frame;negative" 20)
+chromascope_add_cpp_test(chromascope_integration_frame_cv
+    integration/test_frame_cv.cpp "integration;core;frame" 40)
 chromascope_add_cpp_test(chromascope_integration_synthetic
     integration/test_synthetic.cpp "integration;core;synthetic" 40)
 chromascope_add_cpp_test(chromascope_regression_skittles

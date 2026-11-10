@@ -165,3 +165,7 @@ I enabled warning diagnostics on all first-party C++ targets and introduced an o
 ## Rights and provenance audit (M1.8)
 
 I document the current first-party, third-party, and archival sample rights in [docs/LICENSE_AUDIT.md](docs/LICENSE_AUDIT.md). **The four original photographs have unresolved redistribution permissions and are not licensed under my MIT source-code license.** The audit does not authorize packaging them for v1.0; I must establish rights or replace/exclude them before a public release. The dependency-specific notice inventory will be finalized against actual release artifacts.
+
+## M2.1 owned frame contract
+
+I added a strongly owned CPU `ImageFrame` with explicit pixel format, row stride, orientation, mirror metadata, and optional source-domain timestamp. The CLI and GUI analyze typed BGR8 frames through the existing Skittles detector without changing its behavior. Two new CTests validate ownership and OpenCV interoperability. See [docs/IMAGE_FRAME_CONTRACT.md](docs/IMAGE_FRAME_CONTRACT.md).

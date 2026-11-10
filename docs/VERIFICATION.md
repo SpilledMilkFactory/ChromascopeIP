@@ -254,3 +254,7 @@ I added first-party compiler warning policies, warnings-as-errors opt-in, Linux 
 ## M1.7 acceptance and M1.8 provenance audit preparation (reported November 9, 2026)
 
 I recorded 9/9 native Release CTests, 9/9 ASan/UBSan CTests, successful local clang-tidy and CI policy checks, and the six passing GitHub Actions checks reported before merging M1.7. M1.8 adds a source-level rights assessment, SHA-256-backed rights manifest, deterministic validation, and policy regression tests. These tests check *integrity and disclosure of unresolved rights*, not proof of copyright ownership. The archival photographs remain explicitly excluded from the MIT code license, and the release rights gate stays blocked pending verified permission or replacement. Per-artifact notices and SBOMs remain future release gates.
+
+## M2.1 owned ImageFrame contract — implementation pending native acceptance
+
+I added the owned frame value type, a deep-copy OpenCV adapter, an ImageFrame-aware Skittles entry point, and CLI/GUI integration. The original nine CTests are unchanged; two dedicated frame tests bring the suite to 11. The milestone is **pending native Ubuntu 26.04** Release, sanitizer, and GUI verification and the six hosted GitHub Actions checks. M1.8 audit passed with unresolved fixture release rights intentionally blocked; M2.1 does not change those images or their manifest.

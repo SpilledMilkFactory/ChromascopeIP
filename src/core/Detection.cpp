@@ -1,4 +1,5 @@
 #include "chromascope/Detection.hpp"
+#include "chromascope/ImageFrameCV.hpp"
 
 #include <opencv2/imgproc.hpp>
 
@@ -181,6 +182,14 @@ Result detect_skittles(const cv::Mat& bgr, const Settings& s) {
     result.elapsed_ms = std::chrono::duration<double, std::milli>(
                             std::chrono::steady_clock::now() - start).count();
     return result;
+}
+
+Result detect_skittles(const ImageFrame& frame, const Settings& settings) {
+    if (frame.format() != PixelFormat::BGR8 ||
+        frame.metadata().orientation != FrameOrientation::Upright ||
+        frame.metadata().mirror_horizontal)
+        throw std::invalid_argument("Skittles processing requires an upright, unmirrored BGR8 frame");
+    return detect_skittles(to_cv_mat_copy(frame), settings);
 }
 
 cv::Mat draw_annotations(const cv::Mat& bgr, const Result& result, bool show_labels) {

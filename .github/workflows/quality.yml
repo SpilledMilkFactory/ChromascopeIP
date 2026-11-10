@@ -86,7 +86,7 @@ jobs:
       - name: Build ASan and UBSan Debug targets
         run: cmake --build --preset linux-cli-sanitize --parallel 2
 
-      - name: Run all nine CTests with ASan and UBSan
+      - name: Run all eleven CTests with ASan and UBSan
         run: ctest --preset linux-cli-sanitize --parallel 1
 
       - name: Show CTest logs on failure
@@ -102,6 +102,7 @@ jobs:
             echo '## ChromascopeIP M1.7 quality gate'
             echo '- Ubuntu 24.04, GCC first-party warnings-as-errors'
             echo '- Clang-tidy 18 correctness checks for core/CLI/test units'
+            echo '- ASan + UBSan Debug CLI-only; full eleven-test CTest suite'
             echo '- ASan + UBSan Debug CLI-only; full nine-test CTest suite'
             echo '- Workflow policy and historical fixture provenance integrity (media rights unresolved)'
             echo '- GUI runtime, third-party instrumentation and Windows sanitizers: not checked'

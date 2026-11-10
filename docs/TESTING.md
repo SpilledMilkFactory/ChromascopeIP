@@ -87,3 +87,7 @@ For milestone acceptance I record the exact compiler, OpenCV version, build vari
 ## M1.8 rights-manifest policy
 
 `python3 scripts/check_provenance.py` validates the four original JPEG checksums and conservatively prevents accidental approval for redistribution. `python3 scripts/check_provenance.py --release` is an intentionally failing future-release gate while image permissions remain unresolved. The normal six CI checks are unaffected by that unresolved legal determination. Five Python regression tests exercise both normal and negative cases.
+
+## M2.1 frame contract tests
+
+`chromascope_unit_image_frame` and `chromascope_integration_frame_cv` validate owned bytes, stride/padding, timestamps, orientation, OpenCV ROI copies, and safe rejection of mismatched formats. The suite increases from 9 to 11 tests; the nine established names are unchanged. Run `ctest --preset linux-release --output-on-failure`, `ctest --preset linux-cli-release --output-on-failure`, and the sanitizer preset where available.

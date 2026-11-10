@@ -64,6 +64,15 @@
       }
     },
     {
+      "name": "linux-cli-sanitize",
+      "displayName": "Linux Debug ASan + UBSan (core, CLI, tests)",
+      "inherits": "linux-cli-debug",
+      "cacheVariables": {
+        "CHROMASCOPE_ENABLE_SANITIZERS": "ON",
+        "CHROMASCOPE_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
       "name": "windows-msvc-base",
       "hidden": true,
       "generator": "Visual Studio 17 2022",
@@ -115,6 +124,10 @@
       "configurePreset": "linux-cli-debug"
     },
     {
+      "name": "linux-cli-sanitize",
+      "configurePreset": "linux-cli-sanitize"
+    },
+    {
       "name": "windows-cli-release",
       "configurePreset": "windows-cli-release",
       "configuration": "Release"
@@ -159,6 +172,16 @@
     {
       "name": "linux-cli-debug",
       "configurePreset": "linux-cli-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "linux-cli-sanitize",
+      "configurePreset": "linux-cli-sanitize",
       "output": {
         "outputOnFailure": true
       },

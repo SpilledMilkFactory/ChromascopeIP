@@ -238,3 +238,15 @@ unchanged Linux workflows / C++ code / original test fixtures.
 
 **Native Windows build + all nine Windows CTests:** PENDING the next GitHub
 Actions run. The previous failed run does not constitute M1.6 acceptance.
+
+## M1.6 acceptance — November 9, 2026
+
+I accepted M1.6 after the Windows Server 2022 MSVC Release check joined Debian 12/13 and Ubuntu 24.04/26.04 with **five green GitHub Actions checks**. The PR was merged and the Ubuntu 26.04 GUI was manually verified. This confirms Windows core/CLI CI only, not Windows 10/11 desktop GUI qualification.
+
+## M1.7 quality infrastructure — issue #9
+
+I added first-party compiler warning policies, warnings-as-errors opt-in, Linux CLI-only Debug AddressSanitizer/UndefinedBehaviorSanitizer preset, clang-tidy 18 static analysis, workflow pin/permission checks and negative policy tests, and a weekly GitHub Actions Dependabot review queue. I retained the accepted OpenCV 5.1.0 pin, Windows dependency consumer check, all five OS workflows, and the historical C++ test suite.
+
+**Local structural validation:** CMake presets and sanitizer rejection paths, workflow YAML, offline CI policy/negative tests, dependency pin integrity, patch replay, source ZIP equivalence, and unchanged historical JPEG bytes. These do **not** constitute a native ASan/UBSan test or hosted clang-tidy execution.
+
+**Native acceptance pending:** I must run first-party warnings-as-errors Release and sanitizer Debug on Ubuntu, preserve the nine CTests, and receive a green Quality Actions job alongside five green distribution CI jobs. Document results before accepting issue #9.

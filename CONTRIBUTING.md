@@ -68,3 +68,7 @@ Code contributions are submitted under the repository's [MIT license](LICENSE). 
 ## M1.6 Windows core and CLI continuous integration
 
 I require the `Windows CI / windows-2022 / MSVC x64 / Release / CTest` check, in addition to the Ubuntu and Debian checks, for changes that affect core, CLI, tests, build scripts, or dependencies once M1.6 is accepted. The workflow validates OpenCV 5.1.0 from pinned source with compatible MSVC runtime flags. It does not certify GUI execution or Windows 10/11 desktop compatibility. I retain those as separate future release gates. See [docs/CI_WINDOWS.md](docs/CI_WINDOWS.md).
+
+## M1.7 — First-party quality and CI hardening (issue #9)
+
+I enabled warning diagnostics on all first-party C++ targets and introduced an opt-in warnings-as-errors mode. I added a CLI-only Linux Debug ASan/UBSan preset, focused clang-tidy 18 analysis, negative-tested GitHub Actions policy checks, and weekly Dependabot update PRs for pinned Actions. The GUI's fetched ImGui v1.93.0 revision is checked against its immutable release commit. I have not yet verified the new Quality GitHub Actions job on a hosted runner. See [docs/QUALITY.md](docs/QUALITY.md) for supported commands and limitations.

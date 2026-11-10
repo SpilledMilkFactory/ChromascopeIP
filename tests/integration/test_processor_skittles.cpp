@@ -27,7 +27,18 @@ void test_skittles_adapter() {
     using namespace chromascope;
     const auto registry = make_builtin_registry();
     const auto listings = registry.descriptors();
-    check(listings.size() == 5, "Skittles and four built-in image filters registered");
+    // Preserve the M2.3 contract without freezing the total number of built-ins:
+    // later milestones may register additional processors.
+    constexpr const char* legacy_profile_ids[] = {
+        "skittles", "grayscale", "gaussian_blur", "binary_threshold", "canny_edges"
+    };
+    for (const char* expected_id : legacy_profile_ids) {
+        check(std::count_if(listings.begin(), listings.end(),
+                            [expected_id](const auto& descriptor) {
+                                return descriptor.id == expected_id;
+                            }) == 1,
+              "original Skittles and image-filter profiles registered exactly once");
+    }
     check(registry.default_profile("skittles").processor_id == "skittles",
           "legacy Skittles processor remains registered");
     check(std::any_of(listings.begin(), listings.end(), [](const auto& descriptor) {

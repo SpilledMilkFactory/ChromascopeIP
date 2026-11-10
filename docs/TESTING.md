@@ -202,3 +202,18 @@ ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
 
 I will record native OpenCV 5.1.0, GCC, MSVC, and hosted CI results only after
 they actually run; preparing the patch does not establish native acceptance.
+
+## M3.2 geometry/segmentation coverage
+
+I added seven `segmentation`-labeled CTests covering processor registration,
+finite and cross-field options, OpenCV HSV hue-wrap, pixel ownership,
+mask metadata, contour polygons/boxes, annotation rendering, CLI annotated
+exports and raw-mask JSON exports, and invalid parameter combinations.
+The expected native suite now contains **42** CTests.
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L segmentation
+```
+
+I retain all 35 existing M3.1 tests unchanged apart from the processor-count
+expectation, which now correctly includes the two new registered processors.

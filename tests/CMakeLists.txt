@@ -85,3 +85,11 @@ chromascope_add_cpp_test(chromascope_integration_processing_async
     integration/test_processing_async.cpp "integration;core;async;fixtures" 50)
 target_compile_definitions(chromascope_integration_processing_async PRIVATE
     CHROMASCOPE_ASYNC_SAMPLE="${CHROMASCOPE_TEST_FIXTURE_ROOT}/s1.jpg")
+
+# M2.5: detection-to-annotation boundary and pixel-equivalent CPU renderer.
+chromascope_add_cpp_test(chromascope_unit_annotation
+    unit/test_annotation.cpp "unit;core;annotation;negative" 20)
+chromascope_add_cpp_test(chromascope_integration_annotation_renderer
+    integration/test_annotation_renderer.cpp "integration;core;annotation;fixtures;regression" 90)
+target_compile_definitions(chromascope_integration_annotation_renderer PRIVATE
+    CHROMASCOPE_ANNOTATION_SAMPLES="${CHROMASCOPE_TEST_FIXTURE_ROOT}")

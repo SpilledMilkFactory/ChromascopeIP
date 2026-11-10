@@ -16,7 +16,7 @@ chromascope-gui ------------------+
        +-- GLFW + OpenGL 3.3
 ```
 
-The original core used `cv::Mat` as the image container and returns plain detection results. M2.1 adds the owned `ImageFrame` value type and deep-copy OpenCV adapters, detailed in [IMAGE_FRAME_CONTRACT.md](IMAGE_FRAME_CONTRACT.md). It does not depend on Dear ImGui, GLFW, or an OpenGL context. Both front ends invoke `detect_skittles()` and `draw_annotations()`; neither implements a competing classifier.
+The original core used `cv::Mat` as the image container and returns plain detection results. M2.1 adds the owned `ImageFrame` value type and deep-copy OpenCV adapters, detailed in [IMAGE_FRAME_CONTRACT.md](IMAGE_FRAME_CONTRACT.md). It does not depend on Dear ImGui, GLFW, or an OpenGL context. The current front ends share registered `IProcessor` implementations and the M2.5 annotation renderer; neither implements a competing classifier.
 
 ## Processing pipeline
 
@@ -70,7 +70,7 @@ existing Skittles-only `Result` into this model without modifying detection
 logic, GUI overlays, or CLI serialization. A source timestamp can be forwarded
 from an associated M2.1 `ImageFrame`. See
 [DETECTION_RESULT_CONTRACT.md](DETECTION_RESULT_CONTRACT.md) for pixel-coordinate,
-validation, ownership, and compatibility rules. M2.3 and M2.5 will integrate
+validation, ownership, and compatibility rules. M2.3 and M2.5 integrate
 this representation with processor registration and generalized annotations.
 
 ## M2.3 explicit processing registry
@@ -79,7 +79,18 @@ I added the OpenCV-independent `IProcessor`, `ProcessorProfile`, and
 `ProcessorRegistry` interfaces (`include/chromascope/Processor.hpp`).
 `SkittlesProcessor` is the first registered built-in, using the existing Hough
 and HSV implementation through an owned frame. Results use M2.2 `DetectionResult`
-and are adapted back into the established legacy presentation only for the
-current CLI and GUI. This avoids duplicate analysis and reserves generalized
-rendering/export for a later milestone. See
+and are adapted to the original Skittles result only where the CLI must retain
+its historical JSON/text schema. Visual presentation uses the M2.5 annotation
+layer instead, without calling the detector again. See
 [PROCESSOR_CONTRACT.md](PROCESSOR_CONTRACT.md).
+
+## M2.5 independent annotation/rasterization boundary
+
+I extracted shared pixel geometry into `Geometry.hpp`, then introduced an
+owned `AnnotationLayer`, a dedicated detection-to-annotation adapter, and an
+OpenCV-backed BGR renderer. The annotation model has no dependency on OpenCV,
+processors, GUI widgets, or detection metadata; the renderer consumes only the
+layer and image. The GUI and CLI use the same drawing implementation while
+preserving legacy colors and export schemas. `draw_annotations` remains an
+adapter for older callers. See [ANNOTATION_CONTRACT.md](ANNOTATION_CONTRACT.md)
+for ownership, coordinate semantics, and new regression checks.

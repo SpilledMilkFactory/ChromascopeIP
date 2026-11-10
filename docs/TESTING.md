@@ -125,3 +125,22 @@ cancellation, bounded latest-wins queueing, errors and recovery; and
 for the real registered Skittles processor and its cancellation contract.
 I expect **19** native CTests. I run `ctest --preset linux-release` and the
 `linux-cli-sanitize` preset and inspect manual GUI responsiveness before merging.
+
+## M2.5 annotation contract and renderer checks
+
+I added `chromascope_unit_annotation` (`unit;core;annotation;negative`) and
+`chromascope_integration_annotation_renderer`
+(`integration;core;annotation;fixtures;regression`). The model test verifies
+ownership, shape/color retention and invalid inputs without invoking OpenCV.
+The integration test covers shapes, visibility flags, input immutability,
+misdimensioned and invalid-type images, and compares historical Skittles
+rendering pixel-for-pixel on all four original photographs in both label
+modes. I expect **21** native CTests after M2.5.
+
+I run the focused suite using:
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L annotation
+```
+
+The historic fixture redistribution release gate remains in effect.

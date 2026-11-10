@@ -69,17 +69,6 @@ std::string_view color_name(CandyColor color) noexcept {
     return i < kNames.size() ? kNames[i] : "unknown";
 }
 
-cv::Scalar annotation_bgr(CandyColor color) noexcept {
-    switch (color) {
-        case CandyColor::Red: return {30, 30, 235};
-        case CandyColor::Orange: return {0, 145, 245};
-        case CandyColor::Yellow: return {0, 230, 250};
-        case CandyColor::Lime: return {45, 225, 45};
-        case CandyColor::Purple: return {205, 75, 200};
-        default: return {255, 255, 255};
-    }
-}
-
 CandyColor classify_hsv(cv::Vec3b hsv, bool& recognized) noexcept {
     const int h = hsv[0], s = hsv[1], v = hsv[2];
     recognized = true;
@@ -209,34 +198,6 @@ Result detect_skittles(const ImageFrame& frame, const Settings& settings,
         frame.metadata().mirror_horizontal)
         throw std::invalid_argument("Skittles processing requires an upright, unmirrored BGR8 frame");
     return detect_skittles(to_cv_mat_copy(frame), settings, token);
-}
-
-cv::Mat draw_annotations(const cv::Mat& bgr, const Result& result, bool show_labels) {
-    if (bgr.empty() || bgr.type() != CV_8UC3)
-        throw std::invalid_argument("draw_annotations requires a nonempty BGR image");
-    if (bgr.cols != result.width || bgr.rows != result.height)
-        throw std::invalid_argument("annotation result does not match image dimensions");
-    cv::Mat output = bgr.clone();
-    const double ratio = std::max(output.cols, output.rows) / 1200.0;
-    const int line_width = std::max(2, static_cast<int>(std::lround(2.0 * ratio)));
-    const double font_scale = std::clamp(0.42 * ratio, 0.42, 1.4);
-    for (const auto& item : result.objects) {
-        const auto center = cv::Point(cvRound(item.center.x), cvRound(item.center.y));
-        const int radius = cvRound(item.radius);
-        const cv::Scalar color = annotation_bgr(item.color);
-        cv::circle(output, center, radius, color, line_width, cv::LINE_AA);
-        cv::circle(output, center, 2, color, -1, cv::LINE_AA);
-        if (show_labels) {
-            const std::string label(color_name(item.color));
-            const cv::Point text_position(std::max(0, center.x - radius),
-                std::max(16, center.y - radius - line_width * 3));
-            cv::putText(output, label, text_position, cv::FONT_HERSHEY_SIMPLEX,
-                        font_scale, {15, 15, 15}, line_width + 2, cv::LINE_AA);
-            cv::putText(output, label, text_position, cv::FONT_HERSHEY_SIMPLEX,
-                        font_scale, color, line_width, cv::LINE_AA);
-        }
-    }
-    return output;
 }
 
 } // namespace chromascope

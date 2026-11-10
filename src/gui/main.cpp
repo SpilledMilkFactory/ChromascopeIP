@@ -1,4 +1,6 @@
 #include "chromascope/Detection.hpp"
+#include "chromascope/AnnotationBridge.hpp"
+#include "chromascope/AnnotationRendererCV.hpp"
 #include "chromascope/DetectionResultBridge.hpp"
 #include "chromascope/SkittlesProcessor.hpp"
 #include "chromascope/ProcessingQueue.hpp"
@@ -81,7 +83,9 @@ struct App {
     std::optional<chromascope::DetectionResult> generalized_result;
     cv::Mat input;
     std::shared_ptr<const chromascope::ImageFrame> input_frame;
-    chromascope::Result result;
+    std::optional<chromascope::AnnotationLayer> annotation_layer;
+    std::array<int, chromascope::kColorCount> color_counts{};
+    double analysis_elapsed_ms = 0.0;
     Texture original_texture, annotated_texture;
     std::string status = "Open one of the legacy samples or enter an image path.";
     bool show_overlay = true;
@@ -111,12 +115,14 @@ struct App {
             pending_ticket = processing->submit(std::move(profile), input_frame);
             have_result = false;
             generalized_result.reset();
+            annotation_layer.reset();
             annotated_texture.reset();
             status = "Analyzing in background...";
         } catch (const std::exception& e) {
             pending_ticket = 0;
             have_result = false;
             generalized_result.reset();
+            annotation_layer.reset();
             annotated_texture.reset();
             status = std::string("Analysis failed: ") + e.what();
         }
@@ -132,23 +138,37 @@ struct App {
             if (!completion->processed)
                 throw std::runtime_error("Processor returned no result");
             auto& processed = *completion->processed;
-            result = chromascope::to_legacy_skittles_result(
-                processed.detections, processed.elapsed_ms);
+            // Keep the processor result immutable and generate presentation
+            // data once; the renderer never inspects processor classes/scores.
+            auto next_layer = chromascope::make_annotation_layer(processed.detections);
+            color_counts.fill(0);
+            if (processed.detections.processor_id() == "skittles") {
+                for (const auto& detection : processed.detections.objects()) {
+                    if (detection.class_id && *detection.class_id >= 0 &&
+                        *detection.class_id < static_cast<int>(chromascope::kColorCount))
+                        ++color_counts[static_cast<std::size_t>(*detection.class_id)];
+                }
+            }
+            analysis_elapsed_ms = processed.elapsed_ms;
+            annotation_layer = std::move(next_layer);
             generalized_result = std::move(processed.detections);
             have_result = true;
             refresh_overlay();
-            status = "Analysis complete: " + std::to_string(result.objects.size()) + " colored circles.";
+            status = "Analysis complete: " +
+                std::to_string(generalized_result->objects().size()) + " objects.";
         } catch (const std::exception& e) {
             have_result = false;
             generalized_result.reset();
+            annotation_layer.reset();
             annotated_texture.reset();
             status = std::string("Analysis failed: ") + e.what();
         }
     }
 
     void refresh_overlay() {
-        if (have_result) {
-            annotated_texture.upload(chromascope::draw_annotations(input, result, show_labels));
+        if (have_result && annotation_layer) {
+            annotated_texture.upload(chromascope::render_annotations(
+                input, *annotation_layer, {.show_outlines = true, .show_labels = show_labels}));
         }
     }
 
@@ -165,6 +185,7 @@ struct App {
             original_texture.upload(input);
             have_result = false;
             generalized_result.reset();
+            annotation_layer.reset();
             annotated_texture.reset();
             analyze();
         } catch (const std::exception& e) {
@@ -176,7 +197,9 @@ struct App {
         if (!have_result) { status = "Analyze an image before exporting."; return; }
         try {
             chromascope::write_image(export_path.data(),
-                chromascope::draw_annotations(input, result, show_labels));
+                chromascope::render_annotations(
+                    input, *annotation_layer,
+                    {.show_outlines = true, .show_labels = show_labels}));
             status = std::string("Saved: ") + export_path.data();
         } catch (const std::exception& e) {
             status = std::string("Export failed: ") + e.what();
@@ -319,6 +342,9 @@ struct App {
             processing->cancel();
             pending_ticket = 0;
             have_result = false;
+            generalized_result.reset();
+            annotation_layer.reset();
+            annotated_texture.reset();
             status = "Analysis canceled.";
         }
         ImGui::Separator();
@@ -335,11 +361,14 @@ struct App {
         }
         if (have_result) {
             ImGui::Text("Size: %d x %d", input_width, input_height);
-            ImGui::Text("Found: %zu", result.objects.size());
-            ImGui::Text("Processing time: %.1f ms", result.elapsed_ms);
-            for (std::size_t i = 0; i < chromascope::kColorCount; ++i) {
-                const auto color = static_cast<chromascope::CandyColor>(i);
-                ImGui::BulletText("%s: %d", chromascope::color_name(color).data(), result.counts[i]);
+            ImGui::Text("Found: %zu", generalized_result->objects().size());
+            ImGui::Text("Processing time: %.1f ms", analysis_elapsed_ms);
+            if (generalized_result->processor_id() == "skittles") {
+                for (std::size_t i = 0; i < chromascope::kColorCount; ++i) {
+                    const auto color = static_cast<chromascope::CandyColor>(i);
+                    ImGui::BulletText("%s: %d", chromascope::color_name(color).data(),
+                                      color_counts[i]);
+                }
             }
         } else ImGui::TextDisabled("No analysis yet.");
         ImGui::Separator();

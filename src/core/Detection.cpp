@@ -1,5 +1,6 @@
 #include "chromascope/Detection.hpp"
 #include "chromascope/ImageFrameCV.hpp"
+#include "chromascope/ResourceBudget.hpp"
 
 #include <opencv2/imgproc.hpp>
 
@@ -119,8 +120,10 @@ Result detect_skittles(const cv::Mat& bgr, const Settings& s, std::stop_token to
     };
     checkpoint();
     validate_settings(s);
-    if (bgr.empty() || bgr.type() != CV_8UC3)
+    if (bgr.empty() || bgr.dims != 2 || bgr.type() != CV_8UC3)
         throw std::invalid_argument("detect_skittles requires a nonempty CV_8UC3 BGR image");
+
+    resources::validate_analysis(bgr.cols, bgr.rows, s.max_dimension);
 
     const auto start = std::chrono::steady_clock::now();
     Result result;
@@ -135,6 +138,9 @@ Result detect_skittles(const cv::Mat& bgr, const Settings& s, std::stop_token to
     } else {
         analysis = bgr;
     }
+    if (static_cast<std::uint64_t>(analysis.cols) *
+        static_cast<std::uint64_t>(analysis.rows) > resources::max_analysis_pixels)
+        throw std::invalid_argument("Resized image exceeds analysis pixel budget");
     const int dimension = std::max(analysis.cols, analysis.rows);
     const int min_radius = std::max(2, static_cast<int>(std::lround(s.min_radius_fraction * dimension)));
     const int max_radius = std::max(min_radius + 1,
@@ -153,6 +159,8 @@ Result detect_skittles(const cv::Mat& bgr, const Settings& s, std::stop_token to
                      min_radius, max_radius);
 
     checkpoint();
+    if (circles.size() > resources::max_circle_candidates)
+        throw std::invalid_argument("Detected circle candidates exceed processing budget");
     std::vector<cv::Vec3b> pixels;
     if (!circles.empty()) {
         for (const auto& circle : circles) {

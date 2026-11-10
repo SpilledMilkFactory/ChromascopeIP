@@ -93,3 +93,21 @@ chromascope_add_cpp_test(chromascope_integration_annotation_renderer
     integration/test_annotation_renderer.cpp "integration;core;annotation;fixtures;regression" 90)
 target_compile_definitions(chromascope_integration_annotation_renderer PRIVATE
     CHROMASCOPE_ANNOTATION_SAMPLES="${CHROMASCOPE_TEST_FIXTURE_ROOT}")
+
+# M2.6: predecode image limits, owned-frame budgets and processing guards.
+chromascope_add_cpp_test(chromascope_unit_resource_budget
+    unit/test_resource_budget.cpp "unit;core;security;budget;negative" 25)
+chromascope_add_cpp_test(chromascope_integration_resource_limits
+    integration/test_resource_limits.cpp "integration;core;security;budget;negative;fixtures" 90)
+target_compile_definitions(chromascope_integration_resource_limits PRIVATE
+    CHROMASCOPE_RESOURCE_SAMPLES="${CHROMASCOPE_TEST_FIXTURE_ROOT}")
+
+# CLI parsers must reject trailing garbage rather than accepting numeric prefixes.
+add_test(NAME chromascope_cli_bad_dimension_suffix COMMAND chromascope-cli
+    --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --max-dimension 1200junk)
+set_tests_properties(chromascope_cli_bad_dimension_suffix PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;security;budget;negative" TIMEOUT 15)
+add_test(NAME chromascope_cli_bad_threshold_suffix COMMAND chromascope-cli
+    --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --accumulator 31junk)
+set_tests_properties(chromascope_cli_bad_threshold_suffix PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;security;budget;negative" TIMEOUT 15)

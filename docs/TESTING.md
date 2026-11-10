@@ -144,3 +144,18 @@ ctest --test-dir build/presets/linux-release --output-on-failure -L annotation
 ```
 
 The historic fixture redistribution release gate remains in effect.
+
+## M2.6 security/resource budget tests
+
+I added `chromascope_unit_resource_budget`, `chromascope_integration_resource_limits`,
+and two negative CLI option parsing tests. These extend the suite from 21 to **25**
+CTests. The `budget` label groups all four tests; the C++ unit test performs
+predecode format-header validation without OpenCV, and the integration test
+validates the live OpenCV 5.1.0 I/O/processing boundaries.
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L budget
+```
+
+All 25 tests must also pass in Release, CLI-only Release, and Linux
+ASan/UBSan configurations. See `RESOURCE_BUDGETS.md`.

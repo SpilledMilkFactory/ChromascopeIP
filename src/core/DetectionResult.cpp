@@ -1,4 +1,5 @@
 #include "chromascope/DetectionResult.hpp"
+#include "chromascope/ResourceBudget.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -80,8 +81,7 @@ DetectionResult::DetectionResult(int width, int height, std::string processor_id
 DetectionResult DetectionResult::create(int width, int height, std::string processor_id,
                                          std::vector<GeneralDetection> objects,
                                          std::optional<FrameTimestamp> timestamp) {
-    if (width <= 0 || height <= 0)
-        throw std::invalid_argument("result frame dimensions must be positive");
+    resources::validate_image(width, height, 3);
     valid_label(processor_id, "processor id");
     valid_timestamp(timestamp);
     for (const auto& item : objects) {

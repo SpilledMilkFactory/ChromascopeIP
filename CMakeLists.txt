@@ -28,6 +28,8 @@ message(STATUS "ChromascopeIP OpenCV: ${OpenCV_VERSION} at ${OpenCV_DIR}")
 add_library(chromascope_core STATIC
     src/core/Detection.cpp
     src/core/ImageIO.cpp
+    src/core/ImageHeader.cpp
+    src/core/ResourceBudget.cpp
     src/core/ImageFrame.cpp
     src/core/ImageFrameCV.cpp
     src/core/DetectionResult.cpp

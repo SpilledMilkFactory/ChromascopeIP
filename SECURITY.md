@@ -27,3 +27,13 @@ I will work toward coordinated disclosure after evaluating a report and preparin
 I am particularly interested in memory safety, malformed image/video handling, unsafe file operations, model-loading or dependency risks, runaway resource consumption, and accidental exposure of live camera content. Reports against third-party libraries may also need coordinated upstream reporting.
 
 No public security audit, sandbox isolation guarantee, or vulnerability reward program is claimed for the current development build. The project processes content locally by design; future features that change data-handling behavior will require explicit documentation and review.
+
+## M2.6 — Still-image resource limits
+
+I reject encoded still images larger than 32 MiB and validate image-header
+dimensions before decoding. Decoded and direct-C++ frames are limited to
+8,192 pixels per side, 24 million pixels and 96 MiB owned storage; working
+analysis images are limited to 16 million pixels. These limits reduce exposure
+to decompression bombs and accidental runaway workloads, but do not sandbox
+OpenCV codecs or guarantee a total process-memory cap. I document exact
+boundaries and supported header formats in `docs/RESOURCE_BUDGETS.md`.

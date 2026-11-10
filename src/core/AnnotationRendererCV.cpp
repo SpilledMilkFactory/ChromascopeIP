@@ -1,4 +1,5 @@
 #include "chromascope/AnnotationRendererCV.hpp"
+#include "chromascope/ResourceBudget.hpp"
 
 
 #include <opencv2/imgproc.hpp>
@@ -47,6 +48,7 @@ cv::Mat render_annotations(const cv::Mat& input, const AnnotationLayer& layer,
                            AnnotationRenderOptions options) {
     if (input.empty() || input.type() != CV_8UC3)
         throw std::invalid_argument("render_annotations requires a nonempty BGR8 image");
+    resources::validate_image(input.cols, input.rows, 3);
     if (input.cols != layer.width() || input.rows != layer.height())
         throw std::invalid_argument("Annotation layer dimensions differ from the input image");
     cv::Mat output = input.clone();

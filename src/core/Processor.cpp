@@ -1,4 +1,5 @@
 #include "chromascope/Processor.hpp"
+#include "chromascope/ResourceBudget.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -117,6 +118,9 @@ ProcessedFrame ProcessorRegistry::run(const ProcessorProfile& profile, const Ima
 ProcessedFrame ProcessorRegistry::run(const ProcessorProfile& profile,
                                       const ImageFrame& frame, std::stop_token token) const {
     if (token.stop_requested()) throw std::runtime_error("Processing canceled");
+    resources::validate_image(frame.width(), frame.height(),
+                              bytes_per_pixel(frame.format()));
+    resources::validate_storage(frame.pixels().size());
     auto processor = create(profile);
     auto output = processor->process(frame, token);
     if (token.stop_requested()) throw std::runtime_error("Processing canceled");

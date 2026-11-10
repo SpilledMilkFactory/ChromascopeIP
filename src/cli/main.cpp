@@ -48,6 +48,24 @@ std::string next(int& i, int argc, char* argv[], std::string_view flag) {
     return argv[++i];
 }
 
+// Require complete numeric arguments; stoi/stod otherwise silently accept
+// trailing characters such as "1200junk" as apparently valid settings.
+int parse_integer(const std::string& text) {
+    std::size_t consumed = 0;
+    const int value = std::stoi(text, &consumed);
+    if (consumed != text.size())
+        throw std::invalid_argument("Invalid integer argument: " + text);
+    return value;
+}
+
+double parse_real(const std::string& text) {
+    std::size_t consumed = 0;
+    const double value = std::stod(text, &consumed);
+    if (consumed != text.size())
+        throw std::invalid_argument("Invalid numeric argument: " + text);
+    return value;
+}
+
 Options parse(int argc, char* argv[]) {
     Options o;
     for (int i = 1; i < argc; ++i) {
@@ -61,13 +79,13 @@ Options parse(int argc, char* argv[]) {
         } else if (flag == "--mode" || flag == "--profile") {
             o.profile_id = next(i, argc, argv, flag);
         } else if (flag == "--accumulator")
-            o.settings.accumulator_threshold = std::stod(next(i, argc, argv, flag));
+            o.settings.accumulator_threshold = parse_real(next(i, argc, argv, flag));
         else if (flag == "--edge")
-            o.settings.edge_threshold = std::stod(next(i, argc, argv, flag));
+            o.settings.edge_threshold = parse_real(next(i, argc, argv, flag));
         else if (flag == "--max-dimension")
-            o.settings.max_dimension = std::stoi(next(i, argc, argv, flag));
+            o.settings.max_dimension = parse_integer(next(i, argc, argv, flag));
         else if (flag == "--min-confidence")
-            o.settings.minimum_confidence = std::stod(next(i, argc, argv, flag));
+            o.settings.minimum_confidence = parse_real(next(i, argc, argv, flag));
         else if (flag == "--no-labels") o.labels = false;
         else throw std::invalid_argument("Unknown argument: " + std::string(flag));
     }

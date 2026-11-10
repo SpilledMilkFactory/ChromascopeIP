@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3–M2.4 accepted (v0.1.3), M2.5 annotation separation under verification. I have the still-image CLI/GUI, an extensible processor interface, generalized detections, bounded background processing, and six GitHub Actions checks across Ubuntu, Debian, Windows and quality tooling. M2.5 requires 21 native CTests and manual GUI acceptance. This is pre-release software; packaged distributions, video, webcam and people detection are not yet available.
+> **Development stage:** M0.3–M2.5 accepted (v0.1.3); M2.6 resource budgets and input validation are awaiting native acceptance. I have a still-image CLI/GUI, registered processing profiles, generalized detections and annotations, bounded background processing, and six GitHub Actions checks across Ubuntu, Debian, Windows and quality tooling. M2.6 registers 25 CTests. This is pre-release software; packaged distributions, video, webcam and people detection are not yet available.
 
 ## What works in M0–M0.3
 
@@ -33,7 +33,7 @@ checkpoints and generation-based stale-result suppression. GUI texture updates
 remain on the render thread. See [docs/ASYNC_PROCESSING.md](docs/ASYNC_PROCESSING.md)
 for thread ownership and test requirements. I accepted M2.4 after 19/19 CTests in all three local build modes, six passing Actions checks, and manual cancellation/switching verification.
 
-## M2.5 independent annotations (under verification)
+## M2.5 independent annotations (accepted)
 
 I split rendering from analysis: `DetectionResult` is mapped into an owned,
 OpenCV-independent `AnnotationLayer`, and `AnnotationRendererCV` draws circles,
@@ -42,6 +42,19 @@ GUI and CLI now use this renderer directly. The original Skittles drawing API
 remains as a compatibility wrapper; CLI JSON is unchanged. My new tests
 compare output pixels with the accepted M2.4 renderer on all four photographs.
 See [docs/ANNOTATION_CONTRACT.md](docs/ANNOTATION_CONTRACT.md).
+I accepted M2.5 after 21/21 native CTests in Release, CLI-only Release and
+ASan/UBSan builds, focused annotation tests, manual GUI/export checks, and six
+green GitHub Actions jobs, then merged the PR.
+
+## M2.6 resource budgets (under verification)
+
+I now inspect JPEG/PNG/BMP/TIFF/WebP dimensions **before** decoding and enforce
+encoded-file, pixel-count, dimension, storage and analysis-workspace budgets
+throughout the core. I reject unsafe numeric CLI arguments and stop excessive
+Hough candidate lists before classification. My original Skittles thresholds
+and images remain unchanged. See [docs/RESOURCE_BUDGETS.md](docs/RESOURCE_BUDGETS.md)
+for exact limits and security caveats. The expanded suite registers **25 CTests**;
+full native and hosted CI verification are still pending.
 
 ## Source tree
 

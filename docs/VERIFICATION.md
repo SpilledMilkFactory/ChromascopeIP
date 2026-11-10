@@ -351,3 +351,30 @@ Acceptance remains **pending** until I run 21/21 native CTests in Release,
 CLI-only Release, and ASan/UBSan configurations, the static analysis gate, GUI
 visual/export regression, and six hosted Actions checks. I will not regard a
 stub-only or synthetic-only build as an OpenCV 5.1.0 qualification.
+
+## M2.5 acceptance and M2.6 resource-budget preparation — issue #16 (November 10, 2026)
+
+I accepted M2.5 after **21/21** native CTests in Release, CLI-only Release,
+and ASan/UBSan configurations (the sanitizer suite passed twice); I also ran
+the two annotation-focused tests, verified the GUI labels/export/rapid
+switching/cancellation manually, and observed six passing GitHub Actions
+checks before merging the PR. The supplied annotated image preserved the
+expected historical Skittles detections.
+
+For M2.6 I introduced bounded still-image reads and supported-format header
+inspection before the OpenCV decoder, common decoded/owned-frame limits,
+processing workspace and candidate-list guards, complete numeric CLI argument
+validation, and four new CTests (**25 total**). The historical samples,
+processing defaults and third-party version requirements are unchanged.
+
+Prepared-source checks: independently compiled and executed the C++
+resource/header test (**24 checks passed**) using GCC/C++20 with
+`-Wall -Wextra -Wpedantic -Werror`; all four JPEG dimensions were inspected
+without decoding; Python quality tests passed (**10/10**); CI policy checks
+passed; CMake registered **25** CTests using a test-only OpenCV configuration
+stub. None of these establish native OpenCV 5.1.0 build success.
+
+**M2.6 acceptance pending:** 25/25 tests in Ubuntu Release, CLI-only Release
+and ASan/UBSan; focused `-L budget`; static analysis; manual GUI inspection
+and all six GitHub Actions checks. I will keep issue #16 In Progress until
+these complete and the PR is merged.

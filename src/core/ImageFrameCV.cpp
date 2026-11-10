@@ -1,4 +1,5 @@
 #include "chromascope/ImageFrameCV.hpp"
+#include "chromascope/ResourceBudget.hpp"
 
 #include <cstring>
 #include <limits>
@@ -24,6 +25,8 @@ ImageFrame from_cv_mat(const cv::Mat& image, PixelFormat format, FrameMetadata m
     if (image.empty() || image.dims != 2 || image.type() != cv_type(format))
         throw std::invalid_argument("OpenCV image must be nonempty 2D CV_8U with matching channels");
 
+    resources::validate_image(image.cols, image.rows, bytes_per_pixel(format));
+
     // Copy row by row: an ROI may have an offset and padded parent stride.
     // Never copy the parent row padding or read beyond the ROI's last row.
     const auto stride = static_cast<std::size_t>(image.cols) * bytes_per_pixel(format);
@@ -39,6 +42,7 @@ ImageFrame from_cv_mat(const cv::Mat& image, PixelFormat format, FrameMetadata m
 }
 
 cv::Mat to_cv_mat_copy(const ImageFrame& frame) {
+    resources::validate_image(frame.width(), frame.height(), bytes_per_pixel(frame.format()));
     cv::Mat result(frame.height(), frame.width(), cv_type(frame.format()));
     const auto packed_row_bytes = static_cast<std::size_t>(frame.width()) *
                                   bytes_per_pixel(frame.format());

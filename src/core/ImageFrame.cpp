@@ -1,4 +1,5 @@
 #include "chromascope/ImageFrame.hpp"
+#include "chromascope/ResourceBudget.hpp"
 
 #include <limits>
 #include <stdexcept>
@@ -41,6 +42,8 @@ void validate(int width, int height, PixelFormat format, std::size_t stride,
     const auto required_bytes = multiply_checked(stride, static_cast<std::size_t>(height));
     if (bytes != required_bytes)
         throw std::invalid_argument("ImageFrame buffer must be exactly stride * height bytes");
+    resources::validate_image(width, height, bytes_per_pixel(format));
+    resources::validate_storage(required_bytes);
     validate_metadata(metadata);
 }
 

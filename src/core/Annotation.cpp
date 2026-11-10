@@ -1,4 +1,5 @@
 #include "chromascope/Annotation.hpp"
+#include "chromascope/ResourceBudget.hpp"
 
 #include <cmath>
 #include <stdexcept>
@@ -9,8 +10,7 @@ namespace chromascope {
 
 AnnotationLayer::AnnotationLayer(int width, int height, std::vector<Annotation> items)
     : width_(width), height_(height), items_(std::move(items)) {
-    if (width <= 0 || height <= 0)
-        throw std::invalid_argument("Annotation layer dimensions must be positive");
+    resources::validate_image(width, height, 3);
     for (const auto& item : items_) {
         const bool valid = std::visit([](const auto& geometry) {
             using Shape = std::decay_t<decltype(geometry)>;

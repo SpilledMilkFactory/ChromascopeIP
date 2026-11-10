@@ -1,0 +1,11 @@
+# Updates are reviewed and tested in PRs; never auto-merge supply-chain changes.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - area:ci
+      - type:chore

@@ -19,6 +19,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ChromascopeQuality.cmake")
+
 # A system OpenCV 4.x must NOT silently satisfy this dependency.
 find_package(OpenCV 5.1.0 EXACT REQUIRED COMPONENTS core imgproc imgcodecs)
 message(STATUS "ChromascopeIP OpenCV: ${OpenCV_VERSION} at ${OpenCV_DIR}")
@@ -32,9 +34,11 @@ target_include_directories(chromascope_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/
 target_include_directories(chromascope_core SYSTEM PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(chromascope_core PUBLIC ${OpenCV_LIBS})
 target_compile_features(chromascope_core PUBLIC cxx_std_20)
+chromascope_apply_quality(chromascope_core)
 
 add_executable(chromascope-cli src/cli/main.cpp)
 target_link_libraries(chromascope-cli PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope-cli)
 
 if(CHROMASCOPE_BUILD_GUI)
     find_package(glfw3 3.3 REQUIRED)
@@ -50,6 +54,19 @@ if(CHROMASCOPE_BUILD_GUI)
             GIT_SHALLOW TRUE
         )
         FetchContent_MakeAvailable(imgui)
+        # The shallow tag checkout is checked against the immutable v1.93.0
+        # commit so a moved tag cannot silently change our GUI source.
+        find_package(Git REQUIRED)
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" -C "${imgui_SOURCE_DIR}" rev-parse HEAD
+            OUTPUT_VARIABLE _chromascope_imgui_commit
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE _chromascope_imgui_git_result)
+        if(NOT _chromascope_imgui_git_result EQUAL 0 OR
+           NOT _chromascope_imgui_commit STREQUAL
+               "c1aaac65e896a45f81f47a4d68f9959e0f86c859")
+            message(FATAL_ERROR "Dear ImGui v1.93.0 source commit mismatch: ${_chromascope_imgui_commit}")
+        endif()
     endif()
 
     if(NOT EXISTS "${imgui_SOURCE_DIR}/imgui.cpp")
@@ -76,6 +93,7 @@ if(CHROMASCOPE_BUILD_GUI)
 
     add_executable(chromascope-gui src/gui/main.cpp)
     target_link_libraries(chromascope-gui PRIVATE ChromascopeIP::Core chromascope_imgui)
+    chromascope_apply_quality(chromascope-gui)
     target_compile_definitions(chromascope-gui PRIVATE
         CHROMASCOPE_SAMPLE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples/skittles")
 endif()

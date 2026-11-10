@@ -1,0 +1,5 @@
+# M1.7: conservative correctness-focused gate; widen deliberately per issue.
+Checks: '-*,clang-analyzer-core.*,clang-analyzer-cplusplus.NewDelete,bugprone-use-after-move'
+WarningsAsErrors: 'clang-analyzer-core.*,clang-analyzer-cplusplus.NewDelete,bugprone-use-after-move'
+HeaderFilterRegex: '(^|/)(include/chromascope|src|tests)/(.*)'
+FormatStyle: none

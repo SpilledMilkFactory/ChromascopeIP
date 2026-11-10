@@ -157,3 +157,7 @@ I accepted M0.3 after the native Ubuntu 26.04 Release build and **4/4 CTests pas
 ## Windows x64 core/CLI CI (M1.6)
 
 I use `.github/workflows/ci-windows.yml` to validate the **Windows x64 C++ core and CLI** against a pinned source build of OpenCV 5.1.0 on Windows Server 2022 with MSVC 2022. The GUI, webcam, client Windows 10/11 verification, and packaging are separate release gates. See [docs/CI_WINDOWS.md](docs/CI_WINDOWS.md).
+
+## M1.7 — First-party quality and CI hardening (issue #9)
+
+I enabled warning diagnostics on all first-party C++ targets and introduced an opt-in warnings-as-errors mode. I added a CLI-only Linux Debug ASan/UBSan preset, focused clang-tidy 18 analysis, negative-tested GitHub Actions policy checks, and weekly Dependabot update PRs for pinned Actions. The GUI's fetched ImGui v1.93.0 revision is checked against its immutable release commit. I have not yet verified the new Quality GitHub Actions job on a hosted runner. See [docs/QUALITY.md](docs/QUALITY.md) for supported commands and limitations.

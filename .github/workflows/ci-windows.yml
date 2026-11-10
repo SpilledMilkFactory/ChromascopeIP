@@ -77,12 +77,23 @@ jobs:
               throw "OpenCV provenance field mismatch: $field"
             }
           }
-          $configs = @(Get-ChildItem -LiteralPath $env:OPENCV_PREFIX -Filter OpenCVConfig.cmake -Recurse -File)
-          if ($configs.Count -eq 0) { throw 'Cannot find OpenCVConfig.cmake in isolated install.' }
-          # Avoid searching the runner's unrelated OpenCV packages: pass exact dir to CMake.
-          $config = $configs | Sort-Object FullName | Select-Object -First 1
-          "OpenCV_DIR=$($config.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "Found OpenCV package: $($config.FullName)"
+          # Select the actual MSVC 2022 x64 static package.
+          # Do not select the top-level Windows Pack dispatcher.
+          $opencvDir = Join-Path $env:OPENCV_PREFIX 'x64\vc17\staticlib'
+          foreach ($filename in @(
+            'OpenCVConfig.cmake',
+            'OpenCVConfig-version.cmake',
+            'OpenCVModules.cmake',
+            'OpenCVModules-release.cmake'
+          )) {
+            $required = Join-Path $opencvDir $filename
+            if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+              throw "OpenCV static package is incomplete: $required"
+            }
+          }
+          "OpenCV_DIR=$opencvDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Verified OpenCV static package: $opencvDir"
+
 
       - name: Configure Windows CLI Release with pinned OpenCV
         shell: pwsh

@@ -1,4 +1,6 @@
 #include "chromascope/Detection.hpp"
+#include "chromascope/DetectionResultBridge.hpp"
+#include "chromascope/SkittlesProcessor.hpp"
 #include "chromascope/ImageFrameCV.hpp"
 #include "chromascope/ImageIO.hpp"
 
@@ -17,6 +19,7 @@ struct Options {
     std::filesystem::path input, output, json;
     bool json_stdout = false;
     bool labels = true;
+    std::string profile_id = "skittles";
     chromascope::Settings settings;
 };
 
@@ -26,7 +29,9 @@ void usage(std::ostream& os) {
           "  -i, --input FILE       Input JPG/PNG/BMP/TIFF image (required)\n"
           "  -o, --output FILE      Save annotated image\n"
           "      --json FILE|-     Export machine-readable JSON; - writes to stdout\n"
-          "      --mode skittles   Select legacy Skittles processing (only M0 mode)\n"
+          "      --mode skittles   Legacy alias for --profile skittles\n"
+          "      --profile ID      Select a registered processing profile\n"
+          "      --list-profiles   List registered processors and default options\n"
           "      --accumulator N   Hough sensitivity threshold, default 31\n"
           "      --edge N          Hough edge threshold, default 95\n"
           "      --max-dimension N Processing resolution ceiling, default 1200\n"
@@ -51,9 +56,8 @@ Options parse(int argc, char* argv[]) {
             const auto value = next(i, argc, argv, flag);
             if (value == "-") o.json_stdout = true;
             else o.json = value;
-        } else if (flag == "--mode") {
-            if (next(i, argc, argv, flag) != "skittles")
-                throw std::invalid_argument("Only --mode skittles is supported in M0");
+        } else if (flag == "--mode" || flag == "--profile") {
+            o.profile_id = next(i, argc, argv, flag);
         } else if (flag == "--accumulator")
             o.settings.accumulator_threshold = std::stod(next(i, argc, argv, flag));
         else if (flag == "--edge")
@@ -130,10 +134,28 @@ int main(int argc, char* argv[]) {
                 return 0;
             }
         }
+        const auto registry = chromascope::make_builtin_registry();
+        for (int i = 1; i < argc; ++i) {
+            if (std::string_view(argv[i]) == "--list-profiles") {
+                if (argc != 2)
+                    throw std::invalid_argument("--list-profiles must be used without other arguments");
+                for (const auto& descriptor : registry.descriptors()) {
+                    std::cout << descriptor.id << " - " << descriptor.display_name << "\n"
+                              << "  " << descriptor.description << "\n";
+                    for (const auto& option : descriptor.options)
+                        std::cout << "  " << option.key << "=" << option.default_value << "\n";
+                }
+                return 0;
+            }
+        }
         const Options options = parse(argc, argv);
         const cv::Mat image = chromascope::read_image(options.input);
-        const auto result = chromascope::detect_skittles(
-            chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8), options.settings);
+        auto profile = chromascope::skittles_profile_from_settings(options.settings);
+        profile.processor_id = options.profile_id;
+        const auto processed = registry.run(profile,
+            chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8));
+        const auto result = chromascope::to_legacy_skittles_result(
+            processed.detections, processed.elapsed_ms);
         if (!options.output.empty()) {
             chromascope::write_image(options.output,
                 chromascope::draw_annotations(image, result, options.labels));

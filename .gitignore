@@ -37,3 +37,7 @@ Thumbs.db
 
 # Local/CI-fetched dependency prefix for Windows build validation
 /.ci-opencv/
+
+# Python policy-test and local tooling bytecode (never commit generated state).
+__pycache__/
+*.py[cod]

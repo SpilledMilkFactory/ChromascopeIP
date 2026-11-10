@@ -284,3 +284,31 @@ is not evidence that there are no suppressed or third-party warnings; I must
 run it without `--quiet` and inspect diagnostic locations if I want to classify
 them. I will not silence actionable first-party defects merely to remove the
 counts. The historical-photo redistribution gate remains intentionally blocked.
+
+## M2.2 acceptance and M2.3 processor registration — issue #13 (November 10, 2026)
+
+I accepted M2.2 after native Ubuntu Release/CLI and sanitizer testing, manual
+GUI review, and six successful GitHub Actions checks, followed by merging the PR.
+
+For M2.3, I introduced the explicitly registered `IProcessor` interface,
+validated numeric profile schemas, and an adapter that runs the unchanged
+Skittles detector through the M2.1 owned-frame and M2.2 generalized-result
+contracts. The CLI and GUI now route analysis through the registry and use a
+strict legacy presentation adapter to preserve existing output formats. M2.3
+adds **four CTests**, for **17 total**, including negative cases and the
+four-image object-level comparison of old and registered processing.
+
+Prepared-source checks are not a substitute for a real OpenCV build or Actions:
+
+- [ ] Release GUI/CLI with warnings-as-errors: 17/17 CTests.
+- [ ] CLI-only Release: 17/17 CTests.
+- [ ] ASan/UBSan Debug: 17/17 CTests without violations.
+- [ ] Static analysis includes new processor implementation and test units.
+- [ ] CLI `--list-profiles`, `--profile skittles`, and invalid-profile rejection.
+- [ ] GUI shows the registered Skittles profile and preserves accepted sample results.
+- [ ] All six distribution/quality GitHub checks pass and issue #13 is merged.
+
+I do not claim that a compiler's warning-count summary alone identifies an
+actionable first-party `clang-tidy` issue. For diagnosis I capture a targeted,
+non-quiet `clang-tidy-18` run with source locations and diagnostic names rather
+than suppressing or changing warning policy without reviewing the details.

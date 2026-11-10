@@ -2,6 +2,7 @@
 #include "chromascope/DetectionResultBridge.hpp"
 #include "chromascope/ImageIO.hpp"
 #include "chromascope/ImageFrameCV.hpp"
+#include "chromascope/SkittlesProcessor.hpp"
 #include "support/TestSupport.hpp"
 
 #include <algorithm>
@@ -63,6 +64,25 @@ void test_original_samples() {
                   circle->center.y == before.center.y &&
                   circle->radius == before.radius,
                   "generalized conversion changed Skittles category/score/geometry");
+        }
+        // M2.3: registered processing must produce the same geometry and classes
+        // as the accepted direct Skittles detector for each archived photograph.
+        const auto registry = chromascope::make_builtin_registry();
+        const auto processed = registry.run(registry.default_profile("skittles"),
+            chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8));
+        const auto registered_legacy = chromascope::to_legacy_skittles_result(
+            processed.detections, processed.elapsed_ms);
+        check(registered_legacy.objects.size() == result.objects.size() &&
+              registered_legacy.counts == result.counts,
+              "M2.3 registered profile changed historical counts");
+        for (std::size_t i = 0; i < result.objects.size(); ++i) {
+            const auto& expected = result.objects[i];
+            const auto& actual = registered_legacy.objects[i];
+            check(expected.color == actual.color &&
+                  expected.center == actual.center &&
+                  expected.radius == actual.radius &&
+                  expected.confidence == actual.confidence,
+                  "M2.3 registered path changed historical detection details");
         }
         int sum = 0;
         for (const int value : result.counts) sum += value;

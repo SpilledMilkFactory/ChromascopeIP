@@ -108,3 +108,11 @@ CLI export format are unchanged. For a focused run:
 ```bash
 ctest --test-dir build/presets/linux-release --output-on-failure -L detection
 ```
+
+## M2.3 processor registration
+
+The native CTest suite contains **17 tests** after M2.3. The `processor` label
+selects registry-schema validation, the built-in Skittles processor integration,
+and CLI profile enumeration/rejection. The historical Skittles regression also
+checks that registered and direct processing agree object by object on all
+four archived photographs. See [PROCESSOR_CONTRACT.md](PROCESSOR_CONTRACT.md).

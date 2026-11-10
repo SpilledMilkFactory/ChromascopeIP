@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "purpose": "Historical image regression fixture identity and rights tracking (not a license)",
+  "fixtures": [
+    {
+      "path": "samples/skittles/s1.jpg",
+      "sha256": "515454a4a2fd8625f831baea9c2ca39d614877fbfb489be3c55333c8ce56b2aa",
+      "source": "Original SkittlesIP archive retained without edits",
+      "license": "UNDETERMINED",
+      "redistribution_status": "PENDING_OWNER_PERMISSION",
+      "release_bundle_allowed": false
+    },
+    {
+      "path": "samples/skittles/s2.jpg",
+      "sha256": "9589016e0b67b5bfb40bf1a8bd8738651d0337a7777f20796c6ff3df53985a6e",
+      "source": "Original SkittlesIP archive retained without edits",
+      "license": "UNDETERMINED",
+      "redistribution_status": "PENDING_OWNER_PERMISSION",
+      "release_bundle_allowed": false
+    },
+    {
+      "path": "samples/skittles/s3.jpg",
+      "sha256": "1b928939929d46cd6dc94489c4c16c94361c77c5d72d15eec500884bdec69491",
+      "source": "Original SkittlesIP archive retained without edits",
+      "license": "UNDETERMINED",
+      "redistribution_status": "PENDING_OWNER_PERMISSION",
+      "release_bundle_allowed": false
+    },
+    {
+      "path": "samples/skittles/s4.jpg",
+      "sha256": "9d44d9c1b66dd748804620a610188bc1dff6ca1465cafaff1a3b06316e4f633c",
+      "source": "Original SkittlesIP archive retained without edits",
+      "license": "UNDETERMINED",
+      "redistribution_status": "PENDING_OWNER_PERMISSION",
+      "release_bundle_allowed": false
+    }
+  ]
+}

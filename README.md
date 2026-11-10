@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3–M1.4 accepted (v0.1.3); M1.5 Debian container CI is prepared for hosted verification. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded **9/9 passing CTests** in Release, Debug, and CLI-only Release configurations against OpenCV 5.1.0. The Ubuntu 24.04/26.04 CI matrix passed and its PR was merged. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
+> **Development stage:** M0.3–M1.5 accepted (v0.1.3); M1.6 Windows x64 core/CLI CI is prepared for hosted verification. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded **9/9 passing CTests** in Release, Debug, and CLI-only Release configurations against OpenCV 5.1.0. The Ubuntu 24.04/26.04 and Debian 12/13 CI matrices passed and their PRs were merged. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
 
 ## What works in M0–M0.3
 
@@ -37,7 +37,7 @@ ChromascopeIP/
 ├── tests/                     # Unit, integration, regression, CLI, fixture checks
 ├── samples/skittles/          # Original s1.jpg ... s4.jpg, unchanged
 ├── scripts/                   # Isolated OpenCV 5.1.0 installer
-├── .github/workflows/         # Ubuntu native + Debian container CI matrices
+├── .github/workflows/         # Ubuntu, Debian and Windows CI
 └── docs/                      # Architecture, CI, build presets, verification
 ```
 
@@ -128,7 +128,7 @@ ctest --preset linux-release
 ctest --test-dir build/presets/linux-release -V
 ```
 
-M1.3 organizes checks into independent **unit**, **integration**, **regression**, **fixture-integrity**, and **CLI** CTests, including the historical M0.1/M0.3 red/orange spatial regressions and a new PNG/JSON export contract test. See [`docs/TESTING.md`](docs/TESTING.md) for the nine-test matrix, CTest label filters, and fixture manifest; [`docs/VERIFICATION.md`](docs/VERIFICATION.md) tracks recorded native acceptance results. I accepted M1.3 after **9/9 native CTests passed** in Release, Debug, and CLI-only Release builds. Both Ubuntu 24.04/26.04 Actions checks subsequently passed, and I merged M1.4. Debian 12/13 hosted checks are planned as the M1.5 acceptance gate.
+M1.3 organizes checks into independent **unit**, **integration**, **regression**, **fixture-integrity**, and **CLI** CTests, including the historical M0.1/M0.3 red/orange spatial regressions and a new PNG/JSON export contract test. See [`docs/TESTING.md`](docs/TESTING.md) for the nine-test matrix, CTest label filters, and fixture manifest; [`docs/VERIFICATION.md`](docs/VERIFICATION.md) tracks recorded native acceptance results. I accepted M1.3 after **9/9 native CTests passed** in Release, Debug, and CLI-only Release builds. Both Ubuntu 24.04/26.04 Actions checks subsequently passed, and I merged M1.4. The Debian 12/13 hosted checks passed before I merged M1.5.
 
 ## Ubuntu GitHub Actions CI (M1.4)
 
@@ -136,7 +136,7 @@ I added `.github/workflows/ci-ubuntu.yml` to compile the GUI and CLI on **Ubuntu
 
 ## Debian container GitHub Actions CI (M1.5)
 
-I added `.github/workflows/ci-debian.yml` to build and test **Debian 12 (Bookworm)** and **Debian 13 (Trixie)** in separate AMD64 job containers on a GitHub-hosted Ubuntu runner. Each Debian job compiles the GUI and CLI, executes the complete nine-test Release suite, then builds CLI-only and repeats all nine tests. The official Debian base images are pinned to published digests; the jobs verify the Debian major version and architecture before installing development dependencies. OpenCV 5.1.0 is built from the required upstream revision into an isolated, distribution-specific cached prefix. **Debian Actions execution remains pending until I verify the hosted jobs.** Headless GUI launches, webcam tests, and installable `.deb` package checks are outside this milestone. See [docs/CI_DEBIAN.md](docs/CI_DEBIAN.md).
+I added `.github/workflows/ci-debian.yml` to build and test **Debian 12 (Bookworm)** and **Debian 13 (Trixie)** in separate AMD64 job containers on a GitHub-hosted Ubuntu runner. Each Debian job compiles the GUI and CLI, executes the complete nine-test Release suite, then builds CLI-only and repeats all nine tests. The official Debian base images are pinned to published digests; the jobs verify the Debian major version and architecture before installing development dependencies. OpenCV 5.1.0 is built from the required upstream revision into an isolated, distribution-specific cached prefix. **Both Debian matrix checks passed, and the M1.5 PR was merged.** Headless GUI launches, webcam tests, and installable `.deb` package checks are outside this milestone. See [docs/CI_DEBIAN.md](docs/CI_DEBIAN.md) .
 
 ## Source origin and image licensing
 
@@ -152,4 +152,8 @@ I organize planned development through GitHub milestones, issues, pull requests,
 
 ## M0.3 acceptance and next steps
 
-I accepted M0.3 after the native Ubuntu 26.04 Release build and **4/4 CTests passed**, and I manually confirmed the orange/red corrections in the GUI. The historical regression expectations remain in [docs/VERIFICATION.md](docs/VERIFICATION.md). M1.1–M1.4 are accepted; M1.5 adds Debian 12/13 container CI. Expanding video, camera, and inference support remains future work.
+I accepted M0.3 after the native Ubuntu 26.04 Release build and **4/4 CTests passed**, and I manually confirmed the orange/red corrections in the GUI. The historical regression expectations remain in [docs/VERIFICATION.md](docs/VERIFICATION.md). M1.1–M1.5 are accepted; M1.6 adds Windows x64 core/CLI CI. Expanding video, camera, and inference support remains future work.
+
+## Windows x64 core/CLI CI (M1.6)
+
+I use `.github/workflows/ci-windows.yml` to validate the **Windows x64 C++ core and CLI** against a pinned source build of OpenCV 5.1.0 on Windows Server 2022 with MSVC 2022. The GUI, webcam, client Windows 10/11 verification, and packaging are separate release gates. See [docs/CI_WINDOWS.md](docs/CI_WINDOWS.md).

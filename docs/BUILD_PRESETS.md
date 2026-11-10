@@ -10,10 +10,10 @@ I use **CMake 3.24 or newer**, Ninja, C++20, and **OpenCV 5.1.0 exactly**. These
 | `linux-debug` | Linux | Debug | On | On | On | `build/presets/linux-debug/` |
 | `linux-cli-release` | Linux | Release | Off | On | On | `build/presets/linux-cli-release/` |
 | `linux-cli-debug` | Linux | Debug | Off | On | On | `build/presets/linux-cli-debug/` |
-| `windows-cli-release` | Windows | Release | Off | On | On | `build/presets/windows-cli-release/` |
-| `windows-cli-debug` | Windows | Debug | Off | On | On | `build/presets/windows-cli-debug/` |
+| `windows-cli-release` | Windows (VS2022 x64) | Release | Off | On | On | `build/presets/windows-cli-release/` |
+| `windows-cli-debug` | Windows (VS2022 x64) | Debug | Off | On | On | `build/presets/windows-cli-debug/` |
 
-All presets use Ninja and generate `compile_commands.json` in their build directory (where supported). Windows presets intentionally cover **core + CLI only** until the planned Windows GUI, runtime dependency, and CI milestones. They require a supported C++ toolchain environment (such as a Visual Studio Developer PowerShell) and an externally provided OpenCV 5.1.0 installation. A preset is **not** evidence of a validated Windows build.
+Linux presets use Ninja and produce `compile_commands.json`. Windows presets now use **Visual Studio 17 2022, x64** to match M1.6 CI. Visual Studio is multi-configuration, so their build/test presets explicitly select `Release` or `Debug`. Windows presets intentionally cover **core + CLI only** until GUI support is implemented. M1.6 validates the Release preset on Windows Server 2022; the Debug preset requires a separately built OpenCV Debug library. A preset alone is not evidence of Windows 10/11 desktop compatibility.
 
 ## Linux quick start
 
@@ -50,7 +50,7 @@ ctest --preset my-linux-release
 
 `CMakeUserPresets.json` is Git-ignored, while `CMakePresets.json` and the example are tracked. CMake implicitly makes project presets available for inheritance from `CMakeUserPresets.json`. If configuring with an offline ImGui checkout, I can add `CHROMASCOPE_IMGUI_DIR` to the local preset's `cacheVariables` too.
 
-On Windows, I set my own OpenCV path with `-DCMAKE_PREFIX_PATH=...` or a user preset inheriting `windows-cli-release`, after activating the compiler environment and installing Ninja and the native OpenCV 5.1.0 dependencies. I won't assume Linux paths or claim Windows compatibility before the planned validation.
+On Windows, I use `-DOpenCV_DIR=<directory containing OpenCVConfig.cmake>` or a user preset inheriting `windows-cli-release`, with the VS2022 C++ tools installed. My `scripts/bootstrap_opencv_windows_x64.ps1` prepares a pinned static OpenCV 5.1.0 Release installation. I do not claim Windows 10/11 GUI or installer compatibility from this CI milestone; see [CI_WINDOWS.md](CI_WINDOWS.md).
 
 ## Legacy commands and migration
 

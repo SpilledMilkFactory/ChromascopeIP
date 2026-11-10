@@ -64,30 +64,35 @@
       }
     },
     {
-      "name": "windows-cli-release",
-      "displayName": "Windows Release (core, CLI, tests)",
-      "inherits": "ninja-base",
+      "name": "windows-msvc-base",
+      "hidden": true,
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/presets/${presetName}",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "ON",
+        "CHROMASCOPE_BUILD_TESTS": "ON",
+        "CHROMASCOPE_BUILD_GUI": "OFF"
+      }
+    },
+    {
+      "name": "windows-cli-release",
+      "displayName": "Windows Release (core, CLI, tests)",
+      "inherits": "windows-msvc-base",
+      "cacheVariables": {
         "CHROMASCOPE_BUILD_GUI": "OFF"
       }
     },
     {
       "name": "windows-cli-debug",
       "displayName": "Windows Debug (core, CLI, tests)",
-      "inherits": "ninja-base",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
+      "inherits": "windows-msvc-base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CHROMASCOPE_BUILD_GUI": "OFF"
       }
     }
@@ -111,11 +116,13 @@
     },
     {
       "name": "windows-cli-release",
-      "configurePreset": "windows-cli-release"
+      "configurePreset": "windows-cli-release",
+      "configuration": "Release"
     },
     {
       "name": "windows-cli-debug",
-      "configurePreset": "windows-cli-debug"
+      "configurePreset": "windows-cli-debug",
+      "configuration": "Debug"
     }
   ],
   "testPresets": [
@@ -167,7 +174,8 @@
       },
       "execution": {
         "noTestsAction": "error"
-      }
+      },
+      "configuration": "Release"
     },
     {
       "name": "windows-cli-debug",
@@ -177,7 +185,8 @@
       },
       "execution": {
         "noTestsAction": "error"
-      }
+      },
+      "configuration": "Debug"
     }
   ]
 }

@@ -34,3 +34,6 @@ Thumbs.db
 /results.json
 /out/
 /results/
+
+# Local/CI-fetched dependency prefix for Windows build validation
+/.ci-opencv/

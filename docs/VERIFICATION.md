@@ -179,3 +179,28 @@ I completed the following non-hosted checks while preparing this patch:
 - **PASS:** SHA-256 hashes of the four original Skittles photographs matched the uploaded M1.4 baseline. The accepted Ubuntu workflow, production code, CMake files, and native test files were unchanged.
 
 I have **not** run native Debian 12/13 builds or CTests here. The first successful hosted GitHub Actions runs remain the required M1.5 acceptance evidence.
+
+
+## M1.5 Debian CI acceptance (reported November 9, 2026)
+
+I confirmed that the Debian 12 Bookworm and Debian 13 Trixie GitHub Actions jobs completed successfully, alongside the existing Ubuntu 24.04 and 26.04 jobs. The M1.5 pull request was subsequently merged. My local Ubuntu 26.04 Release and CLI-only Release suites each passed **9/9 CTests**, and I manually confirmed the GUI remained functional. This is the accepted baseline for M1.6.
+
+## M1.6 Windows x64 core/CLI CI preparation — issue #8
+
+I added `.github/workflows/ci-windows.yml` targeting **Windows Server 2022 x64** with the Visual Studio 2022 toolchain. The core, CLI, and all nine CTests are built in Release mode against statically compiled OpenCV 5.1.0; the GUI is explicitly disabled. The source bootstrap checks commit `e4f78fbcf1a773fbed69e14500e8b734963eb585` and configures OpenCV's static libraries with the dynamic MSVC runtime (`BUILD_WITH_STATIC_CRT=OFF`). The workflow checks the build metadata and locates `OpenCVConfig.cmake` before configuring ChromascopeIP.
+
+I updated the Windows CMake presets to use the **Visual Studio 17 2022 x64** generator with explicit Release/Debug build and test configurations. The Debug preset is preparatory only; only Release is in the M1.6 gate. Linux and Debian workflows and the application algorithms are unchanged.
+
+**Prepared-source checks (not hosted Windows results):** I check JSON and YAML parsing, CMake preset registration, workflow permissions and runner selection, the presence of all nine CTest definitions, PowerShell bootstrap and pipeline contracts, Git patch replay and package equivalence, and SHA-256 integrity of the original JPEG samples. This container does not provide a Windows/MSVC host, so I do not claim a Windows build or CTest result in the prepared artifact.
+
+**Required hosted acceptance:**
+
+- [ ] Windows Actions check starts on `windows-2022`, x64 with MSVC 2022.
+- [ ] OpenCV source revision and static `/MD` build configuration are verified.
+- [ ] ChromascopeIP Release core and CLI compile without new blocking warnings or errors.
+- [ ] All nine native Windows CTests pass (including JPEG/PNG and JSON export).
+- [ ] `chromascope-cli.exe --version` works; no GUI build is claimed.
+- [ ] Ubuntu 24.04/26.04 and Debian 12/13 checks remain successful.
+- [ ] The linked PR is merged and issue #8 is accepted.
+
+A green `windows-2022` server job does not qualify the Windows 10/11 user-facing release packages, GUI, or camera support. Those require separate platform acceptance later in the roadmap.

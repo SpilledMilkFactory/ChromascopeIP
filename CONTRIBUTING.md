@@ -21,7 +21,7 @@ ctest --preset linux-release
 
 I can use `linux-debug`, `linux-cli-release`, or `linux-cli-debug` to isolate other build variants. The Linux presets use the OpenCV install prefix produced by the bootstrap script; if I install OpenCV elsewhere I pass `-DCMAKE_PREFIX_PATH=/absolute/path/to/opencv-5.1.0` or configure a Git-ignored `CMakeUserPresets.json`. Existing explicit `cmake -S . -B build ...` commands still work. I keep build artifacts outside tracked source files and never commit fetched dependencies. See [docs/BUILD_PRESETS.md](docs/BUILD_PRESETS.md) for the complete preset matrix.
 
-For core/CLI-only changes, I can set `-DCHROMASCOPE_BUILD_GUI=OFF`. I do not consider a successful compile alone sufficient verification: I check relevant tests and, for GUI or camera work, manual behavior where available. I organize tests and labels using [docs/TESTING.md](docs/TESTING.md); I run the complete CTest suite before acceptance and may use label filters for focused development. M1.4 added Ubuntu 24.04/26.04 GitHub Actions build-and-test jobs, and both hosted checks passed before merge. M1.5 adds Debian 12/13 container-based CI with the same complete test suite and CLI-only verification; I require both Debian matrix checks to pass before accepting that issue. I continue to record native manual GUI verification separately. Windows CI, hardware camera tests, and packaged releases remain future milestones. I document the CI scopes and limitations in [docs/CI_UBUNTU.md](docs/CI_UBUNTU.md) and [docs/CI_DEBIAN.md](docs/CI_DEBIAN.md).
+For core/CLI-only changes, I can set `-DCHROMASCOPE_BUILD_GUI=OFF`. I do not consider a successful compile alone sufficient verification: I check relevant tests and, for GUI or camera work, manual behavior where available. I organize tests and labels using [docs/TESTING.md](docs/TESTING.md); I run the complete CTest suite before acceptance and may use label filters for focused development. M1.4 added Ubuntu 24.04/26.04 GitHub Actions build-and-test jobs, and both hosted checks passed before merge. M1.5 added Debian 12/13 container-based CI with the same complete test suite and CLI-only verification; both Debian matrix checks passed before I merged that issue. I continue to record native manual GUI verification separately. M1.6 prepares Windows Server 2022 core/CLI CI; GUI, hardware camera tests, and packaged releases remain future milestones. I document the CI scopes and limitations in [docs/CI_UBUNTU.md](docs/CI_UBUNTU.md) and [docs/CI_DEBIAN.md](docs/CI_DEBIAN.md).
 
 ## Branches, issues, and pull requests
 
@@ -63,3 +63,8 @@ For changes that affect the build or runtime, I expect updates to [README.md](RE
 ## License
 
 Code contributions are submitted under the repository's [MIT license](LICENSE). This does not override third-party licenses or the separately documented status of the original photographs.
+
+
+## M1.6 Windows core and CLI continuous integration
+
+I require the `Windows CI / windows-2022 / MSVC x64 / Release / CTest` check, in addition to the Ubuntu and Debian checks, for changes that affect core, CLI, tests, build scripts, or dependencies once M1.6 is accepted. The workflow validates OpenCV 5.1.0 from pinned source with compatible MSVC runtime flags. It does not certify GUI execution or Windows 10/11 desktop compatibility. I retain those as separate future release gates. See [docs/CI_WINDOWS.md](docs/CI_WINDOWS.md).

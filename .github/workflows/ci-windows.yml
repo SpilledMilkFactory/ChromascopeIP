@@ -1,0 +1,153 @@
+# M1.6: Verify the core + CLI with MSVC 2022 on hosted Windows Server 2022.
+# This is a Windows x64 CI build, NOT Windows 10/11 compatibility certification.
+name: Windows CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  core-cli:
+    name: windows-2022 / MSVC x64 / Release / CTest
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      OPENCV_EXPECTED_COMMIT: e4f78fbcf1a773fbed69e14500e8b734963eb585
+      OPENCV_PREFIX: ${{ github.workspace }}\.ci-opencv\opencv-5.1.0
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Confirm Windows x64 and MSVC 2022 toolchain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RUNNER_ARCH -ne 'X64') { throw 'Expected x64 runner.' }
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw 'Visual Studio locator unavailable.' }
+          $vs = & $vswhere -latest -products '*' -version '[17.0,18.0)' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $vs) { throw 'MSVC 2022 C++ toolchain is missing.' }
+          Write-Host "Visual Studio 2022: $vs"
+          cmake --version
+          if ($LASTEXITCODE -ne 0) { throw 'CMake unavailable.' }
+
+      - name: Restore isolated OpenCV 5.1.0 static installation
+        id: opencv-cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: .ci-opencv/opencv-5.1.0
+          # A new bootstrap implementation or toolchain requires a new key.
+          key: opencv-5.1.0-win2022-msvc17-x64-static-md-noproto-nopthread-${{ hashFiles('scripts/bootstrap_opencv_windows_x64.ps1', 'scripts/verify_opencv_windows_x64.ps1', 'scripts/opencv_windows_hooks/POST_DETECT_DEPENDENCIES.cmake') }}-v3
+
+      - name: Build OpenCV 5.1.0 from pinned source on cache miss
+        if: steps.opencv-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          ./scripts/bootstrap_opencv_windows_x64.ps1 `
+            -InstallPrefix $env:OPENCV_PREFIX `
+            -BuildRoot (Join-Path $env:RUNNER_TEMP 'chromascope-opencv-build') `
+            -Jobs 2
+
+      - name: Verify cached/built OpenCV configuration and provenance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stamp = Join-Path $env:OPENCV_PREFIX '.chromascope-opencv-windows-build.txt'
+          if (-not (Test-Path -LiteralPath $stamp)) { throw 'OpenCV provenance marker missing.' }
+          $data = Get-Content -LiteralPath $stamp -Raw
+          $lines = $data -split '\r?\n'
+          foreach ($field in @(
+            "commit=$env:OPENCV_EXPECTED_COMMIT", 'opencv=5.1.0',
+            'architecture=x64', 'toolchain=Visual Studio 17 2022',
+            'configuration=Release', 'shared=OFF', 'static_crt=OFF',
+            'modules=core,imgproc,imgcodecs',
+            'protobuf=OFF', 'windows_pthread_hook=ON', 'consumer_probe=PASS')) {
+            if ($lines -notcontains $field) {
+              throw "OpenCV provenance field mismatch: $field"
+            }
+          }
+          # Select the actual MSVC 2022 x64 static package.
+          # Do not select the top-level Windows Pack dispatcher.
+          $opencvDir = Join-Path $env:OPENCV_PREFIX 'x64\vc17\staticlib'
+          foreach ($filename in @(
+            'OpenCVConfig.cmake',
+            'OpenCVConfig-version.cmake',
+            'OpenCVModules.cmake',
+            'OpenCVModules-release.cmake'
+          )) {
+            $required = Join-Path $opencvDir $filename
+            if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+              throw "OpenCV static package is incomplete: $required"
+            }
+          }
+          "OpenCV_DIR=$opencvDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Verified OpenCV static package: $opencvDir"
+          # Confirm imported CMake targets and static runtime libraries in a
+          # separate real consumer; do this for both fresh builds and cache hits.
+          ./scripts/verify_opencv_windows_x64.ps1 `
+            -InstallPrefix $env:OPENCV_PREFIX `
+            -ScratchRoot (Join-Path $env:RUNNER_TEMP 'chromascope-opencv-cached-probe') `
+            -Jobs 2
+
+
+      - name: Configure Windows CLI Release with pinned OpenCV
+        shell: pwsh
+        run: |
+          cmake --preset windows-cli-release "-DOpenCV_DIR=$env:OpenCV_DIR"
+          if ($LASTEXITCODE -ne 0) { throw 'ChromascopeIP configure failed.' }
+
+      - name: Build C++ core, CLI and test executables
+        shell: pwsh
+        run: |
+          cmake --build --preset windows-cli-release --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'ChromascopeIP build failed.' }
+
+      - name: Run all nine Windows CTests
+        shell: pwsh
+        run: |
+          ctest --preset windows-cli-release --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'Windows CTest failed.' }
+
+      - name: Confirm CLI executable and GUI-out-of-scope boundary
+        shell: pwsh
+        run: |
+          $cli = Join-Path $env:GITHUB_WORKSPACE 'build\presets\windows-cli-release\Release\chromascope-cli.exe'
+          if (-not (Test-Path -LiteralPath $cli)) { throw 'CLI executable is missing.' }
+          & $cli --version
+          if ($LASTEXITCODE -ne 0) { throw 'CLI --version failed.' }
+          $gui = Join-Path $env:GITHUB_WORKSPACE 'build\presets\windows-cli-release\Release\chromascope-gui.exe'
+          if (Test-Path -LiteralPath $gui) { throw 'GUI target unexpectedly built in core/CLI-only CI.' }
+
+      - name: Show CTest diagnostic logs on failure
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path 'build/presets/windows-cli-release' -Recurse -Filter LastTest.log -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "=== $($_.FullName) ==="
+            Get-Content -LiteralPath $_.FullName -Tail 120
+          }
+
+      - name: Summarize verified Windows scope
+        if: success()
+        shell: pwsh
+        run: |
+          @(
+            '## ChromascopeIP M1.6 Windows CI',
+            '- Host: Windows Server 2022 x64, Visual Studio 2022 (MSVC)',
+            '- OpenCV: 5.1.0, pinned source, static modules using dynamic MSVC CRT',
+            '- C++ core, CLI, and test executables: built in Release configuration',
+            '- CTest: all nine tests passed, including original JPEG fixtures and CLI export',
+            '- GUI, camera hardware, Windows 10/11 client compatibility: not tested'
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

@@ -179,3 +179,62 @@ I completed the following non-hosted checks while preparing this patch:
 - **PASS:** SHA-256 hashes of the four original Skittles photographs matched the uploaded M1.4 baseline. The accepted Ubuntu workflow, production code, CMake files, and native test files were unchanged.
 
 I have **not** run native Debian 12/13 builds or CTests here. The first successful hosted GitHub Actions runs remain the required M1.5 acceptance evidence.
+
+
+## M1.5 Debian CI acceptance (reported November 9, 2026)
+
+I confirmed that the Debian 12 Bookworm and Debian 13 Trixie GitHub Actions jobs completed successfully, alongside the existing Ubuntu 24.04 and 26.04 jobs. The M1.5 pull request was subsequently merged. My local Ubuntu 26.04 Release and CLI-only Release suites each passed **9/9 CTests**, and I manually confirmed the GUI remained functional. This is the accepted baseline for M1.6.
+
+## M1.6 Windows x64 core/CLI CI preparation — issue #8
+
+I added `.github/workflows/ci-windows.yml` targeting **Windows Server 2022 x64** with the Visual Studio 2022 toolchain. The core, CLI, and all nine CTests are built in Release mode against statically compiled OpenCV 5.1.0; the GUI is explicitly disabled. The source bootstrap checks commit `e4f78fbcf1a773fbed69e14500e8b734963eb585` and configures OpenCV's static libraries with the dynamic MSVC runtime (`BUILD_WITH_STATIC_CRT=OFF`). The workflow checks the build metadata and locates `OpenCVConfig.cmake` before configuring ChromascopeIP.
+
+I updated the Windows CMake presets to use the **Visual Studio 17 2022 x64** generator with explicit Release/Debug build and test configurations. The Debug preset is preparatory only; only Release is in the M1.6 gate. Linux and Debian workflows and the application algorithms are unchanged.
+
+**Prepared-source checks (not hosted Windows results):** I check JSON and YAML parsing, CMake preset registration, workflow permissions and runner selection, the presence of all nine CTest definitions, PowerShell bootstrap and pipeline contracts, Git patch replay and package equivalence, and SHA-256 integrity of the original JPEG samples. This container does not provide a Windows/MSVC host, so I do not claim a Windows build or CTest result in the prepared artifact.
+
+**Required hosted acceptance:**
+
+- [ ] Windows Actions check starts on `windows-2022`, x64 with MSVC 2022.
+- [ ] OpenCV source revision and static `/MD` build configuration are verified.
+- [ ] ChromascopeIP Release core and CLI compile without new blocking warnings or errors.
+- [ ] All nine native Windows CTests pass (including JPEG/PNG and JSON export).
+- [ ] `chromascope-cli.exe --version` works; no GUI build is claimed.
+- [ ] Ubuntu 24.04/26.04 and Debian 12/13 checks remain successful.
+- [ ] The linked PR is merged and issue #8 is accepted.
+
+A green `windows-2022` server job does not qualify the Windows 10/11 user-facing release packages, GUI, or camera support. Those require separate platform acceptance later in the roadmap.
+
+
+## M1.6 Windows static OpenCV exported-target correction (hosted verification pending)
+
+I inspected the second failed Windows Server 2022 Actions log (`logs_115735776772.zip`). The pinned OpenCV 5.1.0 build and install completed, and the corrected `x64/vc17/staticlib` configuration was selected. During ChromascopeIP CMake configuration, however, OpenCV's `OpenCVModules.cmake` failed while importing target `libprotobuf`, which referenced a missing `liblibprotobuf.a` in the installed static package. The OpenCV configure log showed that bundled Protobuf 3.19.1 had been enabled even though the M1.6 target only needs `core`, `imgproc`, and `imgcodecs`.
+
+I corrected the Windows OpenCV bootstrap to pass `WITH_PROTOBUF=OFF`. The bootstrap now uses a standalone MSVC Release consumer to configure, compile, link, and run a PNG encode/decode check against the **installed** static OpenCV package before writing its provenance marker. The Windows Actions workflow runs the same consumer check on cache hits and fresh installs, verifies `protobuf=OFF` metadata, and changes the cache key so an old missing-Protobuf installation is not reused. Linux workflows, C++ algorithms, CMake presets, original photographs, and the nine CTests remain unchanged.
+
+**Static/package checks performed here:** YAML and PowerShell source contracts, bootstrap/consumer configuration assertions, Git patch replay, ZIP equivalence and unchanged sample hashes. I have not executed Visual Studio/MSVC or run the hosted Windows workflow in this environment. M1.6 can only be accepted after the full Windows CI job, including the consumer smoke and 9/9 CTests, succeeds; the four previously accepted Linux jobs must remain green.
+
+
+## M1.6 Windows third hosted failure: MSVC pthread link dependency (November 9, 2026)
+
+I inspected Windows Actions run `115741380966`. The previous OpenCV Protobuf
+correction allowed a complete source build and an installed-package consumer
+CMake configuration; the MSVC consumer then failed at link time:
+`LNK1181: cannot open input file 'pthread.lib'`. The dependency summary listed
+`Extra dependencies: pthread` with Windows `Concurrency` as the parallel framework.
+
+I added a Windows/MSVC-only OpenCV `POST_DETECT_DEPENDENCIES.cmake` hook to remove
+the inappropriate POSIX pthread entry before the exported targets are created.
+The pinned upstream OpenCV source and the Windows native concurrency backend
+remain unchanged. The bootstrap passes the hook directory, the cache key includes
+the hook hash, and the expected provenance marker includes
+`windows_pthread_hook=ON`. The independent C++ PNG consumer remains required on
+both fresh builds and cache hits; all nine ChromascopeIP CTests remain required.
+
+**Local validation performed:** Hook parsing and list-removal behavior using
+synthetic CMake script inputs; Git patch syntax and replay against the uploaded
+source baseline; workflow YAML structure; full-source ZIP equivalence; and
+unchanged Linux workflows / C++ code / original test fixtures.
+
+**Native Windows build + all nine Windows CTests:** PENDING the next GitHub
+Actions run. The previous failed run does not constitute M1.6 acceptance.

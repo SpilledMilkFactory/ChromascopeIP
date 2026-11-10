@@ -59,3 +59,7 @@ For a local isolated reproduction, if I have Docker installed on a development m
 - I review image digests, cache keys, action versions, and the upstream OpenCV source pin when deliberately updating dependencies. I do not automatically change an accepted Ubuntu workflow as part of M1.5.
 - If a pinned Debian image becomes unavailable, I review and pin a new official digest and update the cache revision deliberately; I do not silently fall back to `debian:latest`.
 - Debian 12/13 distribution packages are installed during each run using `apt-get`, which means package updates are not bit-for-bit locked. Release builds, SBOMs, and fully audited provenance remain separate milestones.
+
+## Hosted acceptance update (reported November 9, 2026)
+
+I confirmed that both Debian jobs passed in GitHub Actions and merged M1.5. The existing Ubuntu 24.04 and 26.04 checks also passed. This later result supersedes the prospective acceptance instructions above; it does not imply I manually installed or launched the GUI on Debian desktops.

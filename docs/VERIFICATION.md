@@ -258,3 +258,29 @@ I recorded 9/9 native Release CTests, 9/9 ASan/UBSan CTests, successful local cl
 ## M2.1 owned ImageFrame contract — implementation pending native acceptance
 
 I added the owned frame value type, a deep-copy OpenCV adapter, an ImageFrame-aware Skittles entry point, and CLI/GUI integration. The original nine CTests are unchanged; two dedicated frame tests bring the suite to 11. The milestone is **pending native Ubuntu 26.04** Release, sanitizer, and GUI verification and the six hosted GitHub Actions checks. M1.8 audit passed with unresolved fixture release rights intentionally blocked; M2.1 does not change those images or their manifest.
+
+## M2.1 acceptance / M2.2 implementation — November 10, 2026
+
+I accepted M2.1 after **11/11 CTests** passed in native Release, CLI-only
+Release and ASan/UBSan Debug configurations on Ubuntu 26.04. The original
+Skittles counts remained 19 / 8 / 19 / 16 during GUI verification. My
+`clang-tidy-18` run completed without blocking diagnostics, and all six
+GitHub Actions checks passed before the M2.1 pull request was merged.
+
+For M2.2, I added an OpenCV-independent generalized result contract,
+legacy-result adapter, two dedicated CTests, and full historical sample
+conversion assertions. My locally executed, dependency-free C++ contract test
+passed **33 checks**, including an ASan/UBSan run under Clang. An independent
+compatibility test using a minimal OpenCV declaration stub passed **18 checks**;
+that stub is **only** a syntax/contract test and is not a native OpenCV build.
+Existing fixture SHA-256 values remain unchanged. The expected native suite is
+**13 CTests**. The actual OpenCV 5.1.0 compile, CTests and six hosted CI jobs
+must pass before accepting issue #12.
+
+The one-line `clang-tidy` messages such as "3 warnings generated" do not
+identify the files or checks responsible. The M2.1 scanner used `--quiet`,
+which can hide diagnostics in external headers. A passing analysis exit status
+is not evidence that there are no suppressed or third-party warnings; I must
+run it without `--quiet` and inspect diagnostic locations if I want to classify
+them. I will not silence actionable first-party defects merely to remove the
+counts. The historical-photo redistribution gate remains intentionally blocked.

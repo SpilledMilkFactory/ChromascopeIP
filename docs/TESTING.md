@@ -91,3 +91,20 @@ For milestone acceptance I record the exact compiler, OpenCV version, build vari
 ## M2.1 frame contract tests
 
 `chromascope_unit_image_frame` and `chromascope_integration_frame_cv` validate owned bytes, stride/padding, timestamps, orientation, OpenCV ROI copies, and safe rejection of mismatched formats. The suite increases from 9 to 11 tests; the nine established names are unchanged. Run `ctest --preset linux-release --output-on-failure`, `ctest --preset linux-cli-release --output-on-failure`, and the sanitizer preset where available.
+
+## M2.2 — General detection geometry and bridge regressions
+
+I added `chromascope_unit_detection_result` (`unit;core;detection;negative`)
+and `chromascope_integration_detection_result`
+(`integration;core;detection`). They test circle/box/polygon validation,
+ownership, non-finite and degenerate inputs, label/score contracts, and the
+Skittles compatibility conversion. The existing
+`chromascope_regression_skittles` now also asserts complete geometry/class/
+score equality after conversion for all four archived photographs.
+
+M2.1 had **11 CTests**; M2.2 expects **13**. The original test names and
+CLI export format are unchanged. For a focused run:
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L detection
+```

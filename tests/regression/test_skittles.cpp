@@ -1,4 +1,5 @@
 #include "chromascope/Detection.hpp"
+#include "chromascope/DetectionResultBridge.hpp"
 #include "chromascope/ImageIO.hpp"
 #include "chromascope/ImageFrameCV.hpp"
 #include "support/TestSupport.hpp"
@@ -10,6 +11,7 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace {
 
@@ -42,6 +44,25 @@ void test_original_samples() {
                   std::abs(old.radius - now.radius) < 0.01f &&
                   std::abs(old.confidence - now.confidence) < 0.000001,
                   "owned ImageFrame changed legacy detection geometry or class");
+        }
+        // M2.2: adapt every historic detection to the OpenCV-free result
+        // contract, preserving order, category, confidence and geometry.
+        const auto generalized = chromascope::to_general_result(result);
+        check(generalized.width() == result.width && generalized.height() == result.height &&
+              generalized.objects().size() == result.objects.size(),
+              "generalized result lost original frame geometry or detections");
+        for (std::size_t i = 0; i < result.objects.size(); ++i) {
+            const auto& before = result.objects[i];
+            const auto& converted = generalized.objects()[i];
+            const auto* circle = std::get_if<chromascope::CircleGeometry>(&converted.geometry);
+            check(circle != nullptr &&
+                  converted.label == chromascope::color_name(before.color) &&
+                  converted.class_id && *converted.class_id == static_cast<int>(before.color) &&
+                  converted.score == before.confidence &&
+                  circle->center.x == before.center.x &&
+                  circle->center.y == before.center.y &&
+                  circle->radius == before.radius,
+                  "generalized conversion changed Skittles category/score/geometry");
         }
         int sum = 0;
         for (const int value : result.counts) sum += value;

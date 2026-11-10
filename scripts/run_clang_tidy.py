@@ -40,6 +40,8 @@ def main():
     selected = first_party_sources(database, root)
     required = {
         "src/core/Detection.cpp", "src/core/ImageIO.cpp", "src/cli/main.cpp",
+        "src/core/DetectionResult.cpp", "src/core/DetectionResultBridge.cpp",
+        "tests/unit/test_detection_result.cpp", "tests/integration/test_detection_result.cpp",
         "tests/unit/test_color.cpp", "tests/unit/test_validation.cpp",
         "tests/integration/test_synthetic.cpp", "tests/regression/test_skittles.cpp",
     }

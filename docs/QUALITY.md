@@ -40,3 +40,23 @@ I require **six successful checks** after M1.7: Ubuntu 24.04, Ubuntu 26.04, Debi
 ## Limitations
 
 M1.7 does not introduce continuous fuzzing, compiler coverage for every toolchain, sanitizer-instrumented OpenCV libraries, Windows desktop GUI CI, or a full third-party vulnerability/SBOM assessment. These belong to later hardening/release milestones.
+
+## Interpreting the `clang-tidy` generated-warning totals
+
+I noticed that `clang-tidy-18` sometimes prints messages such as
+`3 warnings generated` even when my targeted first-party analysis command
+returns success. The current runner uses `--quiet`, which may suppress
+individual diagnostics (for example those originating in system/OpenCV
+headers). A numeric count alone cannot tell me whether a warning is relevant
+or actionable. Before accepting/suppressing a warning, I rerun a representative
+unit without `--quiet`, examine the diagnostic file paths and check names,
+and distinguish first-party findings from third-party headers. The automated
+gate still fails for enabled warnings-as-errors; broad diagnostic coverage is
+not claimed.
+
+For example, from the project root after configuring `linux-cli-release`:
+
+```bash
+clang-tidy-18 -p=build/presets/linux-cli-release \
+  --config-file=.clang-tidy src/core/ImageFrame.cpp 2>&1 | tee /tmp/chromascope-clang-tidy.txt
+```

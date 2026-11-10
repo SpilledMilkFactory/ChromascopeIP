@@ -77,3 +77,11 @@ add_test(NAME chromascope_cli_bad_profile COMMAND chromascope-cli
     --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --profile unknown)
 set_tests_properties(chromascope_cli_bad_profile PROPERTIES
     WILL_FAIL TRUE LABELS "cli;processor;negative" TIMEOUT 15)
+
+# M2.4: bounded worker queue and real OpenCV asynchronous regression.
+chromascope_add_cpp_test(chromascope_unit_processing_queue
+    unit/test_processing_queue.cpp "unit;core;async;negative" 20)
+chromascope_add_cpp_test(chromascope_integration_processing_async
+    integration/test_processing_async.cpp "integration;core;async;fixtures" 50)
+target_compile_definitions(chromascope_integration_processing_async PRIVATE
+    CHROMASCOPE_ASYNC_SAMPLE="${CHROMASCOPE_TEST_FIXTURE_ROOT}/s1.jpg")

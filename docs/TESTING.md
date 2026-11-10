@@ -116,3 +116,12 @@ selects registry-schema validation, the built-in Skittles processor integration,
 and CLI profile enumeration/rejection. The historical Skittles regression also
 checks that registered and direct processing agree object by object on all
 four archived photographs. See [PROCESSOR_CONTRACT.md](PROCESSOR_CONTRACT.md).
+
+## M2.4 worker-thread tests
+
+I added `chromascope_unit_processing_queue` (`unit;core;async;negative`) for
+cancellation, bounded latest-wins queueing, errors and recovery; and
+`chromascope_integration_processing_async` (`integration;core;async;fixtures`)
+for the real registered Skittles processor and its cancellation contract.
+I expect **19** native CTests. I run `ctest --preset linux-release` and the
+`linux-cli-sanitize` preset and inspect manual GUI responsiveness before merging.

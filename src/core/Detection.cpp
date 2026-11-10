@@ -121,6 +121,14 @@ void validate_settings(const Settings& s) {
 }
 
 Result detect_skittles(const cv::Mat& bgr, const Settings& s) {
+    return detect_skittles(bgr, s, {});
+}
+
+Result detect_skittles(const cv::Mat& bgr, const Settings& s, std::stop_token token) {
+    auto checkpoint = [&token] {
+        if (token.stop_requested()) throw std::runtime_error("Processing canceled");
+    };
+    checkpoint();
     validate_settings(s);
     if (bgr.empty() || bgr.type() != CV_8UC3)
         throw std::invalid_argument("detect_skittles requires a nonempty CV_8UC3 BGR image");
@@ -145,17 +153,21 @@ Result detect_skittles(const cv::Mat& bgr, const Settings& s) {
 
     cv::Mat gray, hsv;
     std::vector<cv::Vec3f> circles;
+    checkpoint();
     cv::cvtColor(analysis, gray, cv::COLOR_BGR2GRAY);
     cv::medianBlur(gray, gray, 5);
     cv::cvtColor(analysis, hsv, cv::COLOR_BGR2HSV);
+    checkpoint();
     cv::HoughCircles(gray, circles, cv::HOUGH_GRADIENT,
                      1.2, s.min_distance_fraction * dimension,
                      s.edge_threshold, s.accumulator_threshold,
                      min_radius, max_radius);
 
+    checkpoint();
     std::vector<cv::Vec3b> pixels;
     if (!circles.empty()) {
         for (const auto& circle : circles) {
+            checkpoint();
             const cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
             const int radius = std::max(2, cvRound(circle[2] * 0.58f));
             const auto hsv_median = median_hsv(hsv, center, radius, pixels);
@@ -179,17 +191,24 @@ Result detect_skittles(const cv::Mat& bgr, const Settings& s) {
             ++result.counts[static_cast<std::size_t>(color)];
         }
     }
+    checkpoint();
     result.elapsed_ms = std::chrono::duration<double, std::milli>(
                             std::chrono::steady_clock::now() - start).count();
     return result;
 }
 
 Result detect_skittles(const ImageFrame& frame, const Settings& settings) {
+    return detect_skittles(frame, settings, {});
+}
+
+Result detect_skittles(const ImageFrame& frame, const Settings& settings,
+                       std::stop_token token) {
+    if (token.stop_requested()) throw std::runtime_error("Processing canceled");
     if (frame.format() != PixelFormat::BGR8 ||
         frame.metadata().orientation != FrameOrientation::Upright ||
         frame.metadata().mirror_horizontal)
         throw std::invalid_argument("Skittles processing requires an upright, unmirrored BGR8 frame");
-    return detect_skittles(to_cv_mat_copy(frame), settings);
+    return detect_skittles(to_cv_mat_copy(frame), settings, token);
 }
 
 cv::Mat draw_annotations(const cv::Mat& bgr, const Result& result, bool show_labels) {

@@ -42,6 +42,8 @@ def main():
         "src/core/Detection.cpp", "src/core/ImageIO.cpp", "src/cli/main.cpp",
         "src/core/DetectionResult.cpp", "src/core/DetectionResultBridge.cpp",
         "src/core/Processor.cpp", "src/core/SkittlesProcessor.cpp",
+        "src/core/ProcessingQueue.cpp",
+        "tests/unit/test_processing_queue.cpp", "tests/integration/test_processing_async.cpp",
         "tests/unit/test_processor_registry.cpp", "tests/integration/test_processor_skittles.cpp",
         "tests/unit/test_detection_result.cpp", "tests/integration/test_detection_result.cpp",
         "tests/unit/test_color.cpp", "tests/unit/test_validation.cpp",

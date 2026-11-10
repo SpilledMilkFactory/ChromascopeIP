@@ -312,3 +312,22 @@ I do not claim that a compiler's warning-count summary alone identifies an
 actionable first-party `clang-tidy` issue. For diagnosis I capture a targeted,
 non-quiet `clang-tidy-18` run with source locations and diagnostic names rather
 than suppressing or changing warning policy without reviewing the details.
+
+## M2.3 acceptance and M2.4 bounded asynchronous processing — issue #14 (November 10, 2026)
+
+I accepted M2.3 after 17/17 native Release, CLI-only, and ASan/UBSan CTests
+passed, the GUI retained its expected detections, and all six hosted Actions
+checks passed before merging the pull request. I investigated the reported
+`clang-tidy-18` warnings: all 19 first-party translation units finished with
+zero exit failures; the warning summaries were suppressed non-user-header
+diagnostics. An opt-in scan of GCC 15 system headers reported two
+`bugprone-use-after-move` diagnostics in `bits/stl_vector.h` and `<format>`,
+not in ChromascopeIP source. These toolchain-header diagnostics are recorded
+rather than suppressed by weakening first-party checks.
+
+For M2.4 I introduced a single-worker latest-wins queue, stop-token aware
+processor execution, GUI result polling, explicit cancellation, and two new
+CTest targets (19 total). The four historical image fixtures and their rights
+policy remain unchanged. Native OpenCV 5.1.0 compilation, complete CTests,
+ASan/UBSan, manual GUI tests, and all six Actions jobs remain **PENDING** at
+patch preparation time. See `docs/ASYNC_PROCESSING.md`.

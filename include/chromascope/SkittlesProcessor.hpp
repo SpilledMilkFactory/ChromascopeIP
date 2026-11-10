@@ -10,6 +10,8 @@ class SkittlesProcessor final : public IProcessor {
 public:
     explicit SkittlesProcessor(Settings settings);
     [[nodiscard]] ProcessedFrame process(const ImageFrame& frame) const override;
+    [[nodiscard]] ProcessedFrame process(const ImageFrame& frame,
+                                         std::stop_token token) const override;
 
 private:
     Settings settings_;

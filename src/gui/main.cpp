@@ -1,6 +1,7 @@
 #include "chromascope/Detection.hpp"
 #include "chromascope/DetectionResultBridge.hpp"
 #include "chromascope/SkittlesProcessor.hpp"
+#include "chromascope/ProcessingQueue.hpp"
 #include "chromascope/ImageIO.hpp"
 #include "chromascope/ImageFrameCV.hpp"
 
@@ -19,6 +20,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <iostream>
+#include <memory>
+#include <cstdint>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -71,10 +74,13 @@ struct App {
     std::array<char, 4096> browser_directory{};
     chromascope::Settings settings;
     chromascope::ProcessorRegistry processors = chromascope::make_builtin_registry();
+    // Declared after processors so it joins before registry destruction.
+    std::unique_ptr<chromascope::ProcessingQueue> processing;
+    std::uint64_t pending_ticket = 0;
     std::string selected_profile = "skittles";
     std::optional<chromascope::DetectionResult> generalized_result;
     cv::Mat input;
-    std::optional<chromascope::ImageFrame> input_frame;
+    std::shared_ptr<const chromascope::ImageFrame> input_frame;
     chromascope::Result result;
     Texture original_texture, annotated_texture;
     std::string status = "Open one of the legacy samples or enter an image path.";
@@ -85,6 +91,11 @@ struct App {
     int input_width = 0, input_height = 0;
 
     App() {
+        processing = std::make_unique<chromascope::ProcessingQueue>(
+            [this](const chromascope::ProcessorProfile& profile,
+                   const chromascope::ImageFrame& frame, std::stop_token token) {
+                return processors.run(profile, frame, token);
+            });
         std::snprintf(path.data(), path.size(), "%s", "samples/skittles/s1.jpg");
         std::snprintf(export_path.data(), export_path.size(), "%s", "annotated.jpg");
         std::snprintf(browser_directory.data(), browser_directory.size(), "%s", ".");
@@ -95,7 +106,32 @@ struct App {
         try {
             auto profile = chromascope::skittles_profile_from_settings(settings);
             profile.processor_id = selected_profile;
-            auto processed = processors.run(profile, *input_frame);
+            // At most one pending + one in-flight request: repeated changes
+            // supersede stale work without creating unbounded threads or frames.
+            pending_ticket = processing->submit(std::move(profile), input_frame);
+            have_result = false;
+            generalized_result.reset();
+            annotated_texture.reset();
+            status = "Analyzing in background...";
+        } catch (const std::exception& e) {
+            pending_ticket = 0;
+            have_result = false;
+            generalized_result.reset();
+            annotated_texture.reset();
+            status = std::string("Analysis failed: ") + e.what();
+        }
+    }
+
+    void update() {
+        auto completion = processing->poll();
+        if (!completion || completion->ticket != pending_ticket) return;
+        pending_ticket = 0;
+        try {
+            if (!completion->error.empty())
+                throw std::runtime_error(completion->error);
+            if (!completion->processed)
+                throw std::runtime_error("Processor returned no result");
+            auto& processed = *completion->processed;
             result = chromascope::to_legacy_skittles_result(
                 processed.detections, processed.elapsed_ms);
             generalized_result = std::move(processed.detections);
@@ -121,12 +157,15 @@ struct App {
             cv::Mat loaded = chromascope::read_image(file);
             auto owned_frame = chromascope::from_cv_mat(loaded, chromascope::PixelFormat::BGR8);
             input = std::move(loaded);
-            input_frame = std::move(owned_frame);
+            input_frame = std::make_shared<const chromascope::ImageFrame>(
+                std::move(owned_frame));
             input_width = input.cols;
             input_height = input.rows;
             std::snprintf(path.data(), path.size(), "%s", file.string().c_str());
             original_texture.upload(input);
             have_result = false;
+            generalized_result.reset();
+            annotated_texture.reset();
             analyze();
         } catch (const std::exception& e) {
             status = std::string("Open failed: ") + e.what();
@@ -276,6 +315,12 @@ struct App {
         if (ImGui::SliderInt("Analysis max size", &max_size, 512, 2000))
             settings.max_dimension = max_size;
         if (ImGui::Button("Re-run analysis", ImVec2(-1, 0))) analyze();
+        if (pending_ticket != 0 && ImGui::Button("Cancel analysis", ImVec2(-1, 0))) {
+            processing->cancel();
+            pending_ticket = 0;
+            have_result = false;
+            status = "Analysis canceled.";
+        }
         ImGui::Separator();
 
         ImGui::TextUnformatted("VIEW & EXPORT");
@@ -285,6 +330,9 @@ struct App {
         if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
         ImGui::Separator();
         ImGui::TextUnformatted("RESULTS");
+        if (pending_ticket != 0) {
+            ImGui::TextDisabled("Processing in background (latest request only)...");
+        }
         if (have_result) {
             ImGui::Text("Size: %d x %d", input_width, input_height);
             ImGui::Text("Found: %zu", result.objects.size());
@@ -354,6 +402,7 @@ int main(int argc, char* argv[]) {
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
+            app.update();
             app.draw_ui();
             ImGui::Render();
             int width = 0, height = 0;

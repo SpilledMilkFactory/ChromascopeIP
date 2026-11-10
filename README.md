@@ -182,3 +182,14 @@ change the GUI overlays or CLI JSON schema. Two new CTests bring the suite from
 I accepted M2.1 after native Release, CLI-only and ASan/UBSan tests, manual GUI
 verification, and six green GitHub Actions checks. M2.2 requires the same
 verification; historical-photo release redistribution remains unapproved.
+
+
+## M2.3 — Explicit processing profiles
+
+I now route still-image processing through an explicitly registered `IProcessor`
+interface and validated numeric profile options. The built-in `skittles` profile
+continues to use the accepted Hough/HSV detector, and the CLI and GUI retain
+their established sample behavior. I can inspect the installed profiles with
+`chromascope-cli --list-profiles` or select one with `--profile skittles`; the
+legacy `--mode skittles` option still works. My full CTest suite is now **17**
+tests. See [docs/PROCESSOR_CONTRACT.md](docs/PROCESSOR_CONTRACT.md).

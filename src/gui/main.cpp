@@ -1,4 +1,6 @@
 #include "chromascope/Detection.hpp"
+#include "chromascope/DetectionResultBridge.hpp"
+#include "chromascope/SkittlesProcessor.hpp"
 #include "chromascope/ImageIO.hpp"
 #include "chromascope/ImageFrameCV.hpp"
 
@@ -68,6 +70,9 @@ struct App {
     std::array<char, 4096> export_path{};
     std::array<char, 4096> browser_directory{};
     chromascope::Settings settings;
+    chromascope::ProcessorRegistry processors = chromascope::make_builtin_registry();
+    std::string selected_profile = "skittles";
+    std::optional<chromascope::DetectionResult> generalized_result;
     cv::Mat input;
     std::optional<chromascope::ImageFrame> input_frame;
     chromascope::Result result;
@@ -88,12 +93,18 @@ struct App {
     void analyze() {
         if (!input_frame) return;
         try {
-            result = chromascope::detect_skittles(*input_frame, settings);
+            auto profile = chromascope::skittles_profile_from_settings(settings);
+            profile.processor_id = selected_profile;
+            auto processed = processors.run(profile, *input_frame);
+            result = chromascope::to_legacy_skittles_result(
+                processed.detections, processed.elapsed_ms);
+            generalized_result = std::move(processed.detections);
             have_result = true;
             refresh_overlay();
             status = "Analysis complete: " + std::to_string(result.objects.size()) + " colored circles.";
         } catch (const std::exception& e) {
             have_result = false;
+            generalized_result.reset();
             annotated_texture.reset();
             status = std::string("Analysis failed: ") + e.what();
         }
@@ -237,8 +248,22 @@ struct App {
         }
         ImGui::Separator();
         ImGui::TextUnformatted("PROCESSING PROFILE");
-        ImGui::Text("Skittles (legacy sample)");
-        ImGui::TextDisabled("Additional profiles are planned for later milestones.");
+        const auto descriptors = processors.descriptors();
+        const char* selected_name = "Unknown processor";
+        for (const auto& descriptor : descriptors)
+            if (descriptor.id == selected_profile) selected_name = descriptor.display_name.c_str();
+        if (ImGui::BeginCombo("##processor_profile", selected_name)) {
+            for (const auto& descriptor : descriptors) {
+                const bool selected = descriptor.id == selected_profile;
+                if (ImGui::Selectable(descriptor.display_name.c_str(), selected) && !selected) {
+                    selected_profile = descriptor.id;
+                    analyze();
+                }
+                if (selected) ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::TextDisabled("Registered processors; additional profiles are planned.");
         ImGui::Spacing();
         float accumulator = static_cast<float>(settings.accumulator_threshold);
         if (ImGui::SliderFloat("Circle threshold", &accumulator, 18.0f, 55.0f, "%.0f"))

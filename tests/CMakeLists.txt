@@ -61,3 +61,19 @@ add_test(NAME chromascope_cli_exports COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_exports.cmake")
 set_tests_properties(chromascope_cli_exports PROPERTIES
     LABELS "cli;integration;fixtures" TIMEOUT 90)
+
+# M2.3 registered processing interface, including CLI profile discovery.
+chromascope_add_cpp_test(chromascope_unit_processor_registry
+    unit/test_processor_registry.cpp "unit;core;processor;negative" 20)
+chromascope_add_cpp_test(chromascope_integration_processor_skittles
+    integration/test_processor_skittles.cpp "integration;core;processor" 50)
+
+add_test(NAME chromascope_cli_list_profiles COMMAND chromascope-cli --list-profiles)
+set_tests_properties(chromascope_cli_list_profiles PROPERTIES
+    LABELS "cli;processor;smoke" TIMEOUT 15
+    PASS_REGULAR_EXPRESSION "skittles - Skittles")
+
+add_test(NAME chromascope_cli_bad_profile COMMAND chromascope-cli
+    --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --profile unknown)
+set_tests_properties(chromascope_cli_bad_profile PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;processor;negative" TIMEOUT 15)

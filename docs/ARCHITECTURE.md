@@ -72,3 +72,14 @@ from an associated M2.1 `ImageFrame`. See
 [DETECTION_RESULT_CONTRACT.md](DETECTION_RESULT_CONTRACT.md) for pixel-coordinate,
 validation, ownership, and compatibility rules. M2.3 and M2.5 will integrate
 this representation with processor registration and generalized annotations.
+
+## M2.3 explicit processing registry
+
+I added the OpenCV-independent `IProcessor`, `ProcessorProfile`, and
+`ProcessorRegistry` interfaces (`include/chromascope/Processor.hpp`).
+`SkittlesProcessor` is the first registered built-in, using the existing Hough
+and HSV implementation through an owned frame. Results use M2.2 `DetectionResult`
+and are adapted back into the established legacy presentation only for the
+current CLI and GUI. This avoids duplicate analysis and reserves generalized
+rendering/export for a later milestone. See
+[PROCESSOR_CONTRACT.md](PROCESSOR_CONTRACT.md).

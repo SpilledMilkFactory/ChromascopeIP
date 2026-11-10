@@ -378,3 +378,24 @@ stub. None of these establish native OpenCV 5.1.0 build success.
 and ASan/UBSan; focused `-L budget`; static analysis; manual GUI inspection
 and all six GitHub Actions checks. I will keep issue #16 In Progress until
 these complete and the PR is merged.
+
+## M2.6 acceptance and M2.7 test-coverage preparation — issue #17 (November 10, 2026)
+
+I accepted M2.6 after correcting an oversized-BMP fixture's dimensions,
+rerunning my local test and GUI checks, and observing six successful hosted
+GitHub Actions checks before merging the pull request for issue #16.
+
+For M2.7 I added five focused C++ test executables, for **30 CTests total**.
+I did not change any production code, third-party dependency pins, sample
+media, or CLI/GUI user-facing behavior. The new targets enforce concurrent
+latest-ticket publication, pending/active image lifetime, stop/join behavior,
+stored-image coordinate and ROI rules, and the strict Skittles legacy bridge.
+The expected local acceptance matrix remains Release GUI + CLI, Release CLI
+only, ASan/UBSan CLI, and first-party static analysis.
+
+**Preparation evidence (not the native acceptance result):** I compiled and
+executed the OpenCV-independent new tests with GCC 14.2.0 and C++20 in an
+isolated environment using warnings-as-errors. I have not verified the two
+new OpenCV-dependent tests, the complete 30/30 suite, or the six hosted CI
+jobs as part of this M2.7 preparation; those gates remain **PENDING**.
+I will record their actual outcomes before marking issue #17 done.

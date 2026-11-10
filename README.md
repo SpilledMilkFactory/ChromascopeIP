@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3–M2.5 accepted (v0.1.3); M2.6 resource budgets and input validation are awaiting native acceptance. I have a still-image CLI/GUI, registered processing profiles, generalized detections and annotations, bounded background processing, and six GitHub Actions checks across Ubuntu, Debian, Windows and quality tooling. M2.6 registers 25 CTests. This is pre-release software; packaged distributions, video, webcam and people detection are not yet available.
+> **Development stage:** M0.3–M2.6 accepted (v0.1.3); M2.7 concurrency, lifecycle, coordinate and backward-compatibility test coverage is under verification. I have a still-image CLI/GUI, registered processing profiles, generalized detections and annotations, bounded background processing, and six GitHub Actions checks across Ubuntu, Debian, Windows and quality tooling. M2.7 registers 30 CTests. This is pre-release software; packaged distributions, video, webcam and people detection are not yet available.
 
 ## What works in M0–M0.3
 
@@ -46,15 +46,28 @@ I accepted M2.5 after 21/21 native CTests in Release, CLI-only Release and
 ASan/UBSan builds, focused annotation tests, manual GUI/export checks, and six
 green GitHub Actions jobs, then merged the PR.
 
-## M2.6 resource budgets (under verification)
+## M2.6 resource budgets (accepted)
 
 I now inspect JPEG/PNG/BMP/TIFF/WebP dimensions **before** decoding and enforce
 encoded-file, pixel-count, dimension, storage and analysis-workspace budgets
 throughout the core. I reject unsafe numeric CLI arguments and stop excessive
 Hough candidate lists before classification. My original Skittles thresholds
 and images remain unchanged. See [docs/RESOURCE_BUDGETS.md](docs/RESOURCE_BUDGETS.md)
-for exact limits and security caveats. The expanded suite registers **25 CTests**;
-full native and hosted CI verification are still pending.
+for exact limits and security caveats. I accepted M2.6 after the corrected oversized-BMP test fixture passed the native
+tests and all six hosted GitHub Actions checks passed. The suite contains **25
+CTests** at that accepted baseline.
+
+## M2.7 defensive test expansion (under verification)
+
+I am extending the native test suite to **30 CTests** without changing
+production algorithms or public interfaces. The new cases exercise
+simultaneous latest-wins submissions, noncooperative cancellation during
+shutdown, ownership of pending and active frames, original stored-image
+coordinates and orientation metadata, OpenCV ROI raster boundaries, and
+legacy Skittles result/annotation compatibility. See
+[docs/M2_7_TEST_COVERAGE.md](docs/M2_7_TEST_COVERAGE.md) for exact tests,
+limits, and acceptance checks. I will not consider M2.7 accepted until all
+three local configurations and six hosted CI checks pass.
 
 ## Source tree
 

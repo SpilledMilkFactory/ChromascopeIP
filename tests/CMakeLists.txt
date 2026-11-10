@@ -111,3 +111,18 @@ add_test(NAME chromascope_cli_bad_threshold_suffix COMMAND chromascope-cli
     --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --accumulator 31junk)
 set_tests_properties(chromascope_cli_bad_threshold_suffix PROPERTIES
     WILL_FAIL TRUE LABELS "cli;security;budget;negative" TIMEOUT 15)
+
+# M2.7: concurrency, lifetime, stored-coordinate and legacy compatibility gates.
+# These run headlessly on every supported CI platform; no camera is required.
+chromascope_add_cpp_test(chromascope_unit_processing_lifecycle
+    unit/test_processing_lifecycle.cpp "unit;core;async;lifecycle;concurrency;negative" 25)
+chromascope_add_cpp_test(chromascope_integration_concurrent_requests
+    integration/test_concurrent_requests.cpp "integration;core;async;concurrency;lifecycle" 30)
+chromascope_add_cpp_test(chromascope_unit_coordinate_contract
+    unit/test_coordinate_contract.cpp "unit;core;coordinate;lifecycle" 20)
+chromascope_add_cpp_test(chromascope_integration_coordinate_cv
+    integration/test_coordinate_cv.cpp "integration;core;coordinate;annotation;frame" 25)
+chromascope_add_cpp_test(chromascope_regression_legacy_compatibility
+    regression/test_legacy_compatibility.cpp "regression;core;compatibility;fixtures;annotation" 90)
+target_compile_definitions(chromascope_regression_legacy_compatibility PRIVATE
+    CHROMASCOPE_LEGACY_SAMPLE="${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg")

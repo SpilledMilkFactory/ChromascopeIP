@@ -159,3 +159,17 @@ ctest --test-dir build/presets/linux-release --output-on-failure -L budget
 
 All 25 tests must also pass in Release, CLI-only Release, and Linux
 ASan/UBSan configurations. See `RESOURCE_BUDGETS.md`.
+
+## M2.7 concurrency, lifecycle, coordinate and compatibility coverage
+
+I added five independent headless CTests on top of the 25 accepted M2.6 cases,
+bringing the expected total to **30**. The stable new filters are
+`concurrency`, `lifecycle`, `coordinate` and `compatibility` (also combined
+with existing `unit`, `integration`, `regression`, `async`, `frame`,
+`annotation` and `fixtures` labels as applicable). These tests exercise
+bounded queue behavior with coordinated simultaneous submitters, worker
+shutdown and snapshot ownership, stored-pixel geometry including OpenCV ROI
+rendering, and the backward-compatible legacy Skittles APIs. I do not replace
+any prior regression or change fixture checksums. See
+[M2_7_TEST_COVERAGE.md](M2_7_TEST_COVERAGE.md) for coverage, caveats and
+acceptance commands.

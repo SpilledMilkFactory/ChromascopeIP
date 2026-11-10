@@ -103,6 +103,7 @@ jobs:
             echo '- Ubuntu 24.04, GCC first-party warnings-as-errors'
             echo '- Clang-tidy 18 correctness checks for core/CLI/test units'
             echo '- ASan + UBSan Debug CLI-only; full eleven-test CTest suite'
+            echo '- ASan + UBSan Debug CLI-only; full nine-test CTest suite'
             echo '- Workflow policy and historical fixture provenance integrity (media rights unresolved)'
             echo '- GUI runtime, third-party instrumentation and Windows sanitizers: not checked'
           } >> "$GITHUB_STEP_SUMMARY"

@@ -1,4 +1,6 @@
 #include "chromascope/Detection.hpp"
+#include "chromascope/AnnotationBridge.hpp"
+#include "chromascope/AnnotationRendererCV.hpp"
 #include "chromascope/DetectionResultBridge.hpp"
 #include "chromascope/SkittlesProcessor.hpp"
 #include "chromascope/ImageFrameCV.hpp"
@@ -158,7 +160,9 @@ int main(int argc, char* argv[]) {
             processed.detections, processed.elapsed_ms);
         if (!options.output.empty()) {
             chromascope::write_image(options.output,
-                chromascope::draw_annotations(image, result, options.labels));
+                chromascope::render_annotations(
+                    image, chromascope::make_annotation_layer(processed.detections),
+                    {.show_outlines = true, .show_labels = options.labels}));
         }
         if (options.json_stdout) {
             write_json(std::cout, options, result);

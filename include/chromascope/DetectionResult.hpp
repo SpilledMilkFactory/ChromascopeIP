@@ -1,43 +1,18 @@
 #pragma once
 
 #include "chromascope/ImageFrame.hpp"
+#include "chromascope/Geometry.hpp"
 
 #include <optional>
 #include <string>
-#include <variant>
 #include <vector>
 
 namespace chromascope {
 
 // Geometry is expressed in ORIGINAL, stored-image pixel coordinates:
-// x grows right, y grows down, and (0,0) is the top-left pixel center.
-// Shapes may extend beyond the frame (e.g., a clipped person at an edge).
-// Orientation/mirroring metadata does not transform these coordinates.
-struct Point2D {
-    double x = 0.0;
-    double y = 0.0;
-};
-
-struct CircleGeometry {
-    Point2D center;
-    double radius = 0.0;
-};
-
-struct BoxGeometry {
-    double x = 0.0;
-    double y = 0.0;
-    double width = 0.0;
-    double height = 0.0;
-};
-
-// An owned open ring, implicitly closed between the last and first vertex.
-// Three or more vertices with nonzero signed area are required. Concave
-// polygons are supported; self-intersection is not currently tested.
-struct PolygonGeometry {
-    std::vector<Point2D> vertices;
-};
-
-using DetectionGeometry = std::variant<CircleGeometry, BoxGeometry, PolygonGeometry>;
+// x grows right, y grows down. Shapes may extend past the image boundary.
+// Orientation/mirroring metadata never silently transforms coordinates.
+using DetectionGeometry = Geometry;
 
 // Score is finite and in [0,1], but is NOT universally calibrated across
 // processors. Class ids are OPTIONAL and scoped to the producer/profile.

@@ -37,8 +37,9 @@ fork or retune the Hough or HSV algorithm.
 My existing CLI JSON and annotated-image formats, plus my GUI circle overlays,
 consume the strict `to_legacy_skittles_result()` presentation adapter. This
 validates that every generalized shape is a known labeled candy circle and
-reconstructs the counts and timing without rerunning detection. M2.5 will add
-generalized annotations and exports independently of this compatibility path.
+reconstructs the counts and timing without rerunning detection. M2.5 adds
+generalized annotations independently of this compatibility path; only
+legacy CLI JSON and summaries still need reverse conversion.
 
 The GUI now offers a registered-profile selection combo (one profile initially)
 and retains the original confidence, circle, and max-size sliders. CLI accepts

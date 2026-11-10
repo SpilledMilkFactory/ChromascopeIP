@@ -31,6 +31,10 @@ add_library(chromascope_core STATIC
     src/core/ImageFrame.cpp
     src/core/ImageFrameCV.cpp
     src/core/DetectionResult.cpp
+    src/core/Annotation.cpp
+    src/core/AnnotationBridge.cpp
+    src/core/AnnotationRendererCV.cpp
+    src/core/LegacyAnnotationAdapter.cpp
     src/core/DetectionResultBridge.cpp
     src/core/Processor.cpp
     src/core/SkittlesProcessor.cpp

@@ -331,3 +331,23 @@ CTest targets (19 total). The four historical image fixtures and their rights
 policy remain unchanged. Native OpenCV 5.1.0 compilation, complete CTests,
 ASan/UBSan, manual GUI tests, and all six Actions jobs remain **PENDING** at
 patch preparation time. See `docs/ASYNC_PROCESSING.md`.
+
+
+## M2.5 — Independent annotation layer and OpenCV renderer (issue #15)
+
+I accepted M2.4 after 19/19 Release, CLI-only Release, and ASan/UBSan CTests,
+manual GUI rapid-switch/cancel/re-run acceptance, and all six hosted GitHub
+Actions checks (November 10, 2026). Its PR was merged.
+
+For M2.5 I extracted presentation-only geometry, RGB colors, and owned labels
+into an `AnnotationLayer` and added an explicit detection-to-annotation bridge.
+I moved the OpenCV legacy renderer into a dedicated translation unit, keeping
+its public API as a compatibility wrapper, and switched CLI/GUI drawing to the
+new layer without changing the original Skittles detector or JSON schema.
+The independent reference renderer in the new integration test compares all
+pixels for both label modes across s1.jpg–s4.jpg.
+
+Acceptance remains **pending** until I run 21/21 native CTests in Release,
+CLI-only Release, and ASan/UBSan configurations, the static analysis gate, GUI
+visual/export regression, and six hosted Actions checks. I will not regard a
+stub-only or synthetic-only build as an OpenCV 5.1.0 qualification.

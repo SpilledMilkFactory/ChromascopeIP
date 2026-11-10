@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3–M1.7 accepted (v0.1.3); M1.8 license/provenance audit is in review. I verified the corrected Skittles classifications in the Ubuntu 26.04 GUI and recorded **9/9 passing CTests** in Release, Debug, and CLI-only Release configurations against OpenCV 5.1.0. The Ubuntu 24.04/26.04 and Debian 12/13 CI matrices passed and their PRs were merged. The project is still pre-release: no packaged distribution, video, or webcam support is claimed.
+> **Development stage:** M0.3–M2.4 accepted (v0.1.3), M2.5 annotation separation under verification. I have the still-image CLI/GUI, an extensible processor interface, generalized detections, bounded background processing, and six GitHub Actions checks across Ubuntu, Debian, Windows and quality tooling. M2.5 requires 21 native CTests and manual GUI acceptance. This is pre-release software; packaged distributions, video, webcam and people detection are not yet available.
 
 ## What works in M0–M0.3
 
@@ -22,7 +22,7 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 
 The current **Skittles** profile uses classical image processing, not a trained model. Hough-circle candidates and an HSV color classifier perform best on reasonably separated, roughly round candies. Real-world people, arbitrary objects, occlusions, and camera streams will require different algorithms. I am planning those as separate milestones after the accepted M0.3 baseline.
 
-## M2.4 background processing (under verification)
+## M2.4 background processing (accepted)
 
 My GUI now submits processor requests to a bounded background worker (one
 worker and one replaceable pending job). It keeps the existing Skittles sample
@@ -31,7 +31,17 @@ without allowing stale results to overwrite the new selection. OpenCV's native
 Hough-circle routine is not interruptible, so cancellation uses explicit
 checkpoints and generation-based stale-result suppression. GUI texture updates
 remain on the render thread. See [docs/ASYNC_PROCESSING.md](docs/ASYNC_PROCESSING.md)
-for thread ownership and test requirements. M2.4 requires 19 passing CTests.
+for thread ownership and test requirements. I accepted M2.4 after 19/19 CTests in all three local build modes, six passing Actions checks, and manual cancellation/switching verification.
+
+## M2.5 independent annotations (under verification)
+
+I split rendering from analysis: `DetectionResult` is mapped into an owned,
+OpenCV-independent `AnnotationLayer`, and `AnnotationRendererCV` draws circles,
+boxes, polygons and labels without inspecting any processor result. Both the
+GUI and CLI now use this renderer directly. The original Skittles drawing API
+remains as a compatibility wrapper; CLI JSON is unchanged. My new tests
+compare output pixels with the accepted M2.4 renderer on all four photographs.
+See [docs/ANNOTATION_CONTRACT.md](docs/ANNOTATION_CONTRACT.md).
 
 ## Source tree
 
@@ -139,7 +149,7 @@ ctest --preset linux-release
 ctest --test-dir build/presets/linux-release -V
 ```
 
-M1.3 organizes checks into independent **unit**, **integration**, **regression**, **fixture-integrity**, and **CLI** CTests, including the historical M0.1/M0.3 red/orange spatial regressions and a new PNG/JSON export contract test. See [`docs/TESTING.md`](docs/TESTING.md) for the nine-test matrix, CTest label filters, and fixture manifest; [`docs/VERIFICATION.md`](docs/VERIFICATION.md) tracks recorded native acceptance results. I accepted M1.3 after **9/9 native CTests passed** in Release, Debug, and CLI-only Release builds. Both Ubuntu 24.04/26.04 Actions checks subsequently passed, and I merged M1.4. The Debian 12/13 hosted checks passed before I merged M1.5.
+M1.3 organizes checks into independent **unit**, **integration**, **regression**, **fixture-integrity**, and **CLI** CTests, including the historical M0.1/M0.3 red/orange spatial regressions and a new PNG/JSON export contract test. See [`docs/TESTING.md`](docs/TESTING.md) for the current test matrix, CTest label filters, and fixture manifest; [`docs/VERIFICATION.md`](docs/VERIFICATION.md) tracks recorded native acceptance results. I accepted M1.3 after **9/9 native CTests passed** in Release, Debug, and CLI-only Release builds. Both Ubuntu 24.04/26.04 Actions checks subsequently passed, and I merged M1.4. The Debian 12/13 hosted checks passed before I merged M1.5.
 
 ## Ubuntu GitHub Actions CI (M1.4)
 

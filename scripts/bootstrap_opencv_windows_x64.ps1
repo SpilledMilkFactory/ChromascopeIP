@@ -45,10 +45,20 @@ if ($LASTEXITCODE -ne 0 -or $actualCommit -ne $expectedCommit) {
     throw "Unexpected OpenCV source commit: $actualCommit (expected $expectedCommit)"
 }
 
+# Use OpenCV's native post-dependency-detection hook to remove the invalid
+# POSIX pthread import from the MSVC static package. Keep Windows concurrency
+# enabled. Do not patch the immutable upstream source checkout.
+$hookDir = Join-Path $PSScriptRoot 'opencv_windows_hooks'
+$hook = Join-Path $hookDir 'POST_DETECT_DEPENDENCIES.cmake'
+if (-not (Test-Path -LiteralPath $hook -PathType Leaf)) {
+    throw "Missing validated OpenCV Windows dependency hook: $hook"
+}
+
 Invoke-Native cmake @(
     '-S', $source, '-B', $build,
     '-G', 'Visual Studio 17 2022', '-A', 'x64',
     "-DCMAKE_INSTALL_PREFIX=$install",
+    "-DOPENCV_CMAKE_HOOKS_DIR=$hookDir",
     '-DBUILD_LIST=core,imgproc,imgcodecs',
     '-DBUILD_SHARED_LIBS=OFF',
     '-DBUILD_WITH_STATIC_CRT=OFF',
@@ -84,6 +94,7 @@ $metadata = @(
     'static_crt=OFF',
     'modules=core,imgproc,imgcodecs',
     'protobuf=OFF',
+    'windows_pthread_hook=ON',
     'consumer_probe=PASS'
 ) -join "`n"
 Set-Content -LiteralPath $stamp -Value $metadata -Encoding utf8

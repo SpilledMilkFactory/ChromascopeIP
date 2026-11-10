@@ -213,3 +213,28 @@ I inspected the second failed Windows Server 2022 Actions log (`logs_11573577677
 I corrected the Windows OpenCV bootstrap to pass `WITH_PROTOBUF=OFF`. The bootstrap now uses a standalone MSVC Release consumer to configure, compile, link, and run a PNG encode/decode check against the **installed** static OpenCV package before writing its provenance marker. The Windows Actions workflow runs the same consumer check on cache hits and fresh installs, verifies `protobuf=OFF` metadata, and changes the cache key so an old missing-Protobuf installation is not reused. Linux workflows, C++ algorithms, CMake presets, original photographs, and the nine CTests remain unchanged.
 
 **Static/package checks performed here:** YAML and PowerShell source contracts, bootstrap/consumer configuration assertions, Git patch replay, ZIP equivalence and unchanged sample hashes. I have not executed Visual Studio/MSVC or run the hosted Windows workflow in this environment. M1.6 can only be accepted after the full Windows CI job, including the consumer smoke and 9/9 CTests, succeeds; the four previously accepted Linux jobs must remain green.
+
+
+## M1.6 Windows third hosted failure: MSVC pthread link dependency (November 9, 2026)
+
+I inspected Windows Actions run `115741380966`. The previous OpenCV Protobuf
+correction allowed a complete source build and an installed-package consumer
+CMake configuration; the MSVC consumer then failed at link time:
+`LNK1181: cannot open input file 'pthread.lib'`. The dependency summary listed
+`Extra dependencies: pthread` with Windows `Concurrency` as the parallel framework.
+
+I added a Windows/MSVC-only OpenCV `POST_DETECT_DEPENDENCIES.cmake` hook to remove
+the inappropriate POSIX pthread entry before the exported targets are created.
+The pinned upstream OpenCV source and the Windows native concurrency backend
+remain unchanged. The bootstrap passes the hook directory, the cache key includes
+the hook hash, and the expected provenance marker includes
+`windows_pthread_hook=ON`. The independent C++ PNG consumer remains required on
+both fresh builds and cache hits; all nine ChromascopeIP CTests remain required.
+
+**Local validation performed:** Hook parsing and list-removal behavior using
+synthetic CMake script inputs; Git patch syntax and replay against the uploaded
+source baseline; workflow YAML structure; full-source ZIP equivalence; and
+unchanged Linux workflows / C++ code / original test fixtures.
+
+**Native Windows build + all nine Windows CTests:** PENDING the next GitHub
+Actions run. The previous failed run does not constitute M1.6 acceptance.

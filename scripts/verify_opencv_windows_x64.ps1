@@ -43,7 +43,7 @@ if (-not $SkipStampCheck) {
         "commit=$expectedCommit", 'opencv=5.1.0', 'architecture=x64',
         'toolchain=Visual Studio 17 2022', 'configuration=Release',
         'shared=OFF', 'static_crt=OFF', 'modules=core,imgproc,imgcodecs',
-        'protobuf=OFF', 'consumer_probe=PASS'
+        'protobuf=OFF', 'windows_pthread_hook=ON', 'consumer_probe=PASS'
     )) {
         if ($fields -notcontains $expected) {
             throw "OpenCV provenance mismatch: $expected"

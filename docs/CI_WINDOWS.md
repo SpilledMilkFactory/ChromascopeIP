@@ -70,3 +70,27 @@ The Actions workflow runs untrusted PR code with **read-only** repository permis
 I investigated two hosted Windows failures. First, CMake found the top-level OpenCV Windows dispatcher instead of the installed MSVC static package. I corrected package selection to `<prefix>/x64/vc17/staticlib`. In the following run, CMake resolved the correct package but its generated `OpenCVModules.cmake` referenced missing `liblibprotobuf.a`: the build log reported `Protobuf: build (3.19.1)`, while the install log did not contain a corresponding Protobuf archive. This occurred before ChromascopeIP compilation. The current CLI/GUI code is not implicated.
 
 I now explicitly disable Protobuf in the **M1.6 still-image dependency build** and verify the installed package with an independent real consumer project before writing the provenance stamp. The CI verification step repeats that consumer check for cached installations. This fix is awaiting hosted verification; it does not justify weakening the nine-test gate or changing the accepted Linux builds. When I later enable DNN inference I will reassess the appropriate Protobuf/model-dependency configuration as part of that milestone.
+
+## M1.6 Windows CI pthread link correction (November 9, 2026)
+
+I inspected the next hosted Windows failure after the Protobuf correction. The installed
+OpenCV 5.1.0 static package **configured and compiled a separate C++ consumer**, but
+MSVC failed at link time with `LNK1181: cannot open input file 'pthread.lib'`.
+The OpenCV CMake configuration summary reported `Extra dependencies: pthread`
+even though its active parallel framework was **Concurrency** (the Windows-native
+backend). Installing an unrelated pthread binary would hide the configuration problem.
+
+I added `scripts/opencv_windows_hooks/POST_DETECT_DEPENDENCIES.cmake` and passed
+its directory as `OPENCV_CMAKE_HOOKS_DIR` during Windows OpenCV configuration.
+This is OpenCV's supported post-dependency-detection hook, run before creating
+module targets. It removes only the `pthread` item from `OPENCV_LINKER_LIBS`,
+and explicitly refuses to run outside Windows/MSVC. It does **not** disable
+OpenCV thread support, change the C++ application, or modify the pinned OpenCV
+source. The clean OpenCV installation must still configure, link, and execute
+the independent PNG consumer successfully before the provenance marker is written.
+
+I added `windows_pthread_hook=ON` to the bootstrap, consumer verification, and
+CI provenance requirements, and changed the cache key to include the hook file.
+Therefore the previously unusable OpenCV cache cannot be silently reused.
+This is a prepared-source correction; I do not claim the subsequent hosted
+Windows run has passed until GitHub Actions completes successfully.

@@ -204,3 +204,12 @@ I updated the Windows CMake presets to use the **Visual Studio 17 2022 x64** gen
 - [ ] The linked PR is merged and issue #8 is accepted.
 
 A green `windows-2022` server job does not qualify the Windows 10/11 user-facing release packages, GUI, or camera support. Those require separate platform acceptance later in the roadmap.
+
+
+## M1.6 Windows static OpenCV exported-target correction (hosted verification pending)
+
+I inspected the second failed Windows Server 2022 Actions log (`logs_115735776772.zip`). The pinned OpenCV 5.1.0 build and install completed, and the corrected `x64/vc17/staticlib` configuration was selected. During ChromascopeIP CMake configuration, however, OpenCV's `OpenCVModules.cmake` failed while importing target `libprotobuf`, which referenced a missing `liblibprotobuf.a` in the installed static package. The OpenCV configure log showed that bundled Protobuf 3.19.1 had been enabled even though the M1.6 target only needs `core`, `imgproc`, and `imgcodecs`.
+
+I corrected the Windows OpenCV bootstrap to pass `WITH_PROTOBUF=OFF`. The bootstrap now uses a standalone MSVC Release consumer to configure, compile, link, and run a PNG encode/decode check against the **installed** static OpenCV package before writing its provenance marker. The Windows Actions workflow runs the same consumer check on cache hits and fresh installs, verifies `protobuf=OFF` metadata, and changes the cache key so an old missing-Protobuf installation is not reused. Linux workflows, C++ algorithms, CMake presets, original photographs, and the nine CTests remain unchanged.
+
+**Static/package checks performed here:** YAML and PowerShell source contracts, bootstrap/consumer configuration assertions, Git patch replay, ZIP equivalence and unchanged sample hashes. I have not executed Visual Studio/MSVC or run the hosted Windows workflow in this environment. M1.6 can only be accepted after the full Windows CI job, including the consumer smoke and 9/9 CTests, succeeds; the four previously accepted Linux jobs must remain green.

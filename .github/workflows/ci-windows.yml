@@ -49,7 +49,7 @@ jobs:
         with:
           path: .ci-opencv/opencv-5.1.0
           # A new bootstrap implementation or toolchain requires a new key.
-          key: opencv-5.1.0-win2022-msvc17-x64-static-md-${{ hashFiles('scripts/bootstrap_opencv_windows_x64.ps1') }}-v1
+          key: opencv-5.1.0-win2022-msvc17-x64-static-md-noproto-${{ hashFiles('scripts/bootstrap_opencv_windows_x64.ps1', 'scripts/verify_opencv_windows_x64.ps1') }}-v2
 
       - name: Build OpenCV 5.1.0 from pinned source on cache miss
         if: steps.opencv-cache.outputs.cache-hit != 'true'
@@ -72,7 +72,8 @@ jobs:
             "commit=$env:OPENCV_EXPECTED_COMMIT", 'opencv=5.1.0',
             'architecture=x64', 'toolchain=Visual Studio 17 2022',
             'configuration=Release', 'shared=OFF', 'static_crt=OFF',
-            'modules=core,imgproc,imgcodecs')) {
+            'modules=core,imgproc,imgcodecs',
+            'protobuf=OFF', 'consumer_probe=PASS')) {
             if ($lines -notcontains $field) {
               throw "OpenCV provenance field mismatch: $field"
             }
@@ -93,6 +94,12 @@ jobs:
           }
           "OpenCV_DIR=$opencvDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Verified OpenCV static package: $opencvDir"
+          # Confirm imported CMake targets and static runtime libraries in a
+          # separate real consumer; do this for both fresh builds and cache hits.
+          ./scripts/verify_opencv_windows_x64.ps1 `
+            -InstallPrefix $env:OPENCV_PREFIX `
+            -ScratchRoot (Join-Path $env:RUNNER_TEMP 'chromascope-opencv-cached-probe') `
+            -Jobs 2
 
 
       - name: Configure Windows CLI Release with pinned OpenCV

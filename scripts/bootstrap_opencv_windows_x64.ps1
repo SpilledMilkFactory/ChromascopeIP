@@ -52,6 +52,9 @@ Invoke-Native cmake @(
     '-DBUILD_LIST=core,imgproc,imgcodecs',
     '-DBUILD_SHARED_LIBS=OFF',
     '-DBUILD_WITH_STATIC_CRT=OFF',
+    # This still-image build does not use DNN; Protobuf would export an
+    # unavailable libprotobuf imported target in this OpenCV 5.1.0 MSVC layout.
+    '-DWITH_PROTOBUF=OFF',
     '-DBUILD_TESTS=OFF', '-DBUILD_PERF_TESTS=OFF',
     '-DBUILD_EXAMPLES=OFF', '-DBUILD_DOCS=OFF',
     '-DBUILD_opencv_apps=OFF', '-DBUILD_JAVA=OFF',
@@ -64,7 +67,13 @@ Invoke-Native cmake @('--install', $build, '--config', 'Release')
 
 $configs = @(Get-ChildItem -LiteralPath $install -Recurse -File -Filter 'OpenCVConfig.cmake')
 if ($configs.Count -eq 0) { throw 'OpenCVConfig.cmake was not installed.' }
-# Write a marker only when the entire source build and installation pass.
+# Verify the installed CMake package using a separate MSVC consumer before
+# declaring the installation reusable. This detects broken imported targets
+# (including missing third-party archives) and codec link/runtime problems.
+$verifier = Join-Path $PSScriptRoot 'verify_opencv_windows_x64.ps1'
+& $verifier -InstallPrefix $install -ScratchRoot (Join-Path $root 'consumer-probe') -SkipStampCheck -Jobs $Jobs
+
+# Write the provenance marker only after install + consumer verification pass.
 $metadata = @(
     "commit=$expectedCommit",
     'opencv=5.1.0',
@@ -73,7 +82,9 @@ $metadata = @(
     'configuration=Release',
     'shared=OFF',
     'static_crt=OFF',
-    'modules=core,imgproc,imgcodecs'
+    'modules=core,imgproc,imgcodecs',
+    'protobuf=OFF',
+    'consumer_probe=PASS'
 ) -join "`n"
 Set-Content -LiteralPath $stamp -Value $metadata -Encoding utf8
 Write-Host "Installed OpenCV 5.1.0 ($expectedCommit) at $install"

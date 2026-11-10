@@ -412,3 +412,23 @@ limitations are documented in `IMAGE_FILTER_PROFILES.md`. I have **not yet
 recorded** a successful native OpenCV 5.1.0 full build, GUI run, sanitizer
 matrix, or hosted GitHub Actions for this prepared patch. I will enter those
 results after execution before closing issue #18.
+
+## M3.1 acceptance and M3.2 implementation preparation — November 10, 2026
+
+I accepted M3.1 after confirming that all **35/35 CTests** passed in the
+Ubuntu 26.04 GUI Release, CLI-only Release and ASan/UBSan test configurations.
+The five `filters`-labeled tests passed separately, the GUI still rendered the
+legacy Skittles objects, and I confirmed the new image-transform profiles
+changed the preview correctly. All six hosted GitHub Actions checks passed
+on the M3.1 PR and the PR was merged, as reported before issue #19.
+
+I then prepared M3.2 from the accepted `Post_M3_1.zip` source baseline. This
+adds two registered geometric profiles (HSV selection and Canny contours),
+region detections, source/mask overlay selection, generic JSON geometry output,
+raw mask export and seven new regression/CLI tests. I preserve the original
+Skittles JSON schema, the M3.1 transform behavior and the historical samples.
+**The prepared M3.2 CTest suite contains 42 tests.**
+
+Source package validation and CMake test registration are not substitutes for
+native OpenCV 5.1.0 builds. I will report actual Release, CLI-only, sanitizer,
+GUI and hosted Actions results before closing issue #19.

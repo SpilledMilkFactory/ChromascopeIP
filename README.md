@@ -248,3 +248,13 @@ their established sample behavior. I can inspect the installed profiles with
 `chromascope-cli --list-profiles` or select one with `--profile skittles`; the
 legacy `--mode skittles` option still works. My full CTest suite is now **17**
 tests. See [docs/PROCESSOR_CONTRACT.md](docs/PROCESSOR_CONTRACT.md).
+
+### M3.2 — HSV segmentation and contour detection
+
+I added registered `hsv_segmentation` and `contour_detection` profiles to the
+existing CLI and GUI. Both return non-semantic region geometry plus an owned
+binary mask/edge raster. The CLI accepts `--set KEY=VALUE`, `--output` for
+annotated photos, `--mask-output` for the raw binary result, and `--json` for
+box/polygon data. The GUI can overlay detected regions on the original image
+or a mask. These operations do not yet identify people or object categories.
+The acceptance and configuration details are in `docs/SEGMENTATION_PROFILES.md`.

@@ -147,3 +147,33 @@ add_test(NAME chromascope_cli_bad_filter_setting COMMAND chromascope-cli
     --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --profile grayscale --set not_an_option=1)
 set_tests_properties(chromascope_cli_bad_filter_setting PROPERTIES
     WILL_FAIL TRUE LABELS "cli;filters;negative" TIMEOUT 15)
+
+# M3.2: HSV color segmentation and contour geometry, CLI/GUI shared contract.
+chromascope_add_cpp_test(chromascope_unit_segmentation_contract
+    unit/test_segmentation_contract.cpp "unit;core;processor;segmentation;negative" 25)
+chromascope_add_cpp_test(chromascope_integration_hsv_segmentation
+    integration/test_hsv_segmentation.cpp "integration;core;segmentation;annotation" 40)
+chromascope_add_cpp_test(chromascope_integration_contour_detection
+    integration/test_contour_detection.cpp "integration;core;segmentation;annotation" 40)
+add_test(NAME chromascope_cli_segmentation COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s1.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/segmentation"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_segmentation.cmake")
+set_tests_properties(chromascope_cli_segmentation PROPERTIES
+    LABELS "cli;integration;segmentation;fixtures" TIMEOUT 90)
+add_test(NAME chromascope_cli_bad_hsv_range COMMAND chromascope-cli
+    --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --profile hsv_segmentation
+    --set min_saturation=220 --set max_saturation=120)
+set_tests_properties(chromascope_cli_bad_hsv_range PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;negative;segmentation" TIMEOUT 15)
+add_test(NAME chromascope_cli_bad_contour_kernel COMMAND chromascope-cli
+    --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --profile contour_detection
+    --set blur_kernel=4)
+set_tests_properties(chromascope_cli_bad_contour_kernel PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;negative;segmentation" TIMEOUT 15)
+add_test(NAME chromascope_cli_bad_mask_profile COMMAND chromascope-cli
+    --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg" --profile grayscale
+    --mask-output "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/should-not-be-created.png")
+set_tests_properties(chromascope_cli_bad_mask_profile PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;negative;segmentation" TIMEOUT 15)

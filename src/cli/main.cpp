@@ -16,10 +16,12 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <variant>
+#include <type_traits>
 
 namespace {
 struct Options {
-    std::filesystem::path input, output, json;
+    std::filesystem::path input, output, json, mask_output;
     bool json_stdout = false;
     bool labels = true;
     std::string profile_id = "skittles";
@@ -32,7 +34,8 @@ void usage(std::ostream& os) {
     os << "ChromascopeIP 0.1.3 - image processing CLI\n"
           "Usage: chromascope-cli --input IMAGE [options]\n\n"
           "  -i, --input FILE       Input JPG/PNG/BMP/TIFF image (required)\n"
-          "  -o, --output FILE      Save annotated image\n"
+          "  -o, --output FILE      Save annotated image or processed raster\n"
+          "      --mask-output FILE Export segmentation/contour mask separately\n"
           "      --json FILE|-     Export machine-readable JSON; - writes to stdout\n"
           "      --mode skittles   Legacy alias for --profile skittles\n"
           "      --profile ID      Select a registered processing profile\n"
@@ -76,6 +79,7 @@ Options parse(int argc, char* argv[]) {
         const std::string_view flag = argv[i];
         if (flag == "-i" || flag == "--input") o.input = next(i, argc, argv, flag);
         else if (flag == "-o" || flag == "--output") o.output = next(i, argc, argv, flag);
+        else if (flag == "--mask-output") o.mask_output = next(i, argc, argv, flag);
         else if (flag == "--json") {
             const auto value = next(i, argc, argv, flag);
             if (value == "-") o.json_stdout = true;
@@ -110,7 +114,7 @@ Options parse(int argc, char* argv[]) {
     if (o.input.empty()) throw std::invalid_argument("--input is required");
     if (o.profile_id == "skittles") chromascope::validate_settings(o.settings);
     else if (o.legacy_settings_changed)
-        throw std::invalid_argument("Legacy Skittles flags cannot be used with image filters; use --set");
+        throw std::invalid_argument("Legacy Skittles flags cannot be used with other profiles; use --set");
     return o;
 }
 
@@ -160,10 +164,10 @@ void write_json(std::ostream& stream, const Options& options, const chromascope:
     }
     stream << "  ]\n}\n";
 }
-// Generic image-filter JSON is deliberately separate from the byte-stable
-// legacy Skittles schema; filters output pixels, not object detections.
-void write_image_filter_json(std::ostream& stream, const Options& options,
-                             const chromascope::ProcessedFrame& processed) {
+// The legacy Skittles JSON schema above is unchanged. Generic processors
+// report owned detection geometry without assigning semantic class names.
+void write_general_json(std::ostream& stream, const Options& options,
+                        const chromascope::ProcessedFrame& processed) {
     const auto& result = processed.detections;
     stream << std::fixed << std::setprecision(3);
     stream << "{\n  \"application\": \"ChromascopeIP\",\n"
@@ -171,8 +175,40 @@ void write_image_filter_json(std::ostream& stream, const Options& options,
            << "  \"input\": \"" << escape_json(options.input.string()) << "\",\n"
            << "  \"width\": " << result.width() << ", \"height\": " << result.height() << ",\n"
            << "  \"elapsed_ms\": " << processed.elapsed_ms << ",\n"
-           << "  \"total\": 0,\n  \"detections\": []\n}\n";
+           << "  \"total\": " << result.objects().size() << ",\n  \"detections\": [";
+    if (result.objects().empty()) {
+        stream << "]\n}\n";
+        return;
+    }
+    for (std::size_t index = 0; index < result.objects().size(); ++index) {
+        const auto& object = result.objects()[index];
+        stream << (index == 0 ? "\n" : ",\n")
+               << "    {\"label\": \"" << escape_json(object.label)
+               << "\", \"score\": " << object.score;
+        std::visit([&stream](const auto& shape) {
+            using T = std::decay_t<decltype(shape)>;
+            if constexpr (std::is_same_v<T, chromascope::BoxGeometry>) {
+                stream << ", \"geometry\": {\"type\": \"box\", \"x\": " << shape.x
+                       << ", \"y\": " << shape.y << ", \"width\": " << shape.width
+                       << ", \"height\": " << shape.height << "}";
+            } else if constexpr (std::is_same_v<T, chromascope::PolygonGeometry>) {
+                stream << ", \"geometry\": {\"type\": \"polygon\", \"vertices\": [";
+                for (std::size_t i = 0; i < shape.vertices.size(); ++i) {
+                    if (i) stream << ", ";
+                    stream << "[" << shape.vertices[i].x << ", " << shape.vertices[i].y << "]";
+                }
+                stream << "]}";
+            } else {
+                stream << ", \"geometry\": {\"type\": \"circle\", \"x\": "
+                       << shape.center.x << ", \"y\": " << shape.center.y
+                       << ", \"radius\": " << shape.radius << "}";
+            }
+        }, object.geometry);
+        stream << "}";
+    }
+    stream << "\n  ]\n}\n";
 }
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -211,9 +247,17 @@ int main(int argc, char* argv[]) {
         const auto processed = registry.run(profile,
             chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8));
         const bool legacy = options.profile_id == "skittles";
+        const bool geometric = options.profile_id == "hsv_segmentation" ||
+                               options.profile_id == "contour_detection";
+        if (!options.mask_output.empty()) {
+            if (!geometric || !processed.output_frame)
+                throw std::invalid_argument("--mask-output requires a segmentation or contour profile");
+            chromascope::write_image(options.mask_output,
+                                     chromascope::to_cv_mat_copy(*processed.output_frame));
+        }
         if (!options.output.empty()) {
-            const cv::Mat base = processed.output_frame
-                ? chromascope::to_cv_mat_copy(*processed.output_frame) : image;
+            const cv::Mat base = geometric ? image : (processed.output_frame
+                ? chromascope::to_cv_mat_copy(*processed.output_frame) : image);
             chromascope::write_image(options.output,
                 chromascope::render_annotations(
                     base, chromascope::make_annotation_layer(processed.detections),
@@ -242,17 +286,18 @@ int main(int argc, char* argv[]) {
                 if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
             }
         } else {
-            if (options.json_stdout) write_image_filter_json(std::cout, options, processed);
+            if (options.json_stdout) write_general_json(std::cout, options, processed);
             else {
                 std::cout << "Profile: " << options.profile_id << "\nInput: " << options.input.string()
                           << "\nImage: " << image.cols << "x" << image.rows
-                          << "\nDetected: 0\n" << std::fixed << std::setprecision(2)
+                          << "\nDetected: " << processed.detections.objects().size() << "\n"
+                          << std::fixed << std::setprecision(2)
                           << "Elapsed: " << processed.elapsed_ms << " ms\n";
             }
             if (!options.json.empty()) {
                 std::ofstream file(options.json, std::ios::binary);
                 if (!file) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
-                write_image_filter_json(file, options, processed);
+                write_general_json(file, options, processed);
                 if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
             }
         }

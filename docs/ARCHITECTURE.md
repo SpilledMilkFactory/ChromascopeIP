@@ -94,3 +94,14 @@ layer and image. The GUI and CLI use the same drawing implementation while
 preserving legacy colors and export schemas. `draw_annotations` remains an
 adapter for older callers. See [ANNOTATION_CONTRACT.md](ANNOTATION_CONTRACT.md)
 for ownership, coordinate semantics, and new regression checks.
+
+## M3.2 geometric image analysis
+
+I extend the registered processor layer with HSV color-region segmentation and
+Canny contour geometry. Both processors produce `DetectionResult` objects and
+an optional owned `BGR8` mask/edge `output_frame`, so rendering stays separate
+from analysis. The GUI can overlay original-pixel boxes/polygons over the source
+image or processed raster. CLI detection JSON uses owned shape coordinates;
+legacy Skittles JSON remains separate. The two profiles detect geometric
+regions, not semantic classes such as people, and use bounded result counts.
+See `docs/SEGMENTATION_PROFILES.md` for algorithms, options, and acceptance.

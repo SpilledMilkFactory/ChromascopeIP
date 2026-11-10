@@ -93,6 +93,7 @@ struct App {
     std::string status = "Open one of the legacy samples or enter an image path.";
     bool show_overlay = true;
     bool show_labels = true;
+    bool show_mask_preview = false;
     bool have_result = false;
     bool browse_requested = false;
     int input_width = 0, input_height = 0;
@@ -163,7 +164,10 @@ struct App {
             refresh_overlay();
             status = generalized_result->processor_id() == "skittles"
                 ? "Analysis complete: " + std::to_string(generalized_result->objects().size()) + " objects."
-                : "Image processing complete: " + generalized_result->processor_id() + ".";
+                : (is_geometric_profile()
+                    ? "Found " + std::to_string(generalized_result->objects().size()) +
+                      " geometric regions (no semantic classification)."
+                    : "Image processing complete: " + generalized_result->processor_id() + ".");
         } catch (const std::exception& e) {
             have_result = false;
             generalized_result.reset();
@@ -173,10 +177,17 @@ struct App {
         }
     }
 
+    [[nodiscard]] bool is_geometric_profile() const {
+        return selected_profile == "hsv_segmentation" ||
+               selected_profile == "contour_detection";
+    }
+
     void refresh_overlay() {
         if (have_result && annotation_layer) {
+            const cv::Mat& base = is_geometric_profile() && !show_mask_preview
+                ? input : processed_image;
             annotated_texture.upload(chromascope::render_annotations(
-                processed_image, *annotation_layer, {.show_outlines = true, .show_labels = show_labels}));
+                base, *annotation_layer, {.show_outlines = true, .show_labels = show_labels}));
         }
     }
 
@@ -207,7 +218,8 @@ struct App {
         try {
             chromascope::write_image(export_path.data(),
                 chromascope::render_annotations(
-                    processed_image, *annotation_layer,
+                    is_geometric_profile() && !show_mask_preview ? input : processed_image,
+                    *annotation_layer,
                     {.show_outlines = true, .show_labels = show_labels}));
             status = std::string("Saved: ") + export_path.data();
         } catch (const std::exception& e) {
@@ -362,7 +374,8 @@ struct App {
                         if (ImGui::SliderInt(label.c_str(), &current,
                                              static_cast<int>(option.minimum),
                                              static_cast<int>(option.maximum))) {
-                            if (option.key == "kernel_size" && current % 2 == 0)
+                            if ((option.key == "kernel_size" || option.key == "morph_kernel" ||
+                                 option.key == "blur_kernel") && current % 2 == 0)
                                 current = current < static_cast<int>(options.at(option.key))
                                     ? current - 1 : current + 1;
                             options.at(option.key) = current;
@@ -376,6 +389,13 @@ struct App {
                     }
                 }
             }
+        }
+        if (selected_profile == "hsv_segmentation") {
+            ImGui::TextWrapped("HSV selects colors, not objects; backgrounds may match.");
+            const auto& hsv_options = filter_profiles.at(selected_profile).numeric_options;
+            if (hsv_options.at("min_hue") > hsv_options.at("max_hue"))
+                ImGui::TextWrapped("Hue wraps across 179/0: both ends of the hue scale are selected.");
+            ImGui::TextWrapped("Increase min_saturation or min_area to reduce noise.");
         }
         if (ImGui::Button("Re-run analysis", ImVec2(-1, 0))) analyze();
         if (pending_ticket != 0 && ImGui::Button("Cancel analysis", ImVec2(-1, 0))) {
@@ -391,10 +411,14 @@ struct App {
         ImGui::Separator();
 
         ImGui::TextUnformatted("VIEW & EXPORT");
-        ImGui::Checkbox(selected_profile == "skittles"
-                            ? "Show detected outlines" : "Show processed result", &show_overlay);
-        if (selected_profile == "skittles" &&
-            ImGui::Checkbox("Include color labels", &show_labels)) refresh_overlay();
+        const bool has_detections = selected_profile == "skittles" || is_geometric_profile();
+        ImGui::Checkbox(has_detections ? "Show detected outlines" : "Show processed result",
+                        &show_overlay);
+        if (has_detections && ImGui::Checkbox("Include labels", &show_labels))
+            refresh_overlay();
+        if (is_geometric_profile() && ImGui::Checkbox("Overlay on mask instead of image",
+                                                    &show_mask_preview))
+            refresh_overlay();
         ImGui::InputText("##export", export_path.data(), export_path.size());
         if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
         ImGui::Separator();
@@ -405,6 +429,12 @@ struct App {
         if (have_result) {
             ImGui::Text("Size: %d x %d", input_width, input_height);
             ImGui::Text("Found: %zu", generalized_result->objects().size());
+            if (is_geometric_profile()) {
+                const auto& options = filter_profiles.at(selected_profile).numeric_options;
+                const auto limit = static_cast<std::size_t>(options.at("max_objects"));
+                if (generalized_result->objects().size() == limit)
+                    ImGui::TextWrapped("At the %zu-region display limit; more candidates may exist.", limit);
+            }
             ImGui::Text("Processing time: %.1f ms", analysis_elapsed_ms);
             if (generalized_result->processor_id() == "skittles") {
                 for (std::size_t i = 0; i < chromascope::kColorCount; ++i) {
@@ -423,7 +453,8 @@ struct App {
         ImGui::TextUnformatted("IMAGE PREVIEW");
         ImGui::SameLine();
         ImGui::TextDisabled(!show_overlay ? "Original" :
-            (selected_profile == "skittles" ? "Annotated" : "Processed"));
+            (has_detections ? (show_mask_preview && is_geometric_profile()
+                                   ? "Mask + detections" : "Annotated") : "Processed"));
         ImGui::Separator();
         const Texture& texture = show_overlay && have_result ? annotated_texture : original_texture;
         if (texture.id) {

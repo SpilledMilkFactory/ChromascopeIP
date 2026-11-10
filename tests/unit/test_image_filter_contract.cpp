@@ -31,7 +31,7 @@ struct BadRaster final : IProcessor {
 void test() {
     auto registry = make_builtin_registry();
     const auto entries = registry.descriptors();
-    check(entries.size() == 5, "legacy and four new processors discoverable");
+    check(entries.size() == 7, "legacy, four filters, two geometric processors discoverable");
     for (const char* name : {"skittles", "grayscale", "gaussian_blur",
                              "binary_threshold", "canny_edges"}) {
         check(std::any_of(entries.begin(), entries.end(), [name](const auto& e) {

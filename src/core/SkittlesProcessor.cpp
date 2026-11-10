@@ -1,5 +1,6 @@
 #include "chromascope/SkittlesProcessor.hpp"
 #include "chromascope/ImageFilters.hpp"
+#include "chromascope/SegmentationProfiles.hpp"
 #include "chromascope/DetectionResultBridge.hpp"
 
 #include <memory>
@@ -62,6 +63,7 @@ ProcessorRegistry make_builtin_registry() {
         return std::make_unique<SkittlesProcessor>(settings_from_profile(profile));
     });
     register_image_filters(registry);
+    register_segmentation_profiles(registry);
     return registry;
 }
 

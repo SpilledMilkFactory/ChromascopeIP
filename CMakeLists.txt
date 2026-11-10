@@ -28,6 +28,8 @@ message(STATUS "ChromascopeIP OpenCV: ${OpenCV_VERSION} at ${OpenCV_DIR}")
 add_library(chromascope_core STATIC
     src/core/Detection.cpp
     src/core/ImageIO.cpp
+    src/core/ImageFrame.cpp
+    src/core/ImageFrameCV.cpp
 )
 add_library(ChromascopeIP::Core ALIAS chromascope_core)
 target_include_directories(chromascope_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")

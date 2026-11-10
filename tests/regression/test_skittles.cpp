@@ -1,10 +1,12 @@
 #include "chromascope/Detection.hpp"
 #include "chromascope/ImageIO.hpp"
+#include "chromascope/ImageFrameCV.hpp"
 #include "support/TestSupport.hpp"
 
 #include <algorithm>
 #include <array>
 #include <filesystem>
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -26,6 +28,21 @@ void test_original_samples() {
         check(result.objects.size() >= static_cast<std::size_t>(accepted[sample - 1].first) &&
               result.objects.size() <= static_cast<std::size_t>(accepted[sample - 1].second),
               "sample detection drifted beyond accepted baseline range");
+        // M2.1: the typed owned-frame boundary must preserve every historical
+        // detection; do not compare timing because duration is non-deterministic.
+        const auto typed = chromascope::detect_skittles(
+            chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8));
+        check(typed.counts == result.counts && typed.objects.size() == result.objects.size(),
+              "owned ImageFrame changed the legacy counts or detected circle total");
+        for (std::size_t i = 0; i < result.objects.size(); ++i) {
+            const auto& old = result.objects[i];
+            const auto& now = typed.objects[i];
+            check(old.color == now.color &&
+                  cv::norm(old.center - now.center) < 0.01f &&
+                  std::abs(old.radius - now.radius) < 0.01f &&
+                  std::abs(old.confidence - now.confidence) < 0.000001,
+                  "owned ImageFrame changed legacy detection geometry or class");
+        }
         int sum = 0;
         for (const int value : result.counts) sum += value;
         check(sum == static_cast<int>(result.objects.size()), "per-color counts don't add up");

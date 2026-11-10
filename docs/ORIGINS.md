@@ -7,3 +7,5 @@ For ChromascopeIP I wrote a new C++ implementation with separate core/CLI/GUI ta
 I moved the original test photographs unchanged to `samples/skittles/`. I use them as historical regression inputs and will independently confirm rights and permissions before representing those photographs as MIT-licensed or packaging them for broader redistribution. The new source code and documentation are available under the root MIT license; the photographs have separate, presently unspecified terms.
 
 I have also kept third-party source trees outside the repository. I depend on OpenCV 5.1.0, Dear ImGui 1.93.0, GLFW, and OpenGL through system libraries or explicit upstream source acquisition. Before a public binary release I will add a complete distribution notice/license audit.
+
+For the M1.8 rights assessment, see [MEDIA_RIGHTS.md](MEDIA_RIGHTS.md), [LICENSE_AUDIT.md](LICENSE_AUDIT.md), and [THIRD_PARTY_PROVENANCE.md](THIRD_PARTY_PROVENANCE.md). The photograph rights remain unresolved.

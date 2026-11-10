@@ -83,3 +83,11 @@ I add focused tests for each bug fixed. I use deterministic geometry and structu
 The fixture-integrity test fails if any of the original JPEGs change, even if image decoding and approximate detection counts still work. I should only regenerate checksums after an explicit, reviewed decision to replace a test fixture. I won't silently update hashes to make a failing regression pass.
 
 For milestone acceptance I record the exact compiler, OpenCV version, build variant, number of passing CTests, GUI manual review (if relevant), and any unverified platforms in [`VERIFICATION.md`](VERIFICATION.md). A CMake configuration-only check does **not** count as a compiled or executed C++ test.
+
+## M1.8 rights-manifest policy
+
+`python3 scripts/check_provenance.py` validates the four original JPEG checksums and conservatively prevents accidental approval for redistribution. `python3 scripts/check_provenance.py --release` is an intentionally failing future-release gate while image permissions remain unresolved. The normal six CI checks are unaffected by that unresolved legal determination. Five Python regression tests exercise both normal and negative cases.
+
+## M2.1 frame contract tests
+
+`chromascope_unit_image_frame` and `chromascope_integration_frame_cv` validate owned bytes, stride/padding, timestamps, orientation, OpenCV ROI copies, and safe rejection of mismatched formats. The suite increases from 9 to 11 tests; the nine established names are unchanged. Run `ctest --preset linux-release --output-on-failure`, `ctest --preset linux-cli-release --output-on-failure`, and the sanitizer preset where available.

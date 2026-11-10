@@ -1,4 +1,5 @@
 #include "chromascope/Detection.hpp"
+#include "chromascope/ImageFrameCV.hpp"
 #include "chromascope/ImageIO.hpp"
 
 #include <opencv2/core/version.hpp>
@@ -131,7 +132,8 @@ int main(int argc, char* argv[]) {
         }
         const Options options = parse(argc, argv);
         const cv::Mat image = chromascope::read_image(options.input);
-        const auto result = chromascope::detect_skittles(image, options.settings);
+        const auto result = chromascope::detect_skittles(
+            chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8), options.settings);
         if (!options.output.empty()) {
             chromascope::write_image(options.output,
                 chromascope::draw_annotations(image, result, options.labels));

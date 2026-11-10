@@ -114,7 +114,7 @@ jobs:
           cmake --build --preset windows-cli-release --parallel 2
           if ($LASTEXITCODE -ne 0) { throw 'ChromascopeIP build failed.' }
 
-      - name: Run all nine Windows CTests
+      - name: Run all eleven Windows CTests
         shell: pwsh
         run: |
           ctest --preset windows-cli-release --parallel 2
@@ -148,6 +148,6 @@ jobs:
             '- Host: Windows Server 2022 x64, Visual Studio 2022 (MSVC)',
             '- OpenCV: 5.1.0, pinned source, static modules using dynamic MSVC CRT',
             '- C++ core, CLI, and test executables: built in Release configuration',
-            '- CTest: all nine tests passed, including original JPEG fixtures and CLI export',
+            '- CTest: all eleven tests passed, including original JPEG fixtures and CLI export',
             '- GUI, camera hardware, Windows 10/11 client compatibility: not tested'
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

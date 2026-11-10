@@ -6,6 +6,7 @@
 
 #include <opencv2/imgproc.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <limits>
@@ -26,8 +27,12 @@ void test_skittles_adapter() {
     using namespace chromascope;
     const auto registry = make_builtin_registry();
     const auto listings = registry.descriptors();
-    check(listings.size() == 1 && listings[0].id == "skittles", "single built-in registered");
-    check(listings[0].options.size() == 7, "all seven existing settings discoverable");
+    check(listings.size() == 5, "Skittles and four built-in image filters registered");
+    check(registry.default_profile("skittles").processor_id == "skittles",
+          "legacy Skittles processor remains registered");
+    check(std::any_of(listings.begin(), listings.end(), [](const auto& descriptor) {
+        return descriptor.id == "skittles" && descriptor.options.size() == 7;
+    }), "all seven existing Skittles settings discoverable");
     auto defaults = registry.default_profile("skittles");
     check(defaults.numeric_options.at("max_dimension") == 1200, "max size retained");
     check(defaults.numeric_options.at("minimum_confidence") == .25, "confidence retained");

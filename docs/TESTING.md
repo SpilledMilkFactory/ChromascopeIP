@@ -173,3 +173,32 @@ rendering, and the backward-compatible legacy Skittles APIs. I do not replace
 any prior regression or change fixture checksums. See
 [M2_7_TEST_COVERAGE.md](M2_7_TEST_COVERAGE.md) for coverage, caveats and
 acceptance commands.
+
+## M3.1 — Generalized still-image filters
+
+I added five CTests to the 30 accepted M2.7 tests for **35 total**:
+
+| Test | Scope |
+| --- | --- |
+| `chromascope_unit_image_filter_contract` | Registry discovery/defaults, invalid filter values, output-raster validation |
+| `chromascope_integration_image_filters` | OpenCV pixel-equivalent transforms, ROI/metadata ownership, cancellation, immutability |
+| `chromascope_cli_image_filters` | All four CLI outputs, PNG/JSON export, configured Gaussian option |
+| `chromascope_cli_bad_filter_option` | Reject even Gaussian kernel |
+| `chromascope_cli_bad_filter_setting` | Reject unknown profile option |
+
+I keep the `filters` CTest label alongside `unit`, `integration`, `cli`, and
+`negative`. No display server, camera, or model files are required for these
+tests. Existing historical image, Skittles, coordinate, and worker-thread tests
+remain mandatory; I will not replace their baseline assertions.
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L filters
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+I will record native OpenCV 5.1.0, GCC, MSVC, and hosted CI results only after
+they actually run; preparing the patch does not establish native acceptance.

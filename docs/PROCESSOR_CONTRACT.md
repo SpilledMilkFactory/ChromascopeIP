@@ -2,8 +2,8 @@
 
 I introduced an explicit processor boundary so my CLI and Dear ImGui GUI can
 share multiple computer-vision profiles without embedding algorithms into either
-front end. The current built-in registry contains **only `skittles`**. Future
-profiles require an explicit new registration and their own tests; there is no
+front end. The original M2.3 registry contained **only `skittles`**. In M3.1 I added
+four explicitly registered still-image transformations, each with its own tests; there is no
 runtime plugin loading or third-party execution path in M2.3.
 
 ## C++ ownership and interfaces
@@ -70,3 +70,16 @@ checks cancellation before and after invoking the processor. The built-in
 Skittles processor supplies finer-grained checkpoints; the legacy synchronous
 `run(profile, frame)` and `process(frame)` remain callable without changes.
 See `ASYNC_PROCESSING.md` for queue lifecycle and UI ownership.
+
+## M3.1 owned-image result extension
+
+I extended `ProcessedFrame` with an optional owned `ImageFrame` after the
+existing detections and timing members. Legacy two-argument result construction
+remains valid; the Skittles adapter still returns no processed image. The registry
+checks dimensions, orientation, mirroring, timestamp, storage budgets, and
+processor identity for any output raster. Each filter returns BGR8 pixels,
+which both front ends preview/export using the existing presentation renderer
+(with an empty annotation layer). Numeric schema enforcement remains centralized
+in `ProcessorRegistry`; Gaussian odd-kernel and Canny threshold relationships
+are checked by the processor factory. I intentionally do not support arbitrary
+runtime-loaded processors, streaming, video, or inferred object detections here.

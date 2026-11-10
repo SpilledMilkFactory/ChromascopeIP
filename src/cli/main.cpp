@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -23,6 +24,8 @@ struct Options {
     bool labels = true;
     std::string profile_id = "skittles";
     chromascope::Settings settings;
+    std::map<std::string, double, std::less<>> profile_options;
+    bool legacy_settings_changed = false;
 };
 
 void usage(std::ostream& os) {
@@ -33,6 +36,7 @@ void usage(std::ostream& os) {
           "      --json FILE|-     Export machine-readable JSON; - writes to stdout\n"
           "      --mode skittles   Legacy alias for --profile skittles\n"
           "      --profile ID      Select a registered processing profile\n"
+          "      --set KEY=VALUE   Override a named numeric processor option (repeatable)\n"
           "      --list-profiles   List registered processors and default options\n"
           "      --accumulator N   Hough sensitivity threshold, default 31\n"
           "      --edge N          Hough edge threshold, default 95\n"
@@ -78,19 +82,35 @@ Options parse(int argc, char* argv[]) {
             else o.json = value;
         } else if (flag == "--mode" || flag == "--profile") {
             o.profile_id = next(i, argc, argv, flag);
-        } else if (flag == "--accumulator")
+        } else if (flag == "--set") {
+            const auto setting = next(i, argc, argv, flag);
+            const auto pos = setting.find('=');
+            if (pos == 0 || pos == std::string::npos || pos + 1 == setting.size())
+                throw std::invalid_argument("--set requires KEY=VALUE");
+            const auto key = setting.substr(0, pos);
+            const auto value = parse_real(setting.substr(pos + 1));
+            if (!o.profile_options.emplace(key, value).second)
+                throw std::invalid_argument("Duplicate --set option: " + key);
+        } else if (flag == "--accumulator") {
+            o.legacy_settings_changed = true;
             o.settings.accumulator_threshold = parse_real(next(i, argc, argv, flag));
-        else if (flag == "--edge")
+        } else if (flag == "--edge") {
+            o.legacy_settings_changed = true;
             o.settings.edge_threshold = parse_real(next(i, argc, argv, flag));
-        else if (flag == "--max-dimension")
+        } else if (flag == "--max-dimension") {
+            o.legacy_settings_changed = true;
             o.settings.max_dimension = parse_integer(next(i, argc, argv, flag));
-        else if (flag == "--min-confidence")
+        } else if (flag == "--min-confidence") {
+            o.legacy_settings_changed = true;
             o.settings.minimum_confidence = parse_real(next(i, argc, argv, flag));
+        }
         else if (flag == "--no-labels") o.labels = false;
         else throw std::invalid_argument("Unknown argument: " + std::string(flag));
     }
     if (o.input.empty()) throw std::invalid_argument("--input is required");
-    chromascope::validate_settings(o.settings);
+    if (o.profile_id == "skittles") chromascope::validate_settings(o.settings);
+    else if (o.legacy_settings_changed)
+        throw std::invalid_argument("Legacy Skittles flags cannot be used with image filters; use --set");
     return o;
 }
 
@@ -140,6 +160,19 @@ void write_json(std::ostream& stream, const Options& options, const chromascope:
     }
     stream << "  ]\n}\n";
 }
+// Generic image-filter JSON is deliberately separate from the byte-stable
+// legacy Skittles schema; filters output pixels, not object detections.
+void write_image_filter_json(std::ostream& stream, const Options& options,
+                             const chromascope::ProcessedFrame& processed) {
+    const auto& result = processed.detections;
+    stream << std::fixed << std::setprecision(3);
+    stream << "{\n  \"application\": \"ChromascopeIP\",\n"
+           << "  \"profile\": \"" << escape_json(result.processor_id()) << "\",\n"
+           << "  \"input\": \"" << escape_json(options.input.string()) << "\",\n"
+           << "  \"width\": " << result.width() << ", \"height\": " << result.height() << ",\n"
+           << "  \"elapsed_ms\": " << processed.elapsed_ms << ",\n"
+           << "  \"total\": 0,\n  \"detections\": []\n}\n";
+}
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -170,39 +203,61 @@ int main(int argc, char* argv[]) {
         }
         const Options options = parse(argc, argv);
         const cv::Mat image = chromascope::read_image(options.input);
-        auto profile = chromascope::skittles_profile_from_settings(options.settings);
-        profile.processor_id = options.profile_id;
+        chromascope::ProcessorProfile profile = options.profile_id == "skittles"
+            ? chromascope::skittles_profile_from_settings(options.settings)
+            : registry.default_profile(options.profile_id);
+        for (const auto& [key, value] : options.profile_options)
+            profile.numeric_options[key] = value;
         const auto processed = registry.run(profile,
             chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8));
-        const auto result = chromascope::to_legacy_skittles_result(
-            processed.detections, processed.elapsed_ms);
+        const bool legacy = options.profile_id == "skittles";
         if (!options.output.empty()) {
+            const cv::Mat base = processed.output_frame
+                ? chromascope::to_cv_mat_copy(*processed.output_frame) : image;
             chromascope::write_image(options.output,
                 chromascope::render_annotations(
-                    image, chromascope::make_annotation_layer(processed.detections),
+                    base, chromascope::make_annotation_layer(processed.detections),
                     {.show_outlines = true, .show_labels = options.labels}));
         }
-        if (options.json_stdout) {
-            write_json(std::cout, options, result);
-        } else {
-            std::cout << "Profile: skittles\nInput: " << options.input.string() << "\n"
-                      << "Image: " << result.width << "x" << result.height << "\n"
-                      << "Detected: " << result.objects.size() << "\n";
-            for (std::size_t i = 0; i < chromascope::kColorCount; ++i) {
-                const auto color = static_cast<chromascope::CandyColor>(i);
-                std::cout << "  " << chromascope::color_name(color) << ": "
-                          << result.counts[i] << "\n";
+        if (legacy) {
+            const auto result = chromascope::to_legacy_skittles_result(
+                processed.detections, processed.elapsed_ms);
+            if (options.json_stdout) write_json(std::cout, options, result);
+            else {
+                std::cout << "Profile: skittles\nInput: " << options.input.string() << "\n"
+                          << "Image: " << result.width << "x" << result.height << "\n"
+                          << "Detected: " << result.objects.size() << "\n";
+                for (std::size_t i = 0; i < chromascope::kColorCount; ++i) {
+                    const auto color = static_cast<chromascope::CandyColor>(i);
+                    std::cout << "  " << chromascope::color_name(color) << ": "
+                              << result.counts[i] << "\n";
+                }
+                std::cout << std::fixed << std::setprecision(2)
+                          << "Elapsed: " << result.elapsed_ms << " ms\n";
             }
-            std::cout << std::fixed << std::setprecision(2)
-                      << "Elapsed: " << result.elapsed_ms << " ms\n";
-            if (!options.output.empty()) std::cout << "Saved: " << options.output.string() << "\n";
+            if (!options.json.empty()) {
+                std::ofstream file(options.json, std::ios::binary);
+                if (!file) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
+                write_json(file, options, result);
+                if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
+            }
+        } else {
+            if (options.json_stdout) write_image_filter_json(std::cout, options, processed);
+            else {
+                std::cout << "Profile: " << options.profile_id << "\nInput: " << options.input.string()
+                          << "\nImage: " << image.cols << "x" << image.rows
+                          << "\nDetected: 0\n" << std::fixed << std::setprecision(2)
+                          << "Elapsed: " << processed.elapsed_ms << " ms\n";
+            }
+            if (!options.json.empty()) {
+                std::ofstream file(options.json, std::ios::binary);
+                if (!file) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
+                write_image_filter_json(file, options, processed);
+                if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
+            }
         }
-        if (!options.json.empty()) {
-            std::ofstream file(options.json, std::ios::binary);
-            if (!file) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
-            write_json(file, options, result);
-            if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
-        }
+        if (!options.output.empty() && !options.json_stdout)
+            std::cout << "Saved: " << options.output.string() << "\n";
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "chromascope-cli: " << e.what() << "\n";

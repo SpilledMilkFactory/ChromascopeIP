@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <map>
 #include <cstdint>
 #include <optional>
 #include <stdexcept>
@@ -80,6 +81,8 @@ struct App {
     std::unique_ptr<chromascope::ProcessingQueue> processing;
     std::uint64_t pending_ticket = 0;
     std::string selected_profile = "skittles";
+    std::map<std::string, chromascope::ProcessorProfile, std::less<>> filter_profiles;
+    cv::Mat processed_image; // Presentation-only BGR8; GUI thread owns its pixels.
     std::optional<chromascope::DetectionResult> generalized_result;
     cv::Mat input;
     std::shared_ptr<const chromascope::ImageFrame> input_frame;
@@ -108,8 +111,9 @@ struct App {
     void analyze() {
         if (!input_frame) return;
         try {
-            auto profile = chromascope::skittles_profile_from_settings(settings);
-            profile.processor_id = selected_profile;
+            auto profile = selected_profile == "skittles"
+                ? chromascope::skittles_profile_from_settings(settings)
+                : filter_profiles.at(selected_profile);
             // At most one pending + one in-flight request: repeated changes
             // supersede stale work without creating unbounded threads or frames.
             pending_ticket = processing->submit(std::move(profile), input_frame);
@@ -117,6 +121,7 @@ struct App {
             generalized_result.reset();
             annotation_layer.reset();
             annotated_texture.reset();
+            processed_image.release();
             status = "Analyzing in background...";
         } catch (const std::exception& e) {
             pending_ticket = 0;
@@ -152,10 +157,13 @@ struct App {
             analysis_elapsed_ms = processed.elapsed_ms;
             annotation_layer = std::move(next_layer);
             generalized_result = std::move(processed.detections);
+            processed_image = processed.output_frame
+                ? chromascope::to_cv_mat_copy(*processed.output_frame) : input;
             have_result = true;
             refresh_overlay();
-            status = "Analysis complete: " +
-                std::to_string(generalized_result->objects().size()) + " objects.";
+            status = generalized_result->processor_id() == "skittles"
+                ? "Analysis complete: " + std::to_string(generalized_result->objects().size()) + " objects."
+                : "Image processing complete: " + generalized_result->processor_id() + ".";
         } catch (const std::exception& e) {
             have_result = false;
             generalized_result.reset();
@@ -168,7 +176,7 @@ struct App {
     void refresh_overlay() {
         if (have_result && annotation_layer) {
             annotated_texture.upload(chromascope::render_annotations(
-                input, *annotation_layer, {.show_outlines = true, .show_labels = show_labels}));
+                processed_image, *annotation_layer, {.show_outlines = true, .show_labels = show_labels}));
         }
     }
 
@@ -183,6 +191,7 @@ struct App {
             input_height = input.rows;
             std::snprintf(path.data(), path.size(), "%s", file.string().c_str());
             original_texture.upload(input);
+            processed_image.release();
             have_result = false;
             generalized_result.reset();
             annotation_layer.reset();
@@ -198,7 +207,7 @@ struct App {
         try {
             chromascope::write_image(export_path.data(),
                 chromascope::render_annotations(
-                    input, *annotation_layer,
+                    processed_image, *annotation_layer,
                     {.show_outlines = true, .show_labels = show_labels}));
             status = std::string("Saved: ") + export_path.data();
         } catch (const std::exception& e) {
@@ -319,24 +328,55 @@ struct App {
                 const bool selected = descriptor.id == selected_profile;
                 if (ImGui::Selectable(descriptor.display_name.c_str(), selected) && !selected) {
                     selected_profile = descriptor.id;
+                    if (selected_profile != "skittles" &&
+                        filter_profiles.find(selected_profile) == filter_profiles.end())
+                        filter_profiles.emplace(selected_profile,
+                                                processors.default_profile(selected_profile));
                     analyze();
                 }
                 if (selected) ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
         }
-        ImGui::TextDisabled("Registered processors; additional profiles are planned.");
-        ImGui::Spacing();
-        float accumulator = static_cast<float>(settings.accumulator_threshold);
-        if (ImGui::SliderFloat("Circle threshold", &accumulator, 18.0f, 55.0f, "%.0f"))
-            settings.accumulator_threshold = accumulator;
-        ImGui::SetItemTooltip("Lower values: more candidates; more false positives.");
-        float minimum_confidence = static_cast<float>(settings.minimum_confidence);
-        if (ImGui::SliderFloat("Color confidence", &minimum_confidence, 0.0f, 0.95f, "%.2f"))
-            settings.minimum_confidence = minimum_confidence;
-        int max_size = settings.max_dimension;
-        if (ImGui::SliderInt("Analysis max size", &max_size, 512, 2000))
-            settings.max_dimension = max_size;
+        if (selected_profile == "skittles") {
+            ImGui::TextDisabled("Legacy colored-circle detector.");
+            float accumulator = static_cast<float>(settings.accumulator_threshold);
+            if (ImGui::SliderFloat("Circle threshold", &accumulator, 18.0f, 55.0f, "%.0f"))
+                settings.accumulator_threshold = accumulator;
+            ImGui::SetItemTooltip("Lower values: more candidates; more false positives.");
+            float minimum_confidence = static_cast<float>(settings.minimum_confidence);
+            if (ImGui::SliderFloat("Color confidence", &minimum_confidence, 0.0f, 0.95f, "%.2f"))
+                settings.minimum_confidence = minimum_confidence;
+            int max_size = settings.max_dimension;
+            if (ImGui::SliderInt("Analysis max size", &max_size, 512, 2000))
+                settings.max_dimension = max_size;
+        } else {
+            for (const auto& descriptor : descriptors) {
+                if (descriptor.id != selected_profile) continue;
+                ImGui::TextWrapped("%s", descriptor.description.c_str());
+                auto& options = filter_profiles.at(selected_profile).numeric_options;
+                for (const auto& option : descriptor.options) {
+                    const std::string label = option.key;
+                    if (option.integral) {
+                        int current = static_cast<int>(options.at(option.key));
+                        if (ImGui::SliderInt(label.c_str(), &current,
+                                             static_cast<int>(option.minimum),
+                                             static_cast<int>(option.maximum))) {
+                            if (option.key == "kernel_size" && current % 2 == 0)
+                                current = current < static_cast<int>(options.at(option.key))
+                                    ? current - 1 : current + 1;
+                            options.at(option.key) = current;
+                        }
+                    } else {
+                        float current = static_cast<float>(options.at(option.key));
+                        if (ImGui::SliderFloat(label.c_str(), &current,
+                              static_cast<float>(option.minimum),
+                              static_cast<float>(option.maximum), "%.1f"))
+                            options.at(option.key) = current;
+                    }
+                }
+            }
+        }
         if (ImGui::Button("Re-run analysis", ImVec2(-1, 0))) analyze();
         if (pending_ticket != 0 && ImGui::Button("Cancel analysis", ImVec2(-1, 0))) {
             processing->cancel();
@@ -345,13 +385,16 @@ struct App {
             generalized_result.reset();
             annotation_layer.reset();
             annotated_texture.reset();
+            processed_image.release();
             status = "Analysis canceled.";
         }
         ImGui::Separator();
 
         ImGui::TextUnformatted("VIEW & EXPORT");
-        ImGui::Checkbox("Show detected outlines", &show_overlay);
-        if (ImGui::Checkbox("Include color labels", &show_labels)) refresh_overlay();
+        ImGui::Checkbox(selected_profile == "skittles"
+                            ? "Show detected outlines" : "Show processed result", &show_overlay);
+        if (selected_profile == "skittles" &&
+            ImGui::Checkbox("Include color labels", &show_labels)) refresh_overlay();
         ImGui::InputText("##export", export_path.data(), export_path.size());
         if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
         ImGui::Separator();
@@ -379,7 +422,8 @@ struct App {
         ImGui::BeginChild("Preview", ImVec2(0, 0), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("IMAGE PREVIEW");
         ImGui::SameLine();
-        ImGui::TextDisabled(show_overlay ? "Annotated" : "Original");
+        ImGui::TextDisabled(!show_overlay ? "Original" :
+            (selected_profile == "skittles" ? "Annotated" : "Processed"));
         ImGui::Separator();
         const Texture& texture = show_overlay && have_result ? annotated_texture : original_texture;
         if (texture.id) {

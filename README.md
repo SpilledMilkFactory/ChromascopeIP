@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3–M2.6 accepted (v0.1.3); M2.7 concurrency, lifecycle, coordinate and backward-compatibility test coverage is under verification. I have a still-image CLI/GUI, registered processing profiles, generalized detections and annotations, bounded background processing, and six GitHub Actions checks across Ubuntu, Debian, Windows and quality tooling. M2.7 registers 30 CTests. This is pre-release software; packaged distributions, video, webcam and people detection are not yet available.
+> **Development stage:** M0.3–M2.7 accepted (v0.1.3); M3.1 generalized still-image profiles are prepared for verification. OpenCV 5.1.0, Dear ImGui 1.93.0, the CLI/GUI, and six existing CI checks remain in place. The M3.1 patch registers 35 CTests. Packaged releases, video, webcam and people detection remain future milestones.
 
 ## What works in M0–M0.3
 
@@ -57,17 +57,25 @@ for exact limits and security caveats. I accepted M2.6 after the corrected overs
 tests and all six hosted GitHub Actions checks passed. The suite contains **25
 CTests** at that accepted baseline.
 
-## M2.7 defensive test expansion (under verification)
+## M2.7 defensive test expansion (accepted)
 
-I am extending the native test suite to **30 CTests** without changing
-production algorithms or public interfaces. The new cases exercise
-simultaneous latest-wins submissions, noncooperative cancellation during
-shutdown, ownership of pending and active frames, original stored-image
-coordinates and orientation metadata, OpenCV ROI raster boundaries, and
-legacy Skittles result/annotation compatibility. See
-[docs/M2_7_TEST_COVERAGE.md](docs/M2_7_TEST_COVERAGE.md) for exact tests,
-limits, and acceptance checks. I will not consider M2.7 accepted until all
-three local configurations and six hosted CI checks pass.
+I completed the concurrency, lifecycle, stored-coordinate, and compatibility
+coverage in issue #17. The resulting 30 native CTests passed locally and all six
+GitHub Actions checks passed. The PR has been merged. The M3.1 baseline retains
+these tests without weakening their assertions.
+
+## M3.1 generalized still-image profiles (awaiting native acceptance)
+
+I added four **built-in image-transform profiles** alongside the unchanged
+Skittles detector: `grayscale`, `gaussian_blur`, `binary_threshold`, and
+`canny_edges`. All use the existing `IProcessor`, `ProcessorRegistry`, bounded
+GUI work queue, and owned `ImageFrame` contract. They return pixels for
+preview/export, **not pretend object detections**. The GUI has profile-specific
+controls and an original/processed preview toggle. CLI accepts `--profile` and
+repeatable `--set KEY=VALUE`, with per-profile validation. My original Skittles
+CLI behavior and JSON output stay compatible. See
+[docs/IMAGE_FILTER_PROFILES.md](docs/IMAGE_FILTER_PROFILES.md) for definitions,
+examples, safety constraints, tests, and acceptance. Expected suite: **35 CTests**.
 
 ## Source tree
 

@@ -1,5 +1,6 @@
 #include "chromascope/Detection.hpp"
 #include "chromascope/AnnotationBridge.hpp"
+#include "chromascope/AnnotationView.hpp"
 #include "chromascope/AnnotationRendererCV.hpp"
 #include "chromascope/DetectionResultBridge.hpp"
 #include "chromascope/SkittlesProcessor.hpp"
@@ -26,6 +27,7 @@
 #include <map>
 #include <cstdint>
 #include <optional>
+#include <variant>
 #include <stdexcept>
 #include <string>
 
@@ -89,7 +91,11 @@ struct App {
     std::optional<chromascope::AnnotationLayer> annotation_layer;
     std::array<int, chromascope::kColorCount> color_counts{};
     double analysis_elapsed_ms = 0.0;
-    Texture original_texture, annotated_texture;
+    Texture original_texture, processed_texture;
+    Texture source_overlay_texture, processed_overlay_texture;
+    chromascope::AnnotationViewOptions overlay_options;
+    int preview_mode = 0; // Result, Original, Side by side
+    int export_base_mode = 0; // As configured, Original, Processed
     std::string status = "Open one of the legacy samples or enter an image path.";
     bool show_overlay = true;
     bool show_labels = true;
@@ -121,15 +127,21 @@ struct App {
             have_result = false;
             generalized_result.reset();
             annotation_layer.reset();
-            annotated_texture.reset();
+            processed_texture.reset();
+            source_overlay_texture.reset();
+            processed_overlay_texture.reset();
             processed_image.release();
+            overlay_options.selected_index.reset();
+            overlay_options.selected_only = false;
             status = "Analyzing in background...";
         } catch (const std::exception& e) {
             pending_ticket = 0;
             have_result = false;
             generalized_result.reset();
             annotation_layer.reset();
-            annotated_texture.reset();
+            processed_texture.reset();
+            source_overlay_texture.reset();
+            processed_overlay_texture.reset();
             status = std::string("Analysis failed: ") + e.what();
         }
     }
@@ -160,6 +172,8 @@ struct App {
             generalized_result = std::move(processed.detections);
             processed_image = processed.output_frame
                 ? chromascope::to_cv_mat_copy(*processed.output_frame) : input;
+            // OpenGL uploads are done on the GUI thread, never on the worker.
+            processed_texture.upload(processed_image);
             have_result = true;
             refresh_overlay();
             status = generalized_result->processor_id() == "skittles"
@@ -172,7 +186,9 @@ struct App {
             have_result = false;
             generalized_result.reset();
             annotation_layer.reset();
-            annotated_texture.reset();
+            processed_texture.reset();
+            source_overlay_texture.reset();
+            processed_overlay_texture.reset();
             status = std::string("Analysis failed: ") + e.what();
         }
     }
@@ -183,12 +199,51 @@ struct App {
     }
 
     void refresh_overlay() {
-        if (have_result && annotation_layer) {
-            const cv::Mat& base = is_geometric_profile() && !show_mask_preview
-                ? input : processed_image;
-            annotated_texture.upload(chromascope::render_annotations(
-                base, *annotation_layer, {.show_outlines = true, .show_labels = show_labels}));
+        // These are GPU presentation caches, not processor outputs. A filtered
+        // view never mutates detection data or the authoritative annotation.
+        source_overlay_texture.reset();
+        processed_overlay_texture.reset();
+        if (!have_result || !annotation_layer || !show_overlay || preview_mode == 1) return;
+        const auto view = chromascope::make_annotation_view(*annotation_layer, overlay_options);
+        if (view.items().empty()) return;
+        const chromascope::AnnotationRenderOptions draw{
+            .show_outlines = true, .show_labels = show_labels};
+        // Only rasterize the visible target. A full-resolution overlay can
+        // occupy tens of MiB: never allocate two copies unnecessarily.
+        const bool source_result = is_geometric_profile() && !show_mask_preview;
+        if (preview_mode == 0 && source_result)
+            source_overlay_texture.upload(chromascope::render_annotations(input, view, draw));
+        else
+            processed_overlay_texture.upload(chromascope::render_annotations(processed_image, view, draw));
+    }
+
+    [[nodiscard]] const Texture& result_preview_texture() const {
+        // Preserve the familiar M3.2 presentation: masks default to an
+        // annotation over the photograph, unless explicitly requested.
+        const bool use_source = is_geometric_profile() && !show_mask_preview;
+        if (use_source) return show_overlay && source_overlay_texture.id
+            ? source_overlay_texture : original_texture;
+        return show_overlay && processed_overlay_texture.id
+            ? processed_overlay_texture : processed_texture;
+    }
+
+    [[nodiscard]] const Texture& comparison_processed_texture() const {
+        // A comparison must show actual output pixels, including HSV masks.
+        return show_overlay && processed_overlay_texture.id
+            ? processed_overlay_texture : processed_texture;
+    }
+
+    static void draw_fitted_texture(const Texture& texture, ImVec2 available) {
+        if (!texture.id || texture.width <= 0 || texture.height <= 0) {
+            ImGui::TextDisabled("No image available.");
+            return;
         }
+        const float factor = std::min(
+            available.x / static_cast<float>(texture.width),
+            available.y / static_cast<float>(texture.height));
+        const float scale = std::max(0.01f, factor);
+        ImGui::Image(static_cast<ImTextureID>(texture.id),
+                     ImVec2(texture.width * scale, texture.height * scale));
     }
 
     void load(const std::filesystem::path& file) {
@@ -202,11 +257,15 @@ struct App {
             input_height = input.rows;
             std::snprintf(path.data(), path.size(), "%s", file.string().c_str());
             original_texture.upload(input);
+            processed_texture.reset();
+            source_overlay_texture.reset();
+            processed_overlay_texture.reset();
+            overlay_options.selected_index.reset();
+            overlay_options.selected_only = false;
             processed_image.release();
             have_result = false;
             generalized_result.reset();
             annotation_layer.reset();
-            annotated_texture.reset();
             analyze();
         } catch (const std::exception& e) {
             status = std::string("Open failed: ") + e.what();
@@ -216,11 +275,17 @@ struct App {
     void save() {
         if (!have_result) { status = "Analyze an image before exporting."; return; }
         try {
+            // Export has an explicit source/processed selection. The comparison
+            // layout itself is never accidentally baked into the output file.
+            const bool use_source = export_base_mode == 1 ||
+                (export_base_mode == 0 && is_geometric_profile() && !show_mask_preview);
+            const auto visible = chromascope::make_annotation_view(
+                *annotation_layer, overlay_options);
             chromascope::write_image(export_path.data(),
                 chromascope::render_annotations(
-                    is_geometric_profile() && !show_mask_preview ? input : processed_image,
-                    *annotation_layer,
-                    {.show_outlines = true, .show_labels = show_labels}));
+                    use_source ? input : processed_image, visible,
+                    {.show_outlines = show_overlay,
+                     .show_labels = show_overlay && show_labels}));
             status = std::string("Saved: ") + export_path.data();
         } catch (const std::exception& e) {
             status = std::string("Export failed: ") + e.what();
@@ -404,21 +469,64 @@ struct App {
             have_result = false;
             generalized_result.reset();
             annotation_layer.reset();
-            annotated_texture.reset();
+            processed_texture.reset();
+            source_overlay_texture.reset();
+            processed_overlay_texture.reset();
             processed_image.release();
             status = "Analysis canceled.";
         }
         ImGui::Separator();
 
         ImGui::TextUnformatted("VIEW & EXPORT");
-        const bool has_detections = selected_profile == "skittles" || is_geometric_profile();
-        ImGui::Checkbox(has_detections ? "Show detected outlines" : "Show processed result",
-                        &show_overlay);
-        if (has_detections && ImGui::Checkbox("Include labels", &show_labels))
+        if (ImGui::Combo("Preview mode", &preview_mode,
+                         "Result\0Original\0Side by side\0"))
             refresh_overlay();
-        if (is_geometric_profile() && ImGui::Checkbox("Overlay on mask instead of image",
-                                                    &show_mask_preview))
+        if (ImGui::Checkbox("Show geometry overlays", &show_overlay))
             refresh_overlay();
+        if (ImGui::Checkbox("Show labels", &show_labels)) refresh_overlay();
+        if (is_geometric_profile()) {
+            if (ImGui::Checkbox("Use mask as result background", &show_mask_preview))
+                refresh_overlay();
+            ImGui::SetItemTooltip("In comparisons, the right pane always shows processed pixels.");
+        }
+        if (annotation_layer && !annotation_layer->items().empty()) {
+            bool changed = false;
+            changed |= ImGui::Checkbox("Circles", &overlay_options.circles);
+            ImGui::SameLine();
+            changed |= ImGui::Checkbox("Boxes", &overlay_options.boxes);
+            ImGui::SameLine();
+            changed |= ImGui::Checkbox("Contours", &overlay_options.polygons);
+            if (ImGui::CollapsingHeader("Select an individual geometry")) {
+                if (ImGui::Button("Clear selection")) {
+                    overlay_options.selected_index.reset();
+                    overlay_options.selected_only = false;
+                    changed = true;
+                }
+                if (overlay_options.selected_index) {
+                    changed |= ImGui::Checkbox("Only selected", &overlay_options.selected_only);
+                }
+                if (ImGui::BeginChild("Geometry items", ImVec2(0, 120),
+                                      ImGuiChildFlags_Borders)) {
+                    for (std::size_t i = 0; i < annotation_layer->items().size(); ++i) {
+                        const auto& item = annotation_layer->items()[i];
+                        const char* kind = std::holds_alternative<chromascope::CircleGeometry>(item.geometry)
+                            ? "Circle" : std::holds_alternative<chromascope::BoxGeometry>(item.geometry)
+                                ? "Box" : "Contour";
+                        const std::string name = std::to_string(i + 1) + ": " + kind +
+                            (item.text.empty() ? "" : " - " + item.text) + "##geometry" +
+                            std::to_string(i);
+                        if (ImGui::Selectable(name.c_str(), overlay_options.selected_index == i)) {
+                            overlay_options.selected_index = i;
+                            changed = true;
+                        }
+                    }
+                }
+                ImGui::EndChild();
+            }
+            if (changed) refresh_overlay();
+        }
+        ImGui::Combo("Export image", &export_base_mode,
+                     "As configured\0Original pixels\0Processed pixels\0");
         ImGui::InputText("##export", export_path.data(), export_path.size());
         if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
         ImGui::Separator();
@@ -452,20 +560,26 @@ struct App {
         ImGui::BeginChild("Preview", ImVec2(0, 0), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("IMAGE PREVIEW");
         ImGui::SameLine();
-        ImGui::TextDisabled(!show_overlay ? "Original" :
-            (has_detections ? (show_mask_preview && is_geometric_profile()
-                                   ? "Mask + detections" : "Annotated") : "Processed"));
+        ImGui::TextDisabled(preview_mode == 2 ? "Original | Processed" :
+            preview_mode == 1 ? "Original" : "Result");
         ImGui::Separator();
-        const Texture& texture = show_overlay && have_result ? annotated_texture : original_texture;
-        if (texture.id) {
-            const ImVec2 avail = ImGui::GetContentRegionAvail();
-            const float factor = std::min(avail.x / static_cast<float>(texture.width),
-                                          avail.y / static_cast<float>(texture.height));
-            const float scale = std::max(0.01f, factor);
-            ImGui::Image(static_cast<ImTextureID>(texture.id),
-                ImVec2(texture.width * scale, texture.height * scale));
-        } else {
+        if (!original_texture.id) {
             ImGui::TextWrapped("Open one of the four supplied sample images to begin.");
+        } else if (preview_mode == 2 && have_result) {
+            const ImVec2 available = ImGui::GetContentRegionAvail();
+            const float pane_width = std::max(1.0f, (available.x - ImGui::GetStyle().ItemSpacing.x) * 0.5f);
+            ImGui::BeginChild("Original pane", ImVec2(pane_width, 0));
+            ImGui::TextUnformatted("Original (unmodified)");
+            draw_fitted_texture(original_texture, ImGui::GetContentRegionAvail());
+            ImGui::EndChild();
+            ImGui::SameLine();
+            ImGui::BeginChild("Processed pane", ImVec2(0, 0));
+            ImGui::TextUnformatted("Processed output");
+            draw_fitted_texture(comparison_processed_texture(), ImGui::GetContentRegionAvail());
+            ImGui::EndChild();
+        } else {
+            draw_fitted_texture(preview_mode == 1 || !have_result
+                ? original_texture : result_preview_texture(), ImGui::GetContentRegionAvail());
         }
         ImGui::EndChild();
         if (browse_requested) {

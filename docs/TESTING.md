@@ -217,3 +217,24 @@ ctest --test-dir build/presets/linux-release --output-on-failure -L segmentation
 
 I retain all 35 existing M3.1 tests unchanged apart from the processor-count
 expectation, which now correctly includes the two new registered processors.
+
+## M3.5 — CLI contracts and export paths
+
+The M3.5 update adds two headless CTests:
+
+| Test | Labels | Coverage |
+| --- | --- | --- |
+| `chromascope_unit_cli_output_paths` | `unit;cli;security;negative` | Pure C++ output path contracts, hard links, directory creation, and collision prevention |
+| `chromascope_cli_m3_5_contract` | `cli;integration;negative;security;regression;fixtures` | Real CLI profile settings, schema v1 for both JSON formats, stdout, PNGs/masks, explicit output directories, and invalid argument rejection |
+
+With these additions the expected suite grows from 46 to **48 tests**, subject
+to confirmation in the native build. The existing test names and suites remain
+registered and must all pass. Run:
+
+```bash
+ctest --test-dir build/presets/linux-release -L cli --output-on-failure
+ctest --test-dir build/presets/linux-release -R 'cli_m3_5|unit_cli_output_paths' --output-on-failure
+ctest --preset linux-release --output-on-failure
+```
+
+See [M3.5 CLI contract](M3_5_CLI_CONTRACT.md) for JSON schema and output behavior.

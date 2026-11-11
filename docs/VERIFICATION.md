@@ -432,3 +432,37 @@ Skittles JSON schema, the M3.1 transform behavior and the historical samples.
 Source package validation and CMake test registration are not substitutes for
 native OpenCV 5.1.0 builds. I will report actual Release, CLI-only, sanitizer,
 GUI and hosted Actions results before closing issue #19.
+
+## M3.5 — CLI profiles, JSON versioning, and output paths (pending acceptance)
+
+GitHub Issue #22 introduces explicit schema v1, profile-first validation,
+conflict rejection, and an opt-in export directory. Expected native test count:
+**48** (46 existing plus two new headless tests). No new GUI controls or
+image-processing algorithms are intended. The implementation and tests were
+prepared from the supplied post-M3.4 archive; **native OpenCV 5.1.0 builds,
+sanitizer tests, and hosted CI are not yet verified in this record**.
+
+Local acceptance checklist:
+
+```bash
+cmake --preset linux-release -DCHROMASCOPE_WARNINGS_AS_ERRORS=ON
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release --output-on-failure
+ctest --test-dir build/presets/linux-release -R 'cli_m3_5|unit_cli_output_paths' --output-on-failure
+cmake --preset linux-cli-release -DCHROMASCOPE_WARNINGS_AS_ERRORS=ON
+cmake --build --preset linux-cli-release --parallel
+ctest --preset linux-cli-release --output-on-failure
+cmake --preset linux-cli-sanitize
+cmake --build --preset linux-cli-sanitize --parallel
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+python3 scripts/check_ci_policy.py
+python3 scripts/check_provenance.py
+git diff --check
+```
+
+Manually check the output directory under `--output-dir`, inspect both Skittles
+and Gaussian JSON, reject `--output` pointing to the source photograph, and
+recheck the unchanged GUI's profile switching, overlay export, and zoom/pan.
+After successful verification, confirm all six GitHub Actions checks before
+accepting issue #22.

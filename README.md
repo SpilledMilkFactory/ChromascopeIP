@@ -268,7 +268,7 @@ actual processed mask in the comparison's right pane. Image export offers
 explicit original/processed backgrounds and does not export the split layout.
 See [M3.3 GUI comparison verification](docs/M3_3_GUI_COMPARISON.md).
 
-### M3.4 GUI viewport navigation (pending native acceptance)
+### M3.4 GUI viewport navigation (accepted)
 
 I added cursor-anchored mouse-wheel zoom, bounded middle/right-button panning,
 fit-to-view (button or left double-click), original-image pixel coordinates,
@@ -278,3 +278,16 @@ authoritative when the GPU preview is downsampled to 1800 pixels. Zooming
 into a downsampled preview does not reconstruct discarded image details.
 Viewport changes never rerun processing or modify exported detection data.
 See [M3.4 viewport verification](docs/M3_4_VIEWPORT.md).
+
+### M3.5 — Validated CLI profiles, schema v1, and output paths (pending acceptance)
+
+The CLI now rejects duplicate/conflicting profile selectors and numeric options,
+checks processor-specific parameter contracts before image decoding, and lists
+numeric option bounds in `--list-profiles`. Its legacy Skittles and generic JSON
+exports both add `"schema_version": 1`, optionally selected explicitly with
+`--json-version 1`. `--output-dir DIR` can group relative image, mask, and JSON
+paths into a directory that is created when needed. Collision checks prevent
+accidentally using the input image, directories, or overlapping paths as export
+files. Existing absolute paths and output filenames remain supported. For
+examples, compatibility rules, safety limitations, and acceptance tests, see
+[docs/M3_5_CLI_CONTRACT.md](docs/M3_5_CLI_CONTRACT.md).

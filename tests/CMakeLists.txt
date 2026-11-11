@@ -189,3 +189,17 @@ chromascope_add_cpp_test(chromascope_unit_image_viewport
     unit/test_image_viewport.cpp "unit;core;viewport;coordinate;gui-contract" 20)
 chromascope_add_cpp_test(chromascope_integration_viewport_comparison
     integration/test_viewport_comparison.cpp "integration;core;viewport;coordinate;gui-contract" 20)
+
+# M3.5: CLI output isolation and end-to-end JSON/profile/argument contract.
+chromascope_add_cpp_test(chromascope_unit_cli_output_paths
+    unit/test_cli_output_paths.cpp "unit;cli;security;negative" 20)
+target_include_directories(chromascope_unit_cli_output_paths PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/cli")
+add_test(NAME chromascope_cli_m3_5_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_TEST_NO_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/does-not-exist.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/cli-m3-5"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_m3_5.cmake")
+set_tests_properties(chromascope_cli_m3_5_contract PROPERTIES
+    LABELS "cli;integration;negative;security;regression;fixtures" TIMEOUT 120)

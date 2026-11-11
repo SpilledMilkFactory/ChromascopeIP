@@ -80,3 +80,15 @@ I keep Git patches and source ZIPs free of any `build/` directory or nested thir
 For this milestone, I check that all configure/build/test presets are listed by the installed CMake/CTest version, that source and build trees remain separate, that configuration still requires OpenCV 5.1.0 exactly, and that a patch replay matches the source package. On Ubuntu 26.04 I additionally run a clean preset configure/build/CTest and launch the GUI before accepting the issue.
 
 The existing four CTests and all Skittles sample regression fixtures remain unchanged by M1.2.
+
+
+## M4.1 videoio dependency transition
+
+All presets now require an OpenCV 5.1.0 package that exports `videoio` in
+addition to still-image components. Earlier isolated prefixes are not upgraded
+silently. Follow README's side-by-side `OPENCV_INSTALL_PREFIX=...-videoio`
+commands, and pass **both** `-DCMAKE_PREFIX_PATH=...-videoio` and
+`-DOpenCV_DIR=...-videoio/lib/cmake/opencv5` to each Linux configure preset
+to override any stale cached `OpenCV_DIR`. The default CI prefix is populated with the new build on a fresh cache
+key. On Windows rerun the separate static MSVC bootstrap in new scratch/install
+directories; `verify_opencv_windows_x64.ps1` probes the recorded-video module.

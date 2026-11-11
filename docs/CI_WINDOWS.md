@@ -94,3 +94,15 @@ CI provenance requirements, and changed the cache key to include the hook file.
 Therefore the previously unusable OpenCV cache cannot be silently reused.
 This is a prepared-source correction; I do not claim the subsequent hosted
 Windows run has passed until GitHub Actions completes successfully.
+
+
+## M4.1 native videoio and backend decision
+
+The Windows x64 MSVC 2022 static OpenCV 5.1.0 bootstrap adds `videoio` and
+`WITH_MSMF=ON`, while deliberately disabling OpenCV's downloadable FFmpeg
+binaries (`WITH_FFMPEG=OFF`) and headless-unnecessary MSMF DXVA. The existing
+no-Protobuf, `/MD` and pthread hook requirements remain mandatory. The updated
+cache key and provenance stamp reject stale three-module archives. A standalone
+installed-package CMake consumer tests PNG, MSMF backend registration, and a
+built-in MJPEG/AVI synthetic round trip. This does **not** establish which
+Windows multimedia formats or camera hardware work on Windows 10/11.

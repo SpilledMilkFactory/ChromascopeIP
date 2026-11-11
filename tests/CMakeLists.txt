@@ -238,3 +238,8 @@ add_test(NAME chromascope_fixture_tamper_regression COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_fixture_regressions.cmake")
 set_tests_properties(chromascope_fixture_tamper_regression PROPERTIES
     LABELS "regression;formats;fixtures;security;negative" TIMEOUT 45)
+
+# M4.1: independent codec-free-sample OpenCV videoio smoke test.
+# The same translation unit also verifies isolated installed packages.
+chromascope_add_cpp_test(chromascope_integration_videoio_backend
+    integration/test_videoio_backend.cpp "integration;videoio;dependency;formats;regression" 50)

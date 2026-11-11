@@ -1,5 +1,5 @@
-# M1.6: Validate the *installed* OpenCV MSVC static package with an actual
-# consumer CMake project. The current core/CLI only needs still-image modules.
+# M4.1: Validate the installed OpenCV MSVC static package with a standalone
+# real consumer, including videoio and the native Media Foundation backend.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$InstallPrefix,
@@ -42,7 +42,7 @@ if (-not $SkipStampCheck) {
     foreach ($expected in @(
         "commit=$expectedCommit", 'opencv=5.1.0', 'architecture=x64',
         'toolchain=Visual Studio 17 2022', 'configuration=Release',
-        'shared=OFF', 'static_crt=OFF', 'modules=core,imgproc,imgcodecs',
+        'shared=OFF', 'static_crt=OFF', 'modules=core,imgproc,imgcodecs,videoio', 'video_backend=msmf',
         'protobuf=OFF', 'windows_pthread_hook=ON', 'consumer_probe=PASS'
     )) {
         if ($fields -notcontains $expected) {
@@ -53,48 +53,23 @@ if (-not $SkipStampCheck) {
 if (Test-Path -LiteralPath $scratch) {
     throw "Consumer probe directory already exists: $scratch"
 }
-$source = Join-Path $scratch 'source'
 $build = Join-Path $scratch 'build'
-New-Item -ItemType Directory -Path $source -Force | Out-Null
 
-# This project is intentionally independent of ChromascopeIP. It must
-# configure with the *installed* OpenCVConfig.cmake and link all three modules.
-$cmakelists = @'
-cmake_minimum_required(VERSION 3.24)
-project(chromascope_opencv_consumer LANGUAGES CXX)
-find_package(OpenCV 5.1.0 EXACT CONFIG REQUIRED COMPONENTS core imgproc imgcodecs)
-add_executable(opencv_consumer main.cpp)
-target_include_directories(opencv_consumer PRIVATE ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(opencv_consumer PRIVATE ${OpenCV_LIBS})
-target_compile_features(opencv_consumer PRIVATE cxx_std_20)
-'@
-$cpp = @'
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <vector>
-int main() {
-    cv::Mat input(24, 24, CV_8UC3, cv::Scalar(0, 0, 255));
-    cv::Mat gray;
-    cv::cvtColor(input, gray, cv::COLOR_BGR2GRAY);
-    std::vector<unsigned char> bytes;
-    if (gray.empty() || !cv::imencode(".png", input, bytes)) return 1;
-    const cv::Mat decoded = cv::imdecode(bytes, cv::IMREAD_COLOR);
-    if (decoded.empty() || decoded.rows != input.rows || decoded.cols != input.cols) return 2;
-    return 0;
+# The independent consumer lives in source control (also registered as a
+# CTest). It validates the installed package, PNG and MJPEG/AVI IO, and MSMF.
+$source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\tests\quality\opencv_videoio_consumer'))
+if (-not (Test-Path -LiteralPath (Join-Path $source 'CMakeLists.txt') -PathType Leaf)) {
+    throw 'M4.1 independent OpenCV consumer project is missing.'
 }
-'@
-Set-Content -LiteralPath (Join-Path $source 'CMakeLists.txt') -Value $cmakelists -Encoding utf8
-Set-Content -LiteralPath (Join-Path $source 'main.cpp') -Value $cpp -Encoding utf8
 
 Invoke-Checked cmake @('-S', $source, '-B', $build,
     '-G', 'Visual Studio 17 2022', '-A', 'x64',
     "-DOpenCV_DIR=$opencvDir",
     '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL')
 Invoke-Checked cmake @('--build', $build, '--config', 'Release', '--parallel', "$Jobs")
-$exe = Join-Path $build 'Release\opencv_consumer.exe'
+$exe = Join-Path $build 'Release\opencv_videoio_consumer.exe'
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
     throw "OpenCV consumer executable missing: $exe"
 }
 Invoke-Checked -Program $exe -Arguments @()
-Write-Host "PASS: OpenCV 5.1.0 MSVC static package configures, links and runs: $opencvDir"
+Write-Host "PASS: OpenCV 5.1.0 MSVC static videoio package configures, links and runs: $opencvDir"

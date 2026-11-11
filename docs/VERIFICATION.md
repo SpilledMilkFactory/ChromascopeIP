@@ -487,3 +487,19 @@ working environment's C++20 compiler and passed 24 checks; the isolated
 CMake manifest-corruption exercise passed. **Full OpenCV 5.1.0 builds, new
 real-codec/CLI tests, sanitizers, GUI regression verification and hosted CI
 are pending**, not inferred from those partial checks.
+
+
+## M3.6 acceptance and M4.1 dependency preparation — November 11, 2026
+
+The user reported passing **53/53 CTests** in native GUI Release, CLI-only
+Release and ASan/UBSan builds on Ubuntu 26.04. The five `formats` tests also
+passed separately. Local quality/provenance checks and ten Python policy tests
+passed, and all six hosted GitHub Actions checks were green before the M3.6
+merge. This is user-reported acceptance evidence for issue #23.
+
+M4.1 (#24) changes isolated OpenCV 5.1.0 dependency builds and adds a
+camera-free backend smoke test (expected **54 CTests**). On Linux, the new
+FFmpeg-enabled installation must be installed to a fresh prefix, and the
+selected prefix provided to **every** CMake preset. No native OpenCV 5.1.0
+build or hosted M4.1 CI result has yet been supplied; all tests and dependency
+probes remain final acceptance gates.

@@ -183,3 +183,9 @@ chromascope_add_cpp_test(chromascope_unit_annotation_view
     unit/test_annotation_view.cpp "unit;core;annotation;overlay;gui-contract" 20)
 chromascope_add_cpp_test(chromascope_integration_annotation_view_render
     integration/test_annotation_view_render.cpp "integration;core;annotation;overlay;gui-contract" 40)
+
+# M3.4: DPI-independent original-pixel viewport mapping (no GUI dependency).
+chromascope_add_cpp_test(chromascope_unit_image_viewport
+    unit/test_image_viewport.cpp "unit;core;viewport;coordinate;gui-contract" 20)
+chromascope_add_cpp_test(chromascope_integration_viewport_comparison
+    integration/test_viewport_comparison.cpp "integration;core;viewport;coordinate;gui-contract" 20)

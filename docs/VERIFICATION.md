@@ -520,3 +520,18 @@ contract and two new headless CTests (expected **56**). Source-level checks
 performed during patch preparation do not replace native OpenCV 5.1.0 builds.
 M4.2 remains pending native build/test results, manual GUI checks, sanitizers,
 static analysis and all six hosted CI checks.
+
+
+## M4.2 acceptance / M4.3 preparation — November 11, 2026
+
+The user reported successful native **56/56 CTests** for GUI Release, CLI-only
+Release and ASan/UBSan using isolated OpenCV 5.1.0 videoio. Video-specific
+checks and manual unchanged-GUI regressions passed. Static analysis, CI policy,
+fixture provenance and ten Python tests completed; all six GitHub Actions
+jobs passed before M4.2 (#25) merged.
+
+M4.3 (#26) implements worker-thread decoding, seeking, generation-based
+cancellation and bounded event/byte buffering. Two new headless CTests
+increase the expected suite from 56 to **58**. Preliminary GCC unit and
+ASan/UBSan checks using a synthetic VideoSource substitute passed, but
+full native OpenCV 5.1.0 compilation and hosted CI remain pending.

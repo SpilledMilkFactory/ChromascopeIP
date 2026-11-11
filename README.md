@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M1–M3.6 and M4.1 accepted through issue #24, with 54 passing native CTests and six hosted checks. M4.2 adds a core-only recorded-file `VideoSource` interface (expected 56 tests); GUI/CLI video playback, live capture, camera handling, and packaging remain future issues. The existing still-image GUI/CLI and Dear ImGui 1.93.0 remain unchanged.
+> **Development stage:** M1–M3.6 and M4.1–M4.2 accepted through issue #25, with 56 passing native CTests and six hosted checks. M4.3 adds bounded asynchronous decoding, seeking and cancellation (expected 58 tests). GUI/CLI video playback, live capture, camera handling, and packaging remain future issues. The existing still-image GUI/CLI and Dear ImGui 1.93.0 remain unchanged.
 
 ## What works in M0–M0.3
 
@@ -355,12 +355,24 @@ FFmpeg binary. The added `videoio` CTest raised the accepted suite from
 **53 to 54**. There is **no application video playback or camera interface**
 in M4.1; see [the backend evaluation and qualification instructions](docs/M4_1_VIDEOIO_DEPENDENCY.md).
 
-## M4.2 — Recorded-file VideoSource (pending acceptance)
+## M4.2 — Recorded-file VideoSource (accepted)
 
 The move-only `VideoSource` core API opens a recorded file, delivers sequential
 owned BGR8 `ImageFrame` packets with zero-based indexes and optional media-
 presentation timestamps, and explicitly signals repeatable end-of-stream.
-It does not yet add playback controls, seek, camera capture, or streaming.
+M4.3 adds seeking and background prefetching, but not playback controls, camera capture, or streaming.
 The new headless unit and MJPEG integration CTests raise the expected suite
 from **54 to 56**. See [the VideoSource contract](docs/M4_2_VIDEO_SOURCE.md)
 for validation, timestamp limitations, and negative-path requirements.
+
+
+## M4.3 — Bounded asynchronous video decoder (pending acceptance)
+
+`AsyncVideoDecoder` runs recorded-file opens, seeks, and frame decoding on a
+single dedicated worker. Nonblocking commands and polling use generation IDs
+to invalidate stale buffered and in-flight results on seek/cancel. Both frame
+count and owned-pixel bytes are bounded (defaults: 3 events, 64 MiB). Frame,
+EOF and error events are distinct. Two new headless tests bring the expected
+suite to **58 CTests**. See [the M4.3 decoder contract](docs/M4_3_ASYNC_VIDEO.md)
+for limitations and verification instructions. No GUI/CLI video playback or
+camera input is added in this milestone.

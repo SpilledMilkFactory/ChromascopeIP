@@ -321,3 +321,22 @@ ctest --test-dir build/presets/linux-release -L videoio --output-on-failure
 See `docs/M4_2_VIDEO_SOURCE.md`. Full Release, CLI, sanitizer, static-analysis,
 policy/provenance, manual GUI regression and hosted Actions checks remain
 required for issue #25 acceptance.
+
+
+## M4.3 asynchronous decode, seek and cancellation
+
+`chromascope_unit_async_video_decoder` verifies immutable configuration and
+invalid-command rejection; `chromascope_integration_async_video_decoder`
+creates a 20-frame MJPEG/AVI recording under the active CTest build directory.
+It checks frame-count and byte limits, seeking with a full buffer, rapid
+successive seeks, cancellation, ordered reopen/EOF, timestamps and errors.
+The expected CTest count grows from **56 to 58**.
+
+```bash
+ctest --test-dir build/presets/linux-release -L async --output-on-failure
+ctest --test-dir build/presets/linux-release -L video --output-on-failure
+```
+
+Run all Release and sanitizer CTests, static analysis, CI/provenance checks,
+and unchanged GUI regressions before accepting M4.3. See
+`docs/M4_3_ASYNC_VIDEO.md`.

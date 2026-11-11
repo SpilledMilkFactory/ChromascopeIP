@@ -257,3 +257,18 @@ add_test(NAME chromascope_integration_video_source
         "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-2-video-source")
 set_tests_properties(chromascope_integration_video_source PROPERTIES
     LABELS "integration;core;video;videoio;formats;negative;regression" TIMEOUT 60)
+
+# M4.3: background recorded-file decoding with a bounded frame/byte queue,
+# latest-generation seek and cancellation, and terminal EOF/error signaling.
+chromascope_add_cpp_test(chromascope_unit_async_video_decoder
+    unit/test_async_video_decoder.cpp "unit;core;video;async;negative;budget" 25)
+add_executable(chromascope_integration_async_video_decoder
+    integration/test_async_video_decoder.cpp)
+target_link_libraries(chromascope_integration_async_video_decoder PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_async_video_decoder)
+add_test(NAME chromascope_integration_async_video_decoder
+    COMMAND chromascope_integration_async_video_decoder
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-3-async-video")
+set_tests_properties(chromascope_integration_async_video_decoder PROPERTIES
+    LABELS "integration;core;video;videoio;async;concurrency;lifecycle;budget;regression;negative"
+    TIMEOUT 75)

@@ -258,3 +258,12 @@ annotated photos, `--mask-output` for the raw binary result, and `--json` for
 box/polygon data. The GUI can overlay detected regions on the original image
 or a mask. These operations do not yet identify people or object categories.
 The acceptance and configuration details are in `docs/SEGMENTATION_PROFILES.md`.
+
+### M3.3 GUI visualization
+
+The still-image workspace now supports selecting and isolating individual
+annotations; independently toggling circle, box, and contour overlays; labels;
+and source/processed side-by-side comparison. Mask-producing profiles show the
+actual processed mask in the comparison's right pane. Image export offers
+explicit original/processed backgrounds and does not export the split layout.
+See [M3.3 GUI comparison verification](docs/M3_3_GUI_COMPARISON.md).

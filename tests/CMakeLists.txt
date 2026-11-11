@@ -177,3 +177,9 @@ add_test(NAME chromascope_cli_bad_mask_profile COMMAND chromascope-cli
     --mask-output "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/should-not-be-created.png")
 set_tests_properties(chromascope_cli_bad_mask_profile PROPERTIES
     WILL_FAIL TRUE LABELS "cli;negative;segmentation" TIMEOUT 15)
+
+# M3.3: overlay visibility, independent selection and source/processed GUI views.
+chromascope_add_cpp_test(chromascope_unit_annotation_view
+    unit/test_annotation_view.cpp "unit;core;annotation;overlay;gui-contract" 20)
+chromascope_add_cpp_test(chromascope_integration_annotation_view_render
+    integration/test_annotation_view_render.cpp "integration;core;annotation;overlay;gui-contract" 40)

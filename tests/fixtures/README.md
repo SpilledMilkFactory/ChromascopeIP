@@ -14,3 +14,20 @@ I record the byte-for-byte SHA-256 of each photograph in [`skittles.sha256`](ski
 The synthetic test creates its own in-memory image deterministically. The CLI export test writes temporary artifacts inside the active build directory, never into `samples/` or the source checkout.
 
 I don't assume that these photographs are covered by the source-code MIT license; their ownership and redistribution status are documented in [`docs/ORIGINS.md`](../../docs/ORIGINS.md).
+
+## M3.6 still-image error and integrity regressions
+
+The new `chromascope_regression_still_image_fixtures` CTest independently
+checks encoded JPEG headers, BGR8 decoding, owned-frame dimensions, and
+grayscale conversion for **all four original images**. The existing Skittles
+regression retains its more specific object/category/coordinate assertions.
+
+`chromascope_fixture_tamper_regression` makes **temporary copies under the
+active build directory** and proves that the existing SHA-256 manifest gate
+rejects altered bytes, missing fixtures, duplicate entries and invalid hashes.
+It never edits the original photographs or changes their hashes.
+
+Synthetic codec and malformed-input regressions likewise run only against
+newly generated media under `build/`. None of these tests establishes
+redistribution permission; the original release-blocking provenance policy
+remains unchanged.

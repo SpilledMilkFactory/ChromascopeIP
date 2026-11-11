@@ -203,3 +203,38 @@ add_test(NAME chromascope_cli_m3_5_contract COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_m3_5.cmake")
 set_tests_properties(chromascope_cli_m3_5_contract PROPERTIES
     LABELS "cli;integration;negative;security;regression;fixtures" TIMEOUT 120)
+
+# M3.6: independent header, real-codec, archival-fixture, CLI/error and
+# integrity-gate regression checks. Test-generated media stays in build/.
+chromascope_add_cpp_test(chromascope_unit_still_image_headers
+    unit/test_still_image_headers.cpp "unit;core;formats;security;negative" 25)
+add_executable(chromascope_integration_still_image_formats
+    integration/test_still_image_formats.cpp)
+target_link_libraries(chromascope_integration_still_image_formats PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_still_image_formats)
+target_include_directories(chromascope_integration_still_image_formats PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_still_image_formats
+    COMMAND chromascope_integration_still_image_formats
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m3-6-formats")
+set_tests_properties(chromascope_integration_still_image_formats PROPERTIES
+    LABELS "integration;core;formats;security;negative" TIMEOUT 45)
+chromascope_add_cpp_test(chromascope_regression_still_image_fixtures
+    regression/test_still_image_fixtures.cpp "regression;core;formats;fixtures" 90)
+target_compile_definitions(chromascope_regression_still_image_fixtures PRIVATE
+    CHROMASCOPE_FIXTURES_DIR="${CHROMASCOPE_TEST_FIXTURE_ROOT}")
+add_test(NAME chromascope_cli_still_image_errors COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m3-6-cli"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_still_images.cmake")
+set_tests_properties(chromascope_cli_still_image_errors PROPERTIES
+    LABELS "cli;integration;formats;negative;fixtures;security" TIMEOUT 60)
+add_test(NAME chromascope_fixture_tamper_regression COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_FIXTURE_DIR=${CHROMASCOPE_TEST_FIXTURE_ROOT}"
+    "-DCHROMASCOPE_FIXTURE_MANIFEST=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/skittles.sha256"
+    "-DCHROMASCOPE_FIXTURE_VERIFY=${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_fixtures.cmake"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m3-6-manifest"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_fixture_regressions.cmake")
+set_tests_properties(chromascope_fixture_tamper_regression PROPERTIES
+    LABELS "regression;formats;fixtures;security;negative" TIMEOUT 45)

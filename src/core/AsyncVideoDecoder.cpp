@@ -29,6 +29,7 @@ AsyncVideoDecoder::~AsyncVideoDecoder() {
         stopping_ = true;
         pending_.reset();
         events_.clear();
+        info_.reset();
         queued_bytes_ = 0;
     }
     cv_.notify_all();
@@ -52,6 +53,7 @@ std::uint64_t AsyncVideoDecoder::open(std::filesystem::path path, VideoBackend b
         requested_source_ = SourceSpec{std::move(path), backend};
         pending_ = Command{ticket, *requested_source_, 0};
         events_.clear();
+        info_.reset();
         queued_bytes_ = 0;
     }
     cv_.notify_all();
@@ -67,6 +69,7 @@ std::uint64_t AsyncVideoDecoder::seek(std::uint64_t frame_index) {
         ticket = next_generation_locked();
         pending_ = Command{ticket, *requested_source_, frame_index};
         events_.clear();
+        info_.reset();
         queued_bytes_ = 0;
     }
     cv_.notify_all();
@@ -80,6 +83,7 @@ void AsyncVideoDecoder::cancel() noexcept {
         requested_source_.reset();
         pending_ = Command{generation_, std::nullopt, 0};
         events_.clear();
+        info_.reset();
         queued_bytes_ = 0;
     }
     cv_.notify_all();
@@ -109,6 +113,10 @@ std::size_t AsyncVideoDecoder::queued_pixel_bytes() const noexcept {
 std::uint64_t AsyncVideoDecoder::generation() const noexcept {
     std::lock_guard lock(mutex_);
     return generation_;
+}
+std::optional<VideoStreamInfo> AsyncVideoDecoder::stream_info() const noexcept {
+    std::lock_guard lock(mutex_);
+    return info_;
 }
 
 bool AsyncVideoDecoder::fits_locked(const VideoDecodeEvent& event) const noexcept {
@@ -143,12 +151,15 @@ void AsyncVideoDecoder::loop() noexcept {
             lock.unlock();
             source.reset();
             std::string error;
+            std::optional<VideoStreamInfo> discovered;
             if (command.source) {
                 try {
                     source.emplace(VideoSource::open(command.source->path,
                                                      command.source->backend));
                     if (command.first_frame != 0)
                         source->seek_to(command.first_frame);
+                    discovered = VideoStreamInfo{source->frames_per_second(),
+                                                 source->reported_frame_count()};
                 } catch (const std::exception& exception) {
                     error = exception.what();
                     source.reset();
@@ -160,6 +171,7 @@ void AsyncVideoDecoder::loop() noexcept {
             lock.lock();
             if (command.generation != generation_) continue;
             active = command.generation;
+            info_ = std::move(discovered);
             decoding = source.has_value();
             if (!error.empty()) {
                 push_locked(VideoDecodeEvent{active, VideoDecodeEventKind::Error,

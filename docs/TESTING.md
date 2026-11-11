@@ -340,3 +340,13 @@ ctest --test-dir build/presets/linux-release -L video --output-on-failure
 Run all Release and sanitizer CTests, static analysis, CI/provenance checks,
 and unchanged GUI regressions before accepting M4.3. See
 `docs/M4_3_ASYNC_VIDEO.md`.
+
+
+## M4.4 recorded-video GUI player
+
+Adds `chromascope_unit_video_player_contract` and
+`chromascope_integration_video_player` (generated MJPEG video). Expected test
+suite: **60 CTests**; run `ctest -L video --output-on-failure` and full
+GUI Release, CLI Release, and CLI sanitizer configurations. Manual GUI
+verification of recorded-video navigation is required; see
+[M4_4_VIDEO_GUI.md](M4_4_VIDEO_GUI.md).

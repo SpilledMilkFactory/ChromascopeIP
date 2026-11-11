@@ -96,6 +96,16 @@ ChromascopeIP/
 └── docs/                      # Architecture, CI, build presets, verification
 ```
 
+
+### Recorded-video GUI player (M4.4)
+
+The **Recorded video** workspace opens a local video asynchronously and shows
+its decoded frames with Play/Pause, previous/next frame, absolute frame seeking,
+a frame-count timeline (when the backend provides one), nominal-FPS playback
+pacing, and fit/zoom/pan. The still-image workspace and exports remain
+independent. Audio, frame-level image analysis, and precise variable-FPS
+playback are not yet supported. See [M4.4 video GUI](docs/M4_4_VIDEO_GUI.md).
+
 ## Development prerequisites (Ubuntu 26.04)
 
 I use CMake + Ninja and C++20. To prepare a clean Ubuntu 26.04 machine I install:

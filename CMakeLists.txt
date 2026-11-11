@@ -46,6 +46,7 @@ add_library(chromascope_core STATIC
     src/core/SegmentationProfiles.cpp
     src/core/ProcessingQueue.cpp
     src/core/VideoSource.cpp
+    src/core/AsyncVideoDecoder.cpp
 )
 find_package(Threads REQUIRED)
 add_library(ChromascopeIP::Core ALIAS chromascope_core)

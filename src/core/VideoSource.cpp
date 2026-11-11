@@ -151,6 +151,30 @@ VideoReadResult VideoSource::read_next() {
     return {VideoReadStatus::Frame, std::move(packet)};
 }
 
+void VideoSource::seek_to(std::uint64_t frame_index) {
+    if (!implementation_) throw std::logic_error("VideoSource was moved from");
+    auto& impl = *implementation_;
+    // OpenCV addresses frames through a double; do not silently lose precision.
+    constexpr std::uint64_t exact_double_limit = 1ULL << 53;
+    if (frame_index > exact_double_limit)
+        throw std::out_of_range("VideoSource seek index cannot be represented exactly");
+    if (impl.frame_count && frame_index > *impl.frame_count)
+        throw std::out_of_range("VideoSource seek index is past reported frame count");
+    try {
+        const double target = static_cast<double>(frame_index);
+        if (!impl.capture.set(cv::CAP_PROP_POS_FRAMES, target))
+            throw std::runtime_error("VideoSource backend does not support frame seeking");
+        const double cursor = impl.capture.get(cv::CAP_PROP_POS_FRAMES);
+        if (!std::isfinite(cursor) || std::fabs(cursor - target) > 0.5)
+            throw std::runtime_error("VideoSource backend did not position at requested frame");
+    } catch (const cv::Exception& exception) {
+        throw std::runtime_error(std::string("VideoSource seek failed: ") + exception.what());
+    }
+    impl.next_index = frame_index;
+    impl.ended = false;
+    impl.previous_time.reset();
+}
+
 bool VideoSource::at_end() const {
     if (!implementation_) throw std::logic_error("VideoSource was moved from");
     return implementation_->ended;

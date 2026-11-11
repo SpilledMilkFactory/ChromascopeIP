@@ -22,7 +22,7 @@ enum class VideoReadStatus : std::uint8_t {
 };
 
 struct VideoFramePacket {
-    std::uint64_t index = 0; // zero-based, monotonically increasing, no seeking
+    std::uint64_t index = 0; // zero-based, monotonic between seeks
     ImageFrame image;        // independent owned copy of decoded BGR8 pixels
 };
 
@@ -47,6 +47,10 @@ public:
     VideoSource& operator=(const VideoSource&) = delete;
 
     [[nodiscard]] VideoReadResult read_next();
+    // Best-effort frame-accurate seek through OpenCV. Throws on failure,
+    // unreported backend cursor, or a cursor differing from the request.
+    // A successful seek resets EOF and the timestamp monotonicity baseline.
+    void seek_to(std::uint64_t frame_index);
     [[nodiscard]] bool at_end() const;
     [[nodiscard]] std::uint64_t next_index() const;
     [[nodiscard]] std::optional<double> frames_per_second() const;

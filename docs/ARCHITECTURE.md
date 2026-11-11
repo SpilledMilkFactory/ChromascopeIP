@@ -116,3 +116,14 @@ indexes and media-presentation metadata. This is a core-only recorded-file
 interface; it does not interact with the GUI render thread or current
 processing workers. See `docs/M4_2_VIDEO_SOURCE.md` for timing, EOF and
 resource-boundary details.
+
+
+## M4.3 bounded asynchronous recorded-file decoder
+
+`AsyncVideoDecoder` in the core provides a nonblocking command/poll boundary
+above `VideoSource`. One worker exclusively opens, seeks and reads the source,
+publishes owned `ImageFrame` packets tagged with a generation, and waits when
+the queue reaches its event-count or owned-byte budget. New open, seek and
+cancel commands invalidate old generations and queued output. Terminal EOF
+and errors are distinct events. No GUI or camera subsystem is introduced.
+See `docs/M4_3_ASYNC_VIDEO.md` for lifecycle and limitations.

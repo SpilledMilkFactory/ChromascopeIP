@@ -466,3 +466,24 @@ and Gaussian JSON, reject `--output` pointing to the source photograph, and
 recheck the unchanged GUI's profile switching, overlay export, and zoom/pan.
 After successful verification, confirm all six GitHub Actions checks before
 accepting issue #22.
+
+
+## M3.5 acceptance / M3.6 regression preparation — November 11, 2026
+
+The user confirmed merging M3.5 (#22) after successful native Ubuntu 26.04
+GUI Release, CLI-only Release and ASan/UBSan executions, each with **48/48
+CTests passing**; both focused M3.5 checks passed, and manual CLI/GUI behavior
+was verified. The six required hosted CI checks (Ubuntu 24.04, Ubuntu 26.04,
+Debian 12/13, Windows MSVC core/CLI, and Ubuntu quality) passed before the
+merge. Local clang-tidy produced summary warning counts but no reported
+blocking failure; CI policy and local historical fixture provenance checks
+reported PASS. These are user-supplied acceptance results for the prior issue.
+
+M3.6 (#23) adds five headless checks for still-image formats, malformed or
+unsupported inputs, source-image fixture invariants, CLI failure modes, and
+manifest integrity under intentionally corrupted **copies**. The anticipated
+CTests count is **53**. The header unit test has been compiled under the
+working environment's C++20 compiler and passed 24 checks; the isolated
+CMake manifest-corruption exercise passed. **Full OpenCV 5.1.0 builds, new
+real-codec/CLI tests, sanitizers, GUI regression verification and hosted CI
+are pending**, not inferred from those partial checks.

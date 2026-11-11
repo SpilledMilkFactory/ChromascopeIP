@@ -238,3 +238,48 @@ ctest --preset linux-release --output-on-failure
 ```
 
 See [M3.5 CLI contract](M3_5_CLI_CONTRACT.md) for JSON schema and output behavior.
+
+## M3.6 — Still-image format, error and fixture regressions
+
+Issue #23 adds **five** independent headless CTests to the 48-test M3.5
+baseline, making **53 expected tests**. These supplement, rather than replace,
+existing resource-budget, original-Skittles, CLI, and provenance tests.
+
+| New test | Purpose |
+| --- | --- |
+| `chromascope_unit_still_image_headers` | Constructs minimal JPEG, PNG, BMP, classic TIFF (both endiannesses), and WebP (VP8/VP8L/VP8X) header records; rejects truncated, unsupported and malformed headers; verifies predecode budget enforcement. |
+| `chromascope_integration_still_image_formats` | Generates compact images in CTest's build tree and verifies codec header dimensions, BGR8 import, content-driven format recognition, grayscale/alpha PNG conversion, PNG export, empty/missing/corrupted/oversized input rejection. |
+| `chromascope_regression_still_image_fixtures` | Exercises original JPEG header/predecode/owned-frame/grayscale geometry for all four historical samples without mutating them. |
+| `chromascope_cli_still_image_errors` | Runs the real CLI with a valid JPEG renamed to `.bin`, plus empty, unsupported, truncated, unknown, missing and directory inputs; rejects erroneous outputs. |
+| `chromascope_fixture_tamper_regression` | Exercises the existing SHA-256 verification gate on isolated fixture copies, including bytes tampering, absent files, duplicate entries, and invalid digests. |
+
+JPEG/PNG/BMP are required codec tests. TIFF and WebP header contracts are
+always tested, while codec round-trips execute only when the pinned OpenCV
+build advertises a corresponding writer. A skipped optional codec is reported
+explicitly, not counted as evidence that its decoder works on that platform.
+No bundled TIFF/WebP binaries, network downloads, camera, GPU, GUI, or
+additional dependencies are required.
+
+```bash
+cmake --preset linux-release -DCHROMASCOPE_WARNINGS_AS_ERRORS=ON
+cmake --build --preset linux-release --parallel
+ctest --test-dir build/presets/linux-release -L formats --output-on-failure
+ctest --preset linux-release --output-on-failure
+cmake --preset linux-cli-release -DCHROMASCOPE_WARNINGS_AS_ERRORS=ON
+cmake --build --preset linux-cli-release --parallel
+ctest --preset linux-cli-release --output-on-failure
+cmake --preset linux-cli-sanitize
+cmake --build --preset linux-cli-sanitize --parallel
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+python3 scripts/check_provenance.py
+python3 scripts/check_ci_policy.py
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+git diff --check
+```
+
+All test-generated artifacts are confined to paths under the active build
+directory. The source JPEGs are never rewritten; their unresolved
+redistribution status remains release-blocking. See
+[still-image format and error coverage](M3_6_STILL_IMAGE_REGRESSIONS.md).

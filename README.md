@@ -279,7 +279,7 @@ into a downsampled preview does not reconstruct discarded image details.
 Viewport changes never rerun processing or modify exported detection data.
 See [M3.4 viewport verification](docs/M3_4_VIEWPORT.md).
 
-### M3.5 — Validated CLI profiles, schema v1, and output paths (pending acceptance)
+### M3.5 — Validated CLI profiles, schema v1, and output paths (accepted)
 
 The CLI now rejects duplicate/conflicting profile selectors and numeric options,
 checks processor-specific parameter contracts before image decoding, and lists
@@ -291,3 +291,17 @@ accidentally using the input image, directories, or overlapping paths as export
 files. Existing absolute paths and output filenames remain supported. For
 examples, compatibility rules, safety limitations, and acceptance tests, see
 [docs/M3_5_CLI_CONTRACT.md](docs/M3_5_CLI_CONTRACT.md).
+
+
+### M3.6 — Still-image format and fixture regression coverage (pending acceptance)
+
+I expanded the headless still-image test matrix for JPEG/PNG/BMP, classic TIFF
+and WebP header preflight; valid codec decode/export; malformed or unsupported
+media; CLI failure handling; and SHA-256 integrity enforcement against isolated
+copies of the four original Skittles photographs. Test-generated images and
+corruption samples remain outside the source checkout in the CTest build tree.
+The five new `formats`-labeled CTests raise the expected count from **48 to
+53**. TIFF/WebP decoder tests are conditional on the OpenCV build's corresponding
+codec support; all header-preflight cases execute on every platform. This is
+regression/test coverage only, not a new decoder or media-redistribution license.
+See [M3.6 regression coverage](docs/M3_6_STILL_IMAGE_REGRESSIONS.md).

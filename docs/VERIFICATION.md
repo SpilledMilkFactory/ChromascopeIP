@@ -503,3 +503,20 @@ FFmpeg-enabled installation must be installed to a fresh prefix, and the
 selected prefix provided to **every** CMake preset. No native OpenCV 5.1.0
 build or hosted M4.1 CI result has yet been supplied; all tests and dependency
 probes remain final acceptance gates.
+
+
+## M4.1 acceptance / M4.2 preparation — November 11, 2026
+
+The user reported successful independent installed-package verification of
+OpenCV 5.1.0 `videoio` with synthetic MJPEG/AVI round-trips on Ubuntu 26.04;
+**54/54 CTests passed** in GUI Release, CLI-only Release, and ASan/UBSan.
+The M4.1 `videoio` CTest passed separately. Quality/provenance and 10 Python
+checks passed; six hosted Actions jobs passed before the M4.1 PR was merged.
+Manual still-image GUI and CLI regression checks also passed. The `clang-tidy`
+summary warning counts are not by themselves evidence of new actionable errors.
+
+M4.2 (#25) adds the owned, indexed, timestamped recorded-file `VideoSource`
+contract and two new headless CTests (expected **56**). Source-level checks
+performed during patch preparation do not replace native OpenCV 5.1.0 builds.
+M4.2 remains pending native build/test results, manual GUI checks, sanitizers,
+static analysis and all six hosted CI checks.

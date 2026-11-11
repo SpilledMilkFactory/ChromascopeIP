@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M1–M3.6 accepted through issue #23, with 53 passing CTests and six hosted checks. M4.1 prepares the isolated OpenCV 5.1.0 dependency for recorded video (`videoio`); video playback, live capture, camera handling, and packaging remain future issues. The existing CLI/GUI and Dear ImGui 1.93.0 remain unchanged.
+> **Development stage:** M1–M3.6 and M4.1 accepted through issue #24, with 54 passing native CTests and six hosted checks. M4.2 adds a core-only recorded-file `VideoSource` interface (expected 56 tests); GUI/CLI video playback, live capture, camera handling, and packaging remain future issues. The existing still-image GUI/CLI and Dear ImGui 1.93.0 remain unchanged.
 
 ## What works in M0–M0.3
 
@@ -345,12 +345,22 @@ codec support; all header-preflight cases execute on every platform. This is
 regression/test coverage only, not a new decoder or media-redistribution license.
 See [M3.6 regression coverage](docs/M3_6_STILL_IMAGE_REGRESSIONS.md).
 
-### M4.1 — Recorded-video dependency baseline (pending acceptance)
+### M4.1 — Recorded-video dependency baseline (accepted)
 
 The isolated OpenCV 5.1.0 builds now request `videoio` and verify installed
 CMake exports plus a headless synthetic MJPEG/AVI read/write round trip.
 Linux uses FFmpeg from distro development libraries for recorded-video decoding;
 Windows uses the platform Media Foundation API without auto-downloading an
-FFmpeg binary. The added `videoio` CTest raises the expected suite from
+FFmpeg binary. The added `videoio` CTest raised the accepted suite from
 **53 to 54**. There is **no application video playback or camera interface**
 in M4.1; see [the backend evaluation and qualification instructions](docs/M4_1_VIDEOIO_DEPENDENCY.md).
+
+## M4.2 — Recorded-file VideoSource (pending acceptance)
+
+The move-only `VideoSource` core API opens a recorded file, delivers sequential
+owned BGR8 `ImageFrame` packets with zero-based indexes and optional media-
+presentation timestamps, and explicitly signals repeatable end-of-stream.
+It does not yet add playback controls, seek, camera capture, or streaming.
+The new headless unit and MJPEG integration CTests raise the expected suite
+from **54 to 56**. See [the VideoSource contract](docs/M4_2_VIDEO_SOURCE.md)
+for validation, timestamp limitations, and negative-path requirements.

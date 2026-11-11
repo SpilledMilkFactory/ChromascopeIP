@@ -105,3 +105,14 @@ image or processed raster. CLI detection JSON uses owned shape coordinates;
 legacy Skittles JSON remains separate. The two profiles detect geometric
 regions, not semantic classes such as people, and use bounded result counts.
 See `docs/SEGMENTATION_PROFILES.md` for algorithms, options, and acceptance.
+
+
+## M4.2 recorded-file ingestion boundary
+
+`VideoSource` in `include/chromascope/VideoSource.hpp` and
+`src/core/VideoSource.cpp` owns a move-only OpenCV `VideoCapture` through a
+private implementation, delivering owned `ImageFrame` packets with sequential
+indexes and media-presentation metadata. This is a core-only recorded-file
+interface; it does not interact with the GUI render thread or current
+processing workers. See `docs/M4_2_VIDEO_SOURCE.md` for timing, EOF and
+resource-boundary details.

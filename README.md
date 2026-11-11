@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3–M3.3 accepted (v0.1.3); M3.4 viewport navigation is prepared for verification. OpenCV 5.1.0, Dear ImGui 1.93.0, the CLI/GUI, and six existing CI checks remain in place. The M3.4 changes register 46 CTests. Packaged releases, video, webcam and people detection remain future milestones.
+> **Development stage:** M1–M3.6 accepted through issue #23, with 53 passing CTests and six hosted checks. M4.1 prepares the isolated OpenCV 5.1.0 dependency for recorded video (`videoio`); video playback, live capture, camera handling, and packaging remain future issues. The existing CLI/GUI and Dear ImGui 1.93.0 remain unchanged.
 
 ## What works in M0–M0.3
 
@@ -105,6 +105,7 @@ sudo apt update
 sudo apt install -y \
     build-essential cmake ninja-build git pkg-config \
     libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
+    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
     libglfw3-dev libgl1-mesa-dev \
     libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 ```
@@ -115,9 +116,47 @@ The project **requires OpenCV 5.1.0 exactly**, rather than accepting a distribut
 ./scripts/bootstrap_opencv_ubuntu_26_04.sh
 ```
 
-The bootstrap script clones the official OpenCV `5.1.0` tag; CI additionally verifies its immutable source revision. It builds `core`, `imgproc`, and `imgcodecs`. It avoids replacing `/usr` libraries or writing to a privileged installation prefix. For a normal source build, CMake will fetch **Dear ImGui `v1.93.0`** directly from its official repository; the checkout is a build dependency, not committed into my source tree.
+The bootstrap script clones the official OpenCV `5.1.0` tag; CI verifies its immutable source revision. Starting with M4.1, it builds `core`, `imgproc`, `imgcodecs`, and **`videoio`**, with distro FFmpeg support on Linux and a real installed-package consumer probe. It **refuses to overwrite an existing OpenCV install prefix**; use the side-by-side upgrade procedure below. It avoids replacing `/usr` libraries or writing to a privileged installation prefix. For a normal source build, CMake will fetch **Dear ImGui `v1.93.0`** directly from its official repository; the checkout is a build dependency, not committed into my source tree.
 
 **Offline ImGui option:** I can manually download the `v1.93.0` source and configure with `-DCHROMASCOPE_IMGUI_DIR=/absolute/path/to/imgui` instead of fetching it. The build validates the version macro.
+
+### M4.1 side-by-side OpenCV `videoio` upgrade
+
+If I already have the previous still-image-only OpenCV 5.1.0 installed at
+`~/.local/opt/opencv-5.1.0`, **do not overwrite or delete it**. Install M4.1
+into a new directory:
+
+```bash
+export OPENCV_EXPECTED_COMMIT=e4f78fbcf1a773fbed69e14500e8b734963eb585
+export OPENCV_INSTALL_PREFIX="$HOME/.local/opt/opencv-5.1.0-videoio"
+export OPENCV_BUILD_WORKSPACE="$HOME/.cache/chromascope/opencv-5.1.0-videoio"
+export OPENCV_BUILD_JOBS=2
+./scripts/bootstrap_opencv_ubuntu_26_04.sh
+./scripts/verify_opencv_linux_videoio.sh "$OPENCV_INSTALL_PREFIX" \
+    "$HOME/.cache/chromascope/opencv-5.1.0-videoio/recheck"
+```
+
+Then point **each** local preset at the new installation (the checked-in
+Linux preset default still refers to the original prefix used in CI):
+
+```bash
+cmake --preset linux-release \
+    -DCMAKE_PREFIX_PATH="$HOME/.local/opt/opencv-5.1.0-videoio" \
+    -DOpenCV_DIR="$HOME/.local/opt/opencv-5.1.0-videoio/lib/cmake/opencv5" \
+    -DCHROMASCOPE_WARNINGS_AS_ERRORS=ON
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release --output-on-failure
+ctest --test-dir build/presets/linux-release -L videoio --output-on-failure
+```
+
+Supply the same `-DCMAKE_PREFIX_PATH=...` **and** `-DOpenCV_DIR=...` on
+CLI-only and sanitizer configurations. `OpenCV_DIR` is often cached in an
+existing CMake build directory and can override changes to `CMAKE_PREFIX_PATH`;
+explicitly setting both ensures the new package is actually selected. No
+tracked user setting is modified. Inspect the CMake `OpenCV_DIR` output.
+CI uses a fresh isolated default prefix and verifies a new videoio/FFmpeg
+provenance marker on both builds and cache hits. See
+[the M4.1 backend decision](docs/M4_1_VIDEOIO_DEPENDENCY.md).
 
 ### Configure and build
 
@@ -293,7 +332,7 @@ examples, compatibility rules, safety limitations, and acceptance tests, see
 [docs/M3_5_CLI_CONTRACT.md](docs/M3_5_CLI_CONTRACT.md).
 
 
-### M3.6 — Still-image format and fixture regression coverage (pending acceptance)
+### M3.6 — Still-image format and fixture regression coverage (accepted)
 
 I expanded the headless still-image test matrix for JPEG/PNG/BMP, classic TIFF
 and WebP header preflight; valid codec decode/export; malformed or unsupported
@@ -305,3 +344,13 @@ The five new `formats`-labeled CTests raise the expected count from **48 to
 codec support; all header-preflight cases execute on every platform. This is
 regression/test coverage only, not a new decoder or media-redistribution license.
 See [M3.6 regression coverage](docs/M3_6_STILL_IMAGE_REGRESSIONS.md).
+
+### M4.1 — Recorded-video dependency baseline (pending acceptance)
+
+The isolated OpenCV 5.1.0 builds now request `videoio` and verify installed
+CMake exports plus a headless synthetic MJPEG/AVI read/write round trip.
+Linux uses FFmpeg from distro development libraries for recorded-video decoding;
+Windows uses the platform Media Foundation API without auto-downloading an
+FFmpeg binary. The added `videoio` CTest raises the expected suite from
+**53 to 54**. There is **no application video playback or camera interface**
+in M4.1; see [the backend evaluation and qualification instructions](docs/M4_1_VIDEOIO_DEPENDENCY.md).

@@ -60,3 +60,13 @@ For M1.4 acceptance I record the pull request number, exact workflow run, both U
 I verified the M1.4 pull request's two hosted checks completed successfully: `ubuntu-24.04 / Release / CTest` and `ubuntu-26.04 / Release / CTest`. I merged the pull request after the screenshot showing the two green checks. I also reran the Ubuntu 26.04 native Release and CLI-only presets locally, each with 9/9 passing CTests, and verified that the GUI remained functional. I did not record the hosted workflow run URL or run ID in this source archive.
 
 This later hosted acceptance supersedes the *pending* wording in the original M1.4 preparation notes above. M1.5 adds separate Debian container checks; it does not modify this accepted Ubuntu workflow.
+
+
+## M4.1 isolated FFmpeg/videoio gate
+
+The Ubuntu 24.04 and 26.04 matrix installs distro FFmpeg development packages,
+rebuilds source-pinned OpenCV 5.1.0 with `videoio` and FFmpeg, and rejects stale
+cache installations using a new marker and hash-key. Both fresh and cached
+installations must configure, link and run a separate installed-package videoio
+consumer and decode generated MJPEG/AVI through `CAP_FFMPEG`. This does not
+certify camera access or third-party video compatibility.

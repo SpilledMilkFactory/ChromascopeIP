@@ -59,7 +59,7 @@ Invoke-Native cmake @(
     '-G', 'Visual Studio 17 2022', '-A', 'x64',
     "-DCMAKE_INSTALL_PREFIX=$install",
     "-DOPENCV_CMAKE_HOOKS_DIR=$hookDir",
-    '-DBUILD_LIST=core,imgproc,imgcodecs',
+    '-DBUILD_LIST=core,imgproc,imgcodecs,videoio',
     '-DBUILD_SHARED_LIBS=OFF',
     '-DBUILD_WITH_STATIC_CRT=OFF',
     # This still-image build does not use DNN; Protobuf would export an
@@ -70,6 +70,8 @@ Invoke-Native cmake @(
     '-DBUILD_opencv_apps=OFF', '-DBUILD_JAVA=OFF',
     '-DBUILD_opencv_python2=OFF', '-DBUILD_opencv_python3=OFF',
     '-DWITH_IPP=OFF', '-DWITH_OPENCL=OFF',
+    '-DWITH_FFMPEG=OFF', '-DWITH_GSTREAMER=OFF',
+    '-DWITH_MSMF=ON', '-DWITH_MSMF_DXVA=OFF',
     '-DWITH_OPENEXR=OFF', '-DWITH_CUDA=OFF'
 )
 Invoke-Native cmake @('--build', $build, '--config', 'Release', '--parallel', "$Jobs")
@@ -92,7 +94,8 @@ $metadata = @(
     'configuration=Release',
     'shared=OFF',
     'static_crt=OFF',
-    'modules=core,imgproc,imgcodecs',
+    'modules=core,imgproc,imgcodecs,videoio',
+    'video_backend=msmf',
     'protobuf=OFF',
     'windows_pthread_hook=ON',
     'consumer_probe=PASS'

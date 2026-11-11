@@ -283,3 +283,22 @@ All test-generated artifacts are confined to paths under the active build
 directory. The source JPEGs are never rewritten; their unresolved
 redistribution status remains release-blocking. See
 [still-image format and error coverage](M3_6_STILL_IMAGE_REGRESSIONS.md).
+
+
+## M4.1 isolated videoio consumer
+
+`chromascope_integration_videoio_backend` adds the `videoio;dependency;formats`
+labels and raises the expected CTest count from 53 to **54**. The single C++
+translation unit also serves as a completely independent CMake consumer for
+installed OpenCV on Linux and Windows. It verifies core/imgproc/imgcodecs
+operation, required platform backend registration, synthetic four-frame
+MJPEG/AVI round-trip, frame dimensions, and Linux FFmpeg decode.
+
+```bash
+ctest --test-dir build/presets/linux-release -L videoio --output-on-failure
+```
+
+The test requires no camera, GUI, downloaded video or historical photograph.
+Tests must execute with the **new** OpenCV 5.1.0 videoio-enabled prefix;
+expect configuration to fail against the old still-image-only installation.
+MSMF codec correctness and arbitrary containers remain future test scope.

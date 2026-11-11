@@ -63,6 +63,7 @@ jobs:
             ca-certificates git tar zstd \
             build-essential cmake ninja-build pkg-config python3 \
             libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
             libglfw3-dev libgl1-mesa-dev \
             libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
           cmake --version
@@ -80,7 +81,7 @@ jobs:
         with:
           path: ~/.local/opt/opencv-5.1.0
           # A new base image digest requires a new image_revision and cache key.
-          key: opencv-5.1.0-${{ matrix.distribution }}-${{ runner.arch }}-image-${{ matrix.image_revision }}-${{ hashFiles('scripts/bootstrap_opencv_ubuntu_26_04.sh') }}-v1
+          key: opencv-5.1.0-${{ matrix.distribution }}-${{ runner.arch }}-image-${{ matrix.image_revision }}-${{ hashFiles('scripts/bootstrap_opencv_ubuntu_26_04.sh', 'scripts/verify_opencv_linux_videoio.sh', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp') }}-v2
 
       - name: Build isolated OpenCV 5.1.0 on cache miss
         if: steps.opencv-cache.outputs.cache-hit != 'true'
@@ -95,6 +96,12 @@ jobs:
           test -f "$prefix/.chromascope-opencv-source-revision"
           test "$(cat "$prefix/.chromascope-opencv-source-revision")" = "$OPENCV_EXPECTED_COMMIT"
           test -f "$prefix/lib/cmake/opencv5/OpenCVConfig.cmake"
+          marker="$prefix/.chromascope-opencv-videoio-build.txt"
+          test -f "$marker"
+          grep -Fxq 'modules=core,imgproc,imgcodecs,videoio' "$marker"
+          grep -Fxq 'video_backend=ffmpeg' "$marker"
+          grep -Fxq 'consumer_probe=PASS' "$marker"
+          ./scripts/verify_opencv_linux_videoio.sh "$prefix" "${RUNNER_TEMP:-/tmp}/chromascope-opencv-m41-consumer"
           printf 'OpenCV source commit: %s\n' "$(cat "$prefix/.chromascope-opencv-source-revision")"
 
       - name: Configure Release (GUI, CLI, tests)

@@ -63,3 +63,13 @@ For a local isolated reproduction, if I have Docker installed on a development m
 ## Hosted acceptance update (reported November 9, 2026)
 
 I confirmed that both Debian jobs passed in GitHub Actions and merged M1.5. The existing Ubuntu 24.04 and 26.04 checks also passed. This later result supersedes the prospective acceptance instructions above; it does not imply I manually installed or launched the GUI on Debian desktops.
+
+
+## M4.1 videoio/FFmpeg qualification
+
+The pinned Debian 12 and Debian 13 containers now install the FFmpeg
+*development* libraries before building the isolated OpenCV 5.1.0 four-module
+prefix. The changed cache key and module/backend marker invalidate old
+still-image-only installations. The Linux independent consumer compiles and
+executes against the installed package on every CI run, including cache hits,
+with explicit FFmpeg synthetic decoding. No host camera or GUI launch is used.

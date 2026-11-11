@@ -7,6 +7,7 @@
 #include "chromascope/ProcessingQueue.hpp"
 #include "chromascope/ImageIO.hpp"
 #include "chromascope/ImageFrameCV.hpp"
+#include "chromascope/ImageViewport.hpp"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -18,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <system_error>
 #include <vector>
 #include <cstdio>
@@ -37,6 +39,8 @@ struct Texture {
     GLuint id = 0;
     int width = 0;
     int height = 0;
+    int source_width = 0;
+    int source_height = 0;
     ~Texture() { reset(); }
     Texture() = default;
     Texture(const Texture&) = delete;
@@ -46,11 +50,14 @@ struct Texture {
         if (id) glDeleteTextures(1, &id);
         id = 0;
         width = height = 0;
+        source_width = source_height = 0;
     }
 
     void upload(const cv::Mat& bgr) {
         reset();
         if (bgr.empty()) return;
+        source_width = bgr.cols;
+        source_height = bgr.rows;
         cv::Mat small, rgba;
         const int side = std::max(bgr.rows, bgr.cols);
         if (side > 1800) {
@@ -95,7 +102,13 @@ struct App {
     Texture source_overlay_texture, processed_overlay_texture;
     chromascope::AnnotationViewOptions overlay_options;
     int preview_mode = 0; // Result, Original, Side by side
+    // View state is independent for the main image and each comparison pane.
+    // All math uses native-image pixels, even though OpenGL textures may be
+    // display-downsampled to a maximum side of 1800.
+    chromascope::ImageViewport result_view, comparison_original_view,
+        comparison_processed_view;
     int export_base_mode = 0; // As configured, Original, Processed
+    bool synchronize_comparison = true;
     std::string status = "Open one of the legacy samples or enter an image path.";
     bool show_overlay = true;
     bool show_labels = true;
@@ -233,17 +246,78 @@ struct App {
             ? processed_overlay_texture : processed_texture;
     }
 
-    static void draw_fitted_texture(const Texture& texture, ImVec2 available) {
-        if (!texture.id || texture.width <= 0 || texture.height <= 0) {
+    bool draw_viewport_texture(const char* widget, const Texture& texture,
+                               chromascope::ImageViewport& view) {
+        if (!texture.id || texture.source_width <= 0 || texture.source_height <= 0) {
             ImGui::TextDisabled("No image available.");
-            return;
+            return false;
         }
-        const float factor = std::min(
-            available.x / static_cast<float>(texture.width),
-            available.y / static_cast<float>(texture.height));
-        const float scale = std::max(0.01f, factor);
-        ImGui::Image(static_cast<ImTextureID>(texture.id),
-                     ImVec2(texture.width * scale, texture.height * scale));
+        const ImVec2 area = ImGui::GetContentRegionAvail();
+        const ImVec2 size{std::max(1.0f, area.x), std::max(1.0f, area.y)};
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        if (!view.configure(static_cast<double>(texture.source_width),
+                            static_cast<double>(texture.source_height),
+                            static_cast<double>(size.x), static_cast<double>(size.y))) {
+            ImGui::TextDisabled("Invalid image viewport.");
+            return false;
+        }
+        // The widget covers the viewport, rather than the scaled image. Mouse
+        // capture remains correct while a zoomed image extends beyond its area.
+        ImGui::InvisibleButton(widget, size);
+        const bool hovered = ImGui::IsItemHovered();
+        bool changed = false;
+        const auto& io = ImGui::GetIO();
+        if (hovered) {
+            const chromascope::Point2D anchor{
+                static_cast<double>(io.MousePos.x - origin.x),
+                static_cast<double>(io.MousePos.y - origin.y)};
+            if (io.MouseWheel != 0.0f) {
+                view.zoom_at(std::pow(1.2, static_cast<double>(io.MouseWheel)), anchor);
+                changed = true;
+            }
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f) ||
+                ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0f)) {
+                view.pan_by(io.MouseDelta.x, io.MouseDelta.y);
+                changed = true;
+            }
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                view.fit();
+                changed = true;
+            }
+        }
+        const auto bounds = view.image_rect();
+        const ImVec2 top_left{
+            origin.x + static_cast<float>(bounds.minimum.x),
+            origin.y + static_cast<float>(bounds.minimum.y)};
+        const ImVec2 bottom_right{
+            origin.x + static_cast<float>(bounds.maximum.x),
+            origin.y + static_cast<float>(bounds.maximum.y)};
+        const ImVec2 clip_max{origin.x + size.x, origin.y + size.y};
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        draw->PushClipRect(origin, clip_max, true);
+        draw->AddRectFilled(origin, clip_max, IM_COL32(17, 19, 24, 255));
+        // Draw the complete texture using its source-image aspect ratio. The
+        // identical transform applies to pre-rasterized source-pixel geometry.
+        draw->AddImage(static_cast<ImTextureID>(texture.id), top_left, bottom_right);
+        draw->PopClipRect();
+        if (hovered) {
+            const auto point = view.canvas_to_image({
+                static_cast<double>(io.MousePos.x - origin.x),
+                static_cast<double>(io.MousePos.y - origin.y)});
+            if (view.contains_image_pixel(point)) {
+                ImGui::BeginTooltip();
+                ImGui::Text("Source pixel: %d, %d", static_cast<int>(point.x),
+                            static_cast<int>(point.y));
+                ImGui::Text("Image: %d x %d | Zoom: %.1fx fit",
+                            texture.source_width, texture.source_height, view.zoom());
+                if (texture.source_width != texture.width ||
+                    texture.source_height != texture.height)
+                    ImGui::TextDisabled("Preview downsampled to %d x %d",
+                                        texture.width, texture.height);
+                ImGui::EndTooltip();
+            }
+        }
+        return changed;
     }
 
     void load(const std::filesystem::path& file) {
@@ -257,6 +331,9 @@ struct App {
             input_height = input.rows;
             std::snprintf(path.data(), path.size(), "%s", file.string().c_str());
             original_texture.upload(input);
+            result_view.fit();
+            comparison_original_view.fit();
+            comparison_processed_view.fit();
             processed_texture.reset();
             source_overlay_texture.reset();
             processed_overlay_texture.reset();
@@ -481,6 +558,9 @@ struct App {
         if (ImGui::Combo("Preview mode", &preview_mode,
                          "Result\0Original\0Side by side\0"))
             refresh_overlay();
+        if (ImGui::Checkbox("Synchronize comparison navigation", &synchronize_comparison) &&
+            synchronize_comparison)
+            comparison_processed_view.synchronize_from(comparison_original_view);
         if (ImGui::Checkbox("Show geometry overlays", &show_overlay))
             refresh_overlay();
         if (ImGui::Checkbox("Show labels", &show_labels)) refresh_overlay();
@@ -557,29 +637,50 @@ struct App {
         ImGui::EndChild();
         ImGui::SameLine();
 
-        ImGui::BeginChild("Preview", ImVec2(0, 0), ImGuiChildFlags_Borders);
+        ImGui::BeginChild("Preview", ImVec2(0, 0), ImGuiChildFlags_Borders,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         ImGui::TextUnformatted("IMAGE PREVIEW");
         ImGui::SameLine();
         ImGui::TextDisabled(preview_mode == 2 ? "Original | Processed" :
             preview_mode == 1 ? "Original" : "Result");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Fit to view")) {
+            result_view.fit();
+            comparison_original_view.fit();
+            comparison_processed_view.fit();
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("Wheel: zoom | Middle/right drag: pan | Double-click: fit");
         ImGui::Separator();
         if (!original_texture.id) {
             ImGui::TextWrapped("Open one of the four supplied sample images to begin.");
         } else if (preview_mode == 2 && have_result) {
             const ImVec2 available = ImGui::GetContentRegionAvail();
-            const float pane_width = std::max(1.0f, (available.x - ImGui::GetStyle().ItemSpacing.x) * 0.5f);
-            ImGui::BeginChild("Original pane", ImVec2(pane_width, 0));
+            const float pane_width = std::max(1.0f,
+                (available.x - ImGui::GetStyle().ItemSpacing.x) * 0.5f);
+            ImGui::BeginChild("Original pane", ImVec2(pane_width, 0),
+                              ImGuiChildFlags_None,
+                              ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
             ImGui::TextUnformatted("Original (unmodified)");
-            draw_fitted_texture(original_texture, ImGui::GetContentRegionAvail());
+            const bool original_changed = draw_viewport_texture(
+                "##original_canvas", original_texture, comparison_original_view);
+            if (synchronize_comparison && original_changed)
+                comparison_processed_view.synchronize_from(comparison_original_view);
             ImGui::EndChild();
             ImGui::SameLine();
-            ImGui::BeginChild("Processed pane", ImVec2(0, 0));
+            ImGui::BeginChild("Processed pane", ImVec2(0, 0),
+                              ImGuiChildFlags_None,
+                              ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
             ImGui::TextUnformatted("Processed output");
-            draw_fitted_texture(comparison_processed_texture(), ImGui::GetContentRegionAvail());
+            const bool processed_changed = draw_viewport_texture(
+                "##processed_canvas", comparison_processed_texture(),
+                comparison_processed_view);
+            if (synchronize_comparison && processed_changed)
+                comparison_original_view.synchronize_from(comparison_processed_view);
             ImGui::EndChild();
         } else {
-            draw_fitted_texture(preview_mode == 1 || !have_result
-                ? original_texture : result_preview_texture(), ImGui::GetContentRegionAvail());
+            draw_viewport_texture("##result_canvas", preview_mode == 1 || !have_result
+                ? original_texture : result_preview_texture(), result_view);
         }
         ImGui::EndChild();
         if (browse_requested) {

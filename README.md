@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0.3–M2.7 accepted (v0.1.3); M3.1 generalized still-image profiles are prepared for verification. OpenCV 5.1.0, Dear ImGui 1.93.0, the CLI/GUI, and six existing CI checks remain in place. The M3.1 patch registers 35 CTests. Packaged releases, video, webcam and people detection remain future milestones.
+> **Development stage:** M0.3–M3.3 accepted (v0.1.3); M3.4 viewport navigation is prepared for verification. OpenCV 5.1.0, Dear ImGui 1.93.0, the CLI/GUI, and six existing CI checks remain in place. The M3.4 changes register 46 CTests. Packaged releases, video, webcam and people detection remain future milestones.
 
 ## What works in M0–M0.3
 
@@ -267,3 +267,14 @@ and source/processed side-by-side comparison. Mask-producing profiles show the
 actual processed mask in the comparison's right pane. Image export offers
 explicit original/processed backgrounds and does not export the split layout.
 See [M3.3 GUI comparison verification](docs/M3_3_GUI_COMPARISON.md).
+
+### M3.4 GUI viewport navigation (pending native acceptance)
+
+I added cursor-anchored mouse-wheel zoom, bounded middle/right-button panning,
+fit-to-view (button or left double-click), original-image pixel coordinates,
+and per-pane navigation in source/processed comparison. Comparison navigation
+is synchronized by default and may be disabled. Native pixel dimensions stay
+authoritative when the GPU preview is downsampled to 1800 pixels. Zooming
+into a downsampled preview does not reconstruct discarded image details.
+Viewport changes never rerun processing or modify exported detection data.
+See [M3.4 viewport verification](docs/M3_4_VIEWPORT.md).

@@ -36,6 +36,7 @@ add_library(chromascope_core STATIC
     src/core/Annotation.cpp
     src/core/AnnotationBridge.cpp
     src/core/AnnotationView.cpp
+    src/core/ImageViewport.cpp
     src/core/AnnotationRendererCV.cpp
     src/core/LegacyAnnotationAdapter.cpp
     src/core/DetectionResultBridge.cpp

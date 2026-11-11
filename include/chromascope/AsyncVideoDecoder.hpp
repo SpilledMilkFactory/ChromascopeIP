@@ -19,6 +19,11 @@ namespace chromascope {
 // The caller never performs video I/O or waits on the codec when polling.
 // A codec call already in flight may delay destruction, but cannot publish
 // obsolete results. The worker is the sole owner of VideoSource.
+struct VideoStreamInfo {
+    std::optional<double> frames_per_second;
+    std::optional<std::uint64_t> reported_frame_count;
+};
+
 struct VideoBufferLimits {
     std::size_t max_frames = 3;
     std::size_t max_pixel_bytes = 64U * 1024U * 1024U;
@@ -59,6 +64,8 @@ public:
     [[nodiscard]] std::size_t queued_events() const noexcept;
     [[nodiscard]] std::size_t queued_pixel_bytes() const noexcept;
     [[nodiscard]] std::uint64_t generation() const noexcept;
+    // Metadata belongs to the current generation; read without calling codec APIs.
+    [[nodiscard]] std::optional<VideoStreamInfo> stream_info() const noexcept;
 
 private:
     struct SourceSpec {
@@ -83,6 +90,7 @@ private:
     std::optional<SourceSpec> requested_source_;
     std::optional<Command> pending_;
     std::deque<VideoDecodeEvent> events_;
+    std::optional<VideoStreamInfo> info_;
     std::size_t queued_bytes_ = 0;
     std::uint64_t generation_ = 0;
     bool stopping_ = false;

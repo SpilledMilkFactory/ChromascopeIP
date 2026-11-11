@@ -47,6 +47,7 @@ add_library(chromascope_core STATIC
     src/core/ProcessingQueue.cpp
     src/core/VideoSource.cpp
     src/core/AsyncVideoDecoder.cpp
+    src/core/VideoPlayer.cpp
 )
 find_package(Threads REQUIRED)
 add_library(ChromascopeIP::Core ALIAS chromascope_core)

@@ -8,6 +8,7 @@
 #include "chromascope/ImageIO.hpp"
 #include "chromascope/ImageFrameCV.hpp"
 #include "chromascope/ImageViewport.hpp"
+#include "chromascope/VideoPlayer.hpp"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -83,6 +84,7 @@ struct Texture {
 struct App {
     std::array<char, 4096> path{};
     std::array<char, 4096> export_path{};
+    std::array<char, 4096> video_path{};
     std::array<char, 4096> browser_directory{};
     chromascope::Settings settings;
     chromascope::ProcessorRegistry processors = chromascope::make_builtin_registry();
@@ -98,6 +100,13 @@ struct App {
     std::optional<chromascope::AnnotationLayer> annotation_layer;
     std::array<int, chromascope::kColorCount> color_counts{};
     double analysis_elapsed_ms = 0.0;
+    chromascope::VideoPlayer video_player;
+    Texture video_texture;
+    chromascope::ImageViewport video_view;
+    std::uint64_t video_seek_target = 0;
+    bool video_scrubbing = false;
+    int workspace_mode = 0; // 0 = still image; 1 = recorded video
+    bool picker_video = false;
     Texture original_texture, processed_texture;
     Texture source_overlay_texture, processed_overlay_texture;
     chromascope::AnnotationViewOptions overlay_options;
@@ -125,6 +134,7 @@ struct App {
             });
         std::snprintf(path.data(), path.size(), "%s", "samples/skittles/s1.jpg");
         std::snprintf(export_path.data(), export_path.size(), "%s", "annotated.jpg");
+        std::snprintf(video_path.data(), video_path.size(), "%s", "recording.avi");
         std::snprintf(browser_directory.data(), browser_directory.size(), "%s", ".");
     }
 
@@ -160,6 +170,17 @@ struct App {
     }
 
     void update() {
+        if (video_player.update()) {
+            const auto& frame = video_player.current_frame();
+            if (frame) {
+                const cv::Mat decoded = chromascope::to_cv_mat_copy(frame->image);
+                const bool changed_size = video_texture.source_width != decoded.cols ||
+                                          video_texture.source_height != decoded.rows;
+                video_texture.upload(decoded); // OpenGL always on the GUI thread.
+                if (changed_size) video_view.fit();
+                if (!video_scrubbing) video_seek_target = frame->index;
+            }
+        }
         auto completion = processing->poll();
         if (!completion || completion->ticket != pending_ticket) return;
         pending_ticket = 0;
@@ -370,8 +391,26 @@ struct App {
     }
 
 
-    void open_file_picker() {
-        const std::filesystem::path selected(path.data());
+    void open_video(const std::filesystem::path& file) {
+        try {
+            video_player.open(file);
+            video_texture.reset();
+            video_view.fit();
+            video_seek_target = 0;
+            video_scrubbing = false;
+            video_status.clear();
+            std::snprintf(video_path.data(), video_path.size(), "%s", file.string().c_str());
+            workspace_mode = 1;
+        } catch (const std::exception& exception) {
+            video_status = std::string("Open failed: ") + exception.what();
+        }
+    }
+
+    std::string video_status;
+
+    void open_file_picker(bool for_video = false) {
+        picker_video = for_video;
+        const std::filesystem::path selected(for_video ? video_path.data() : path.data());
         const auto dir = selected.has_parent_path() ? selected.parent_path()
                                                     : std::filesystem::path(".");
         std::snprintf(browser_directory.data(), browser_directory.size(), "%s",
@@ -381,9 +420,11 @@ struct App {
 
     void draw_file_picker() {
         ImGui::SetNextWindowSize(ImVec2(740, 560), ImGuiCond_Appearing);
-        if (!ImGui::BeginPopupModal("Select image", nullptr,
+        if (!ImGui::BeginPopupModal("Select media", nullptr,
                                    ImGuiWindowFlags_NoSavedSettings)) return;
-        ImGui::TextUnformatted("Choose a photograph (JPG, PNG, BMP, TIFF, WEBP)");
+        ImGui::TextUnformatted(picker_video
+            ? "Choose a recorded video (AVI, MP4, MOV, MKV, WEBM, MPEG, WMV)"
+            : "Choose a photograph (JPG, PNG, BMP, TIFF, WEBP)");
         ImGui::InputText("Directory", browser_directory.data(), browser_directory.size());
         ImGui::SameLine();
         if (ImGui::Button("Up")) {
@@ -417,19 +458,25 @@ struct App {
                     auto extension = entry.path().extension().string();
                     std::transform(extension.begin(), extension.end(), extension.begin(),
                         [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-                    if (extension != ".jpg" && extension != ".jpeg" &&
-                        extension != ".png" && extension != ".bmp" &&
-                        extension != ".tif" && extension != ".tiff" &&
-                        extension != ".webp") continue;
+                    const bool valid_image = extension == ".jpg" || extension == ".jpeg" ||
+                        extension == ".png" || extension == ".bmp" || extension == ".tif" ||
+                        extension == ".tiff" || extension == ".webp";
+                    const bool valid_video = extension == ".avi" || extension == ".mp4" ||
+                        extension == ".mov" || extension == ".mkv" || extension == ".webm" ||
+                        extension == ".m4v" || extension == ".mpg" || extension == ".mpeg" ||
+                        extension == ".wmv";
+                    if (picker_video ? !valid_video : !valid_image) continue;
                 }
-                const std::string label = (is_dir ? "[Folder] " : "[Image] ") + filename;
+                const std::string label = (is_dir ? "[Folder] " :
+                    (picker_video ? "[Video] " : "[Image] ")) + filename;
                 if (ImGui::Selectable(label.c_str())) {
                     if (is_dir) {
                         const std::string next = entry.path().string();
                         std::snprintf(browser_directory.data(), browser_directory.size(),
                                       "%s", next.c_str());
                     } else {
-                        load(entry.path());
+                        if (picker_video) open_video(entry.path());
+                        else load(entry.path());
                         ImGui::CloseCurrentPopup();
                     }
                     break;
@@ -439,6 +486,112 @@ struct App {
         }
         if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
+    }
+
+    void draw_video_ui() {
+        const float sidebar_width = 345.0f;
+        ImGui::BeginChild("Video controls", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders);
+        ImGui::TextUnformatted("RECORDED VIDEO");
+        ImGui::InputText("##video_path", video_path.data(), video_path.size());
+        if (ImGui::Button("Open video", ImVec2(159, 0))) open_video(video_path.data());
+        ImGui::SameLine();
+        if (ImGui::Button("Browse video...", ImVec2(-1, 0))) open_file_picker(true);
+        ImGui::TextDisabled("Decoder runs on a bounded background worker.");
+        ImGui::Separator();
+
+        const bool has_source = video_player.has_source();
+        ImGui::BeginDisabled(!has_source);
+        if (ImGui::Button(video_player.playing() ? "Pause" : "Play", ImVec2(108, 0))) {
+            if (video_player.playing()) video_player.pause();
+            else video_player.play();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("< Frame", ImVec2(99, 0))) {
+            try { video_player.step_backward(); }
+            catch (const std::exception& e) { video_status = e.what(); }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Frame >", ImVec2(99, 0))) {
+            try { video_player.step_forward(); }
+            catch (const std::exception& e) { video_status = e.what(); }
+        }
+        if (ImGui::Button("Beginning", ImVec2(159, 0))) {
+            try { video_player.seek(0); }
+            catch (const std::exception& e) { video_status = e.what(); }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Close video", ImVec2(-1, 0))) {
+            video_player.close();
+            video_texture.reset();
+            video_view.fit();
+        }
+        ImGui::Separator();
+        const auto& current = video_player.current_frame();
+        if (current) ImGui::Text("Frame: %llu", static_cast<unsigned long long>(current->index));
+        else ImGui::TextDisabled("No decoded frame yet.");
+        const auto& metadata = video_player.stream_info();
+        if (metadata && metadata->reported_frame_count &&
+            *metadata->reported_frame_count > 0) {
+            const std::uint64_t first = 0;
+            const std::uint64_t last = *metadata->reported_frame_count - 1;
+            if (video_seek_target > last) video_seek_target = last;
+            ImGui::SliderScalar("Timeline", ImGuiDataType_U64,
+                                &video_seek_target, &first, &last);
+            if (ImGui::IsItemActive()) {
+                video_scrubbing = true;
+                video_player.pause();
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+                video_scrubbing = false;
+                try { video_player.seek(video_seek_target); }
+                catch (const std::exception& e) { video_status = e.what(); }
+            } else if (ImGui::IsItemDeactivated()) video_scrubbing = false;
+            ImGui::TextDisabled("Reported frames: %llu (decoder estimate)",
+                static_cast<unsigned long long>(*metadata->reported_frame_count));
+        } else {
+            ImGui::TextDisabled("Total frame count unavailable: use absolute seek.");
+        }
+        if (ImGui::InputScalar("Seek index", ImGuiDataType_U64, &video_seek_target,
+                               nullptr, nullptr, nullptr, ImGuiInputTextFlags_EnterReturnsTrue)) {
+            try { video_player.seek(video_seek_target); }
+            catch (const std::exception& e) { video_status = e.what(); }
+        }
+        if (ImGui::Button("Seek to frame", ImVec2(-1, 0))) {
+            try { video_player.seek(video_seek_target); }
+            catch (const std::exception& e) { video_status = e.what(); }
+        }
+        float playback_rate = static_cast<float>(video_player.playback_fps());
+        if (ImGui::SliderFloat("Playback FPS", &playback_rate, 1.0f, 120.0f, "%.1f"))
+            video_player.set_playback_fps(static_cast<double>(playback_rate));
+        ImGui::TextDisabled("Nominal frame pacing; not audio-synchronized.");
+        if (current && current->image.metadata().timestamp) {
+            const auto timestamp = current->image.metadata().timestamp->value;
+            const double seconds = std::chrono::duration<double>(timestamp).count();
+            ImGui::Text("Media time: %.3f s", seconds);
+        }
+        ImGui::EndDisabled();
+        ImGui::Separator();
+        ImGui::TextWrapped("%s", video_player.status().c_str());
+        if (!video_status.empty()) ImGui::TextWrapped("%s", video_status.c_str());
+        ImGui::EndChild();
+        ImGui::SameLine();
+        ImGui::BeginChild("Video preview", ImVec2(0, 0), ImGuiChildFlags_Borders,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::TextUnformatted("VIDEO PREVIEW");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Fit video")) video_view.fit();
+        ImGui::SameLine();
+        ImGui::TextDisabled("Wheel: zoom | Middle/right drag: pan | Double-click: fit");
+        ImGui::Separator();
+        if (video_texture.id)
+            draw_viewport_texture("##video_canvas", video_texture, video_view);
+        else ImGui::TextWrapped("Open a video. The first decoded frame appears here.");
+        ImGui::EndChild();
+        if (browse_requested) {
+            ImGui::OpenPopup("Select media");
+            browse_requested = false;
+        }
+        draw_file_picker();
     }
 
     void draw_ui() {
@@ -451,8 +604,21 @@ struct App {
 
         ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP");
         ImGui::SameLine();
-        ImGui::TextDisabled("v0.1.3  |  Still image laboratory  |  OpenCV 5.1.0 / ImGui 1.93.0");
+        ImGui::TextDisabled("v0.1.3  |  Image & recorded video  |  OpenCV 5.1.0 / ImGui 1.93.0");
         ImGui::Separator();
+        if (ImGui::RadioButton("Still images", workspace_mode == 0)) {
+            workspace_mode = 0;
+            video_player.pause();
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Recorded video", workspace_mode == 1))
+            workspace_mode = 1;
+        ImGui::Separator();
+        if (workspace_mode == 1) {
+            draw_video_ui();
+            ImGui::End();
+            return;
+        }
 
         const float sidebar_width = 345.0f;
         ImGui::BeginChild("Controls", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders);
@@ -684,7 +850,7 @@ struct App {
         }
         ImGui::EndChild();
         if (browse_requested) {
-            ImGui::OpenPopup("Select image");
+            ImGui::OpenPopup("Select media");
             browse_requested = false;
         }
         draw_file_picker();

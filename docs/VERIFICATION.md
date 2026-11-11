@@ -535,3 +535,15 @@ cancellation and bounded event/byte buffering. Two new headless CTests
 increase the expected suite from 56 to **58**. Preliminary GCC unit and
 ASan/UBSan checks using a synthetic VideoSource substitute passed, but
 full native OpenCV 5.1.0 compilation and hosted CI remain pending.
+
+
+## M4.4 — GUI recorded-video player (#27)
+
+M4.3 native baseline: 58 CTests passed in GUI Release, CLI Release, and
+ASan/UBSan; policy, provenance and Python quality gates passed. The user
+reported that GitHub did **not** execute the usual six checks before the
+M4.3 merge; cross-platform CI acceptance of M4.4 remains outstanding.
+
+M4.4 adds two CTests (expected total **60**), headless transport tests
+and interactive GUI recorded-video verification. The current handoff patch
+is not yet accepted until native and hosted verification succeed.

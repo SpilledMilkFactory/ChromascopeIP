@@ -272,3 +272,16 @@ add_test(NAME chromascope_integration_async_video_decoder
 set_tests_properties(chromascope_integration_async_video_decoder PROPERTIES
     LABELS "integration;core;video;videoio;async;concurrency;lifecycle;budget;regression;negative"
     TIMEOUT 75)
+
+# M4.4: headless GUI-player transport contract and real MJPEG recorded playback.
+chromascope_add_cpp_test(chromascope_unit_video_player_contract
+    unit/test_video_player_contract.cpp "unit;core;video;gui-contract;negative;lifecycle" 25)
+add_executable(chromascope_integration_video_player integration/test_video_player.cpp)
+target_link_libraries(chromascope_integration_video_player PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_video_player)
+add_test(NAME chromascope_integration_video_player
+    COMMAND chromascope_integration_video_player
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-4-video-player")
+set_tests_properties(chromascope_integration_video_player PROPERTIES
+    LABELS "integration;core;video;videoio;gui-contract;regression;lifecycle;async;negative"
+    TIMEOUT 90)

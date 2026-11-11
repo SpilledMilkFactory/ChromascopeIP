@@ -243,3 +243,17 @@ set_tests_properties(chromascope_fixture_tamper_regression PROPERTIES
 # The same translation unit also verifies isolated installed packages.
 chromascope_add_cpp_test(chromascope_integration_videoio_backend
     integration/test_videoio_backend.cpp "integration;videoio;dependency;formats;regression" 50)
+
+# M4.2: sequential recorded-file source, owned BGR8 frames, presentation
+# timestamps, indexed delivery, explicit and repeatable end-of-stream.
+chromascope_add_cpp_test(chromascope_unit_video_source_contract
+    unit/test_video_source_contract.cpp "unit;core;video;frame;negative" 20)
+add_executable(chromascope_integration_video_source
+    integration/test_video_source.cpp)
+target_link_libraries(chromascope_integration_video_source PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_video_source)
+add_test(NAME chromascope_integration_video_source
+    COMMAND chromascope_integration_video_source
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-2-video-source")
+set_tests_properties(chromascope_integration_video_source PROPERTIES
+    LABELS "integration;core;video;videoio;formats;negative;regression" TIMEOUT 60)

@@ -302,3 +302,22 @@ The test requires no camera, GUI, downloaded video or historical photograph.
 Tests must execute with the **new** OpenCV 5.1.0 videoio-enabled prefix;
 expect configuration to fail against the old still-image-only installation.
 MSMF codec correctness and arbitrary containers remain future test scope.
+
+
+## M4.2 recorded VideoSource
+
+`chromascope_unit_video_source_contract` and
+`chromascope_integration_video_source` add the `video` label. The integration
+test generates five MJPEG frames in the build tree and verifies indexes,
+media-presentation timestamps, independent BGR8 ownership, repeatable EOF,
+and missing/corrupt-file errors. The expected suite grows from **54 to 56**.
+Run with OpenCV 5.1.0 videoio installed:
+
+```bash
+ctest --test-dir build/presets/linux-release -L video --output-on-failure
+ctest --test-dir build/presets/linux-release -L videoio --output-on-failure
+```
+
+See `docs/M4_2_VIDEO_SOURCE.md`. Full Release, CLI, sanitizer, static-analysis,
+policy/provenance, manual GUI regression and hosted Actions checks remain
+required for issue #25 acceptance.

@@ -325,3 +325,30 @@ add_test(NAME chromascope_cli_video_media_contract COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_media.cmake")
 set_tests_properties(chromascope_cli_video_media_contract PROPERTIES
     LABELS "cli;integration;video;videoio;rotation;timing;regression" TIMEOUT 60)
+
+# M4.7 (#30): in-tree, generated video fixtures and deterministic error-path
+# regressions. Test artifacts are isolated in each CTest build tree.
+chromascope_add_cpp_test(chromascope_unit_video_timing_boundaries
+    unit/test_video_timing_boundaries.cpp
+    "unit;core;video;timing;rotation;regression;negative" 20)
+
+add_executable(chromascope_regression_video_decoder_resilience
+    regression/test_video_decoder_resilience.cpp)
+target_link_libraries(chromascope_regression_video_decoder_resilience
+    PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_regression_video_decoder_resilience)
+add_test(NAME chromascope_regression_video_decoder_resilience
+    COMMAND chromascope_regression_video_decoder_resilience
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-7-video-resilience")
+set_tests_properties(chromascope_regression_video_decoder_resilience PROPERTIES
+    LABELS "regression;integration;video;videoio;formats;negative;lifecycle;timing;fixtures"
+    TIMEOUT 60)
+
+add_test(NAME chromascope_cli_video_error_paths COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_VIDEO_FIXTURE=$<TARGET_FILE:chromascope_cli_video_fixture>"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-7-cli-errors"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_error_paths.cmake")
+set_tests_properties(chromascope_cli_video_error_paths PROPERTIES
+    LABELS "cli;integration;regression;video;videoio;negative;security;fixtures"
+    TIMEOUT 90)

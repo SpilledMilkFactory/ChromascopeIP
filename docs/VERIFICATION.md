@@ -657,3 +657,17 @@ DNN/Protobuf link acceptance, the actual ONNX integration test, all 71 CTests
 in each supported configuration, clang-tidy, ASan/UBSan, manual GUI regression,
 and all six hosted GitHub Actions checks. M5.2 does not yet implement
 NanoDet-specific detection preprocessing/postprocessing or package approval.
+
+## M5.3 (#33) — Deterministic preprocessing (November 12, 2026)
+
+M5.2 was accepted after the corrected DNN input binding passed 71 CTests in
+GUI Release, CLI Release and ASan/UBSan, plus six hosted GitHub Actions checks.
+M5.3 adds explicit 416×416 NanoDet RGB/mean/std/zero-pad preprocessing,
+a configurable stretch mode, owned NCHW tensors, deterministic integer
+letterbox geometry and reversible source-space mapping. Two headless tests
+bring the expected suite to **73**. No model weights or new external assets.
+
+**Preliminary verification is not final acceptance.** Validate native OpenCV
+5.1.0 GUI and CLI Release, 73 CTests in both plus ASan/UBSan, clang-tidy,
+policy/provenance, manual still-image/video regression and six hosted Actions
+jobs before merging.

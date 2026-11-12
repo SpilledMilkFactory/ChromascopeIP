@@ -119,10 +119,15 @@ bool VideoPlayer::update(Clock::time_point now) {
         const auto& following = *held_event_->frame;
         const auto before = displayed_->image.metadata().timestamp;
         const auto after = following.image.metadata().timestamp;
-        const VideoTimeSample previous{before ? std::optional{before->value} : std::nullopt,
-                                       displayed_->timestamp_source};
-        const VideoTimeSample next{after ? std::optional{after->value} : std::nullopt,
-                                   following.timestamp_source};
+        // Construct the optional timestamps in a known disengaged state before
+        // conditionally assigning values. GCC 13/14 at -O3 otherwise reports
+        // a spurious -Wmaybe-uninitialized in video_presentation_delay().
+        VideoTimeSample previous{};
+        previous.source = displayed_->timestamp_source;
+        if (before) previous.value = before->value;
+        VideoTimeSample next{};
+        next.source = following.timestamp_source;
+        if (after) next.value = after->value;
         const auto delay = fps_override_ > 0.0
             ? video_presentation_delay({}, {}, playback_fps())
             : video_presentation_delay(previous, next, playback_fps());

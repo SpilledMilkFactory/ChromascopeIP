@@ -55,6 +55,13 @@ int main() {
     CHECK(video_presentation_delay(unknown, unknown, 0.0) > milliseconds(33));
     CHECK(video_presentation_delay(unknown, unknown, 0.0) < milliseconds(34));
     CHECK(video_presentation_delay(second, second, 10.0) == milliseconds(100));
+    // A DecoderReported source without a timestamp is still unavailable.
+    // Exercise both disengaged optional paths used by VideoPlayer::update().
+    const VideoTimeSample missing_reported{std::nullopt, VideoTimestampSource::DecoderReported};
+    CHECK(video_presentation_delay(missing_reported, second, 25.0) == milliseconds(40));
+    CHECK(video_presentation_delay(second, missing_reported, 25.0) == milliseconds(40));
+    CHECK(video_presentation_delay(missing_reported, missing_reported, 25.0) == milliseconds(40));
+    CHECK(video_presentation_delay(second, fallback, 25.0) == milliseconds(40));
     CHECK(video_presentation_delay(second,
         VideoTimeSample{seconds(20), VideoTimestampSource::DecoderReported}, 25.0)
         == milliseconds(40));

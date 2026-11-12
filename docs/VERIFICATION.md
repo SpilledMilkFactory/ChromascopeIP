@@ -600,3 +600,18 @@ The original diagnostic was reproduced independently with GCC 14.2.0 using
 those flags, then resolved without disabling warnings. The M4.6 unit test
 passes under GCC 14 Release and ASan/UBSan. **Hosted GCC 13.3.0 verification,**
 all six GitHub Actions jobs and final merge acceptance remain pending.
+
+## M4.6 CI correction accepted / M4.7 development — November 12, 2026
+
+The M4.6 GCC 13 optimized compilation fix was verified by the user locally.
+Their screenshot confirms all **six** GitHub Actions checks passed on the
+corrective pull-request revision, and they confirmed the PR was merged.
+The M4.6 suite remains at **65** registered CTests, all of which passed
+in local GUI Release, CLI Release, and sanitizer configurations.
+
+M4.7 (#30), "Create synthetic video-fixture generation and error-path tests",
+adds three registered tests (expected **68 CTests**) using generated MJPEG
+media and malformed samples under the CTest build tree. Initial headless
+policy checks do not establish native OpenCV/CLI execution. Final acceptance
+requires all 68 CTests in the usual local configurations, sanitizer and
+static analysis, unchanged GUI/CLI operation, and all six hosted checks.

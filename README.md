@@ -416,3 +416,11 @@ player prefers bounded decoder-reported frame intervals and falls back to
 nominal FPS (or 30 FPS when unknown); audio is explicitly ignored. `--video-probe`
 and `--extract-frame` preserve video JSON schema v1 with additive rotation,
 timing-source and audio-policy fields. See `docs/M4_6_VIDEO_MEDIA.md`.
+
+### M4.7 — Synthetic recorded-video fixtures and error-path verification
+
+Three headless CTests generate deterministic MJPEG scenarios in each build
+folder and exercise decoder EOF/seek recovery, timing limits, and controlled
+CLI failures without modifying inputs or producing forbidden outputs. The
+expected suite increases from 65 to **68 CTests**. See
+[`docs/M4_7_VIDEO_REGRESSIONS.md`](docs/M4_7_VIDEO_REGRESSIONS.md).

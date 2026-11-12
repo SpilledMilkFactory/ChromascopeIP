@@ -381,3 +381,14 @@ for the three M4.6 tests. The C++ policy test covers unknown FPS and synthetic
 variable frame intervals, the OpenCV integration test covers physical clockwise
 rotations and video-only media, and the CLI test checks additive JSON fields.
 All synthetic media stays in the build tree. See `docs/M4_6_VIDEO_MEDIA.md`.
+
+## M4.7 — Synthetic video fixtures and error paths
+
+The expected suite is **68 CTests**. Run
+`ctest --test-dir build/presets/linux-release -R
+'video_timing_boundaries|video_decoder_resilience|cli_video_error_paths'
+--output-on-failure` for the three M4.7 checks. The codec-backed tests
+create MJPEG/AVI media inside the build directory. The CLI test requires
+controlled nonzero exits and diagnostics for malformed inputs and invalid
+options, without source-video mutation or unsafe output creation. See
+`docs/M4_7_VIDEO_REGRESSIONS.md`.

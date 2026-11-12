@@ -106,3 +106,9 @@ Use `ctest --test-dir build/presets/linux-release -R 'unit_cli_video_contract|cl
 to run the two M4.5 tests, or `-L video` for the broader video regression group. Full native Release, CLI-only,
 ASan/UBSan, clang-tidy, existing provenance policy checks, GUI regressions, and
 six GitHub Actions jobs remain the final acceptance requirements.
+
+### M4.6 additive JSON-v1 media fields
+
+M4.6 keeps every M4.5 key and adds `frame.timestamp_source`,
+`rotation_clockwise_degrees`, `rotation_handling`, and `audio_handling`.
+Audio is ignored, not detected. See `docs/M4_6_VIDEO_MEDIA.md`.

@@ -566,3 +566,15 @@ numeric/extension validation are not a substitute for native OpenCV builds.
 M4.5 acceptance remains pending GUI and CLI native Release testing, all 62
 CTests, ASan/UBSan, clang-tidy and policy/provenance gates, manual unchanged-GUI
 regressions, and six successful hosted GitHub Actions checks.
+
+## M4.5 acceptance / M4.6 preparation — November 11, 2026
+
+The user confirmed all **62 CTests** passed in Ubuntu GUI Release, CLI-only
+Release and ASan/UBSan, plus the two focused M4.5 CLI-video cases, CI-policy,
+fixture provenance and ten Python quality checks. They also confirmed unchanged
+GUI/CLI behavior, six successful GitHub Actions checks, and the M4.5 merge.
+
+M4.6 (#29) adds rotation and timestamp-source contracts, bounded VFR-aware
+playback pacing, unknown-FPS fallback and explicit video-only audio handling.
+The expected suite is **65**. Preliminary C++ policy and offline patch checks
+must not be confused with native OpenCV integration or hosted CI acceptance.

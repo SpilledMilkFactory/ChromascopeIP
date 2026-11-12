@@ -335,7 +335,31 @@ void write_video_json(std::ostream& stream, const Options& options,
     const auto& timestamp = frame.image.metadata().timestamp;
     if (timestamp) stream << timestamp->value.count();
     else stream << "null";
-    stream << "\n  }";
+    stream << ",\n    \"timestamp_source\": \"";
+    switch (frame.timestamp_source) {
+        case chromascope::VideoTimestampSource::DecoderReported:
+            stream << "decoder_reported"; break;
+        case chromascope::VideoTimestampSource::EstimatedFromFPS:
+            stream << "fps_estimate"; break;
+        case chromascope::VideoTimestampSource::Unavailable:
+            stream << "unavailable"; break;
+    }
+    stream << "\"\n  },\n  \"rotation_clockwise_degrees\": ";
+    const auto rotation = source.rotation_info();
+    if (rotation.clockwise_degrees) stream << *rotation.clockwise_degrees;
+    else stream << "null";
+    stream << ",\n  \"rotation_handling\": \"";
+    switch (rotation.handling) {
+        case chromascope::VideoRotationHandling::UprightOrUnreported:
+            stream << "upright_or_unreported"; break;
+        case chromascope::VideoRotationHandling::AppliedFromMetadata:
+            stream << "applied_from_metadata"; break;
+        case chromascope::VideoRotationHandling::DecoderManaged:
+            stream << "decoder_managed"; break;
+        case chromascope::VideoRotationHandling::InvalidMetadata:
+            stream << "invalid_metadata"; break;
+    }
+    stream << "\",\n  \"audio_handling\": \"ignored\"";
     if (options.extract_frame)
         stream << ",\n  \"output\": \"" << escape_json(options.output.string()) << "\"";
     stream << "\n}\n";
@@ -378,6 +402,7 @@ int run_video_command(Options options) {
             std::cout << "Reported frames: " << *count << "\n";
         else std::cout << "Reported frames: unknown\n";
         if (!options.output.empty()) std::cout << "Saved: " << options.output.string() << "\n";
+        std::cout << "Audio: ignored (not decoded or synchronized)\n";
     }
     if (!options.json.empty()) {
         std::ofstream output(options.json, std::ios::binary | std::ios::trunc);

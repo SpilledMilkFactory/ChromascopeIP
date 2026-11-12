@@ -372,3 +372,12 @@ ctest --test-dir build/presets/linux-release -L video --output-on-failure
 The tests intentionally use OpenCV's built-in MJPEG backend for a reproducible
 per-backend reference; no assertion is made that arbitrary compressed formats
 seek with perfect frame accuracy. See `docs/M4_5_CLI_VIDEO.md`.
+
+## M4.6 — Media-policy acceptance (#29)
+
+The registered suite contains **65 CTests** after this milestone (previously
+62). Run `ctest --test-dir build/presets/linux-release -R 'video_media_policy|integration_video_media|cli_video_media_contract' --output-on-failure`
+for the three M4.6 tests. The C++ policy test covers unknown FPS and synthetic
+variable frame intervals, the OpenCV integration test covers physical clockwise
+rotations and video-only media, and the CLI test checks additive JSON fields.
+All synthetic media stays in the build tree. See `docs/M4_6_VIDEO_MEDIA.md`.

@@ -563,11 +563,20 @@ struct App {
         float playback_rate = static_cast<float>(video_player.playback_fps());
         if (ImGui::SliderFloat("Playback FPS", &playback_rate, 1.0f, 120.0f, "%.1f"))
             video_player.set_playback_fps(static_cast<double>(playback_rate));
-        ImGui::TextDisabled("Nominal frame pacing; not audio-synchronized.");
+        ImGui::TextDisabled("Decoder timing when available; otherwise nominal/30 FPS.");
+        ImGui::TextDisabled("Audio ignored: no decoding, playback, or synchronization.");
+        if (metadata) {
+            if (metadata->rotation.clockwise_degrees)
+                ImGui::TextDisabled("Rotation metadata: %d deg clockwise (0 may be unreported)",
+                    *metadata->rotation.clockwise_degrees);
+            else ImGui::TextDisabled("Rotation metadata: unavailable");
+        }
         if (current && current->image.metadata().timestamp) {
             const auto timestamp = current->image.metadata().timestamp->value;
             const double seconds = std::chrono::duration<double>(timestamp).count();
-            ImGui::Text("Media time: %.3f s", seconds);
+            ImGui::Text("Media time: %.3f s (%s)", seconds,
+                current->timestamp_source == chromascope::VideoTimestampSource::DecoderReported
+                    ? "decoder reported" : "FPS estimate");
         }
         ImGui::EndDisabled();
         ImGui::Separator();

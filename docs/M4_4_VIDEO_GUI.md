@@ -62,3 +62,10 @@ frames using the still-image processor registry; that is a later milestone.
 CI cannot replace interactive GUI validation. Six hosted checks remain an
 acceptance gate (especially important because the preceding M4.3 merge was
 reported as not running them). Historical sample photo provenance is unchanged.
+
+### M4.6 playback scheduling refinement
+
+The player now prefers bounded decoder-reported inter-frame intervals over
+nominal-rate guesses, subject to available backend timing and user FPS override.
+Unknown FPS defaults to 30 FPS for pacing only. Audio stays disabled. See
+`docs/M4_6_VIDEO_MEDIA.md`.

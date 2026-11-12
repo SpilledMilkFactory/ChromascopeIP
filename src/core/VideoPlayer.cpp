@@ -16,11 +16,12 @@ void VideoPlayer::open(const std::filesystem::path& path, VideoBackend backend) 
     generation_ = generation;
     requested_frame_ = 0;
     info_.reset();
+    held_event_.reset();
+    displayed_at_.reset();
     displayed_.reset();
     playing_ = false;
     ended_ = false;
     awaiting_frame_ = true;
-    next_due_ = Clock::time_point::min();
     status_ = "Opening video in background...";
 }
 
@@ -30,6 +31,8 @@ void VideoPlayer::close() noexcept {
     generation_ = decoder_.generation();
     requested_frame_ = 0;
     displayed_.reset();
+    held_event_.reset();
+    displayed_at_.reset();
     info_.reset();
     playing_ = false;
     ended_ = false;
@@ -43,7 +46,7 @@ void VideoPlayer::play() {
         seek(0);
     }
     playing_ = true;
-    next_due_ = Clock::time_point::min();
+    displayed_at_ = Clock::now(); // resume from now, not the pre-pause wall interval
 }
 
 void VideoPlayer::pause() noexcept { playing_ = false; }
@@ -56,9 +59,10 @@ void VideoPlayer::seek(std::uint64_t index) {
     generation_ = decoder_.seek(index);
     requested_frame_ = index;
     displayed_.reset(); // do not show a stale image while waiting for the seek
+    held_event_.reset();
+    displayed_at_.reset();
     ended_ = false;
     awaiting_frame_ = true;
-    next_due_ = Clock::time_point::min();
     status_ = "Seeking to frame " + std::to_string(index) + "...";
 }
 
@@ -101,9 +105,31 @@ bool VideoPlayer::update(Clock::time_point now) {
         if (metadata) info_ = std::move(metadata);
     }
     if (!has_source() || (!awaiting_frame_ && !playing_)) return false;
-    if (!awaiting_frame_ && now < next_due_) return false;
-    auto event = decoder_.poll();
-    if (!event || event->generation != generation_) return false;
+    if (!held_event_) held_event_ = decoder_.poll();
+    if (!held_event_) return false;
+    if (held_event_->generation != generation_) {
+        held_event_.reset();
+        return false;
+    }
+    // Look at the NEXT decoded frame before scheduling. Nominal FPS cannot
+    // represent variable-frame-rate gaps. Only use reported decoder positions
+    // (not synthesized FPS estimates) for a nonzero, bounded media delta.
+    if (playing_ && !awaiting_frame_ && displayed_ && held_event_->frame &&
+        held_event_->kind == VideoDecodeEventKind::Frame && displayed_at_) {
+        const auto& following = *held_event_->frame;
+        const auto before = displayed_->image.metadata().timestamp;
+        const auto after = following.image.metadata().timestamp;
+        const VideoTimeSample previous{before ? std::optional{before->value} : std::nullopt,
+                                       displayed_->timestamp_source};
+        const VideoTimeSample next{after ? std::optional{after->value} : std::nullopt,
+                                   following.timestamp_source};
+        const auto delay = fps_override_ > 0.0
+            ? video_presentation_delay({}, {}, playback_fps())
+            : video_presentation_delay(previous, next, playback_fps());
+        if (now < *displayed_at_ + delay) return false;
+    }
+    auto event = std::move(held_event_);
+    held_event_.reset();
     switch (event->kind) {
         case VideoDecodeEventKind::Frame: {
             if (!event->frame) {
@@ -113,12 +139,11 @@ bool VideoPlayer::update(Clock::time_point now) {
                 return false;
             }
             displayed_ = std::move(event->frame);
+            displayed_at_ = now;
             requested_frame_ = displayed_->index;
             awaiting_frame_ = false;
             ended_ = false;
             status_ = "Frame " + std::to_string(displayed_->index);
-            const auto interval = std::chrono::duration<double>(1.0 / playback_fps());
-            next_due_ = now + std::chrono::duration_cast<Clock::duration>(interval);
             return true;
         }
         case VideoDecodeEventKind::EndOfStream:

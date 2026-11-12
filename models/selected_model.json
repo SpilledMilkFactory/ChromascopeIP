@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "decision": "selected_for_future_integration",
+  "model_id": "opencv-zoo-nanodet-plus-m-1.5x-416-fp32-2022nov",
+  "architecture": "NanoDet-Plus-M 1.5x",
+  "task": "multi_class_object_detection",
+  "format": "ONNX",
+  "precision": "fp32",
+  "input_size_hw": [
+    416,
+    416
+  ],
+  "class_vocabulary": "COCO 80 classes",
+  "class_count": 80,
+  "file_name": "object_detection_nanodet_2022nov.onnx",
+  "artifact_sha256": "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186",
+  "artifact_source_url": "https://huggingface.co/opencv/opencv_zoo/resolve/main/models/object_detection_nanodet/object_detection_nanodet_2022nov.onnx",
+  "artifact_identity_policy": "verify_sha256; upstream main is a mutable locator",
+  "model_directory_url": "https://github.com/opencv/opencv_zoo/tree/main/models/object_detection_nanodet",
+  "model_card_url": "https://github.com/opencv/opencv_zoo/blob/main/models/object_detection_nanodet/README.md",
+  "upstream_url": "https://github.com/RangiLyu/nanodet",
+  "license_spdx": "Apache-2.0",
+  "license_evidence_url": "https://github.com/opencv/opencv_zoo/blob/main/models/object_detection_nanodet/LICENSE",
+  "license_text_path": "licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt",
+  "notice_path": "models/NANODET_NOTICES.md",
+  "model_bundled": false,
+  "release_redistribution_status": "requires_artifact_notices_and_final_release_review",
+  "inference_runtime_status": "not_implemented_in_m5_1"
+}

@@ -151,3 +151,16 @@ metadata, and `VideoPlayer` paces bounded decoder-reported intervals where
 available. CLI schema v1 exposes additive rotation/timestamp-source/audio-policy
 fields. Audio streams are not decoded or synchronized. See
 `docs/M4_6_VIDEO_MEDIA.md` for backend limitations.
+
+## M5.1 general object-detection selection — research only
+
+A machine-readable, SHA-256-identified **OpenCV Zoo NanoDet-Plus-M 1.5x
+FP32 ONNX** selection is maintained in `models/selected_model.json`, with
+Apache-2.0 attribution and conditional future redistribution obligations in
+`docs/M5_1_MODEL_SELECTION.md` and `models/NANODET_NOTICES.md`. The normal
+source/test checkout contains no weights. No model loading, third-party DNN
+runtime, network download, or new processor implementation is introduced.
+A future milestone must explicitly extend both source-pinned OpenCV 5.1.0
+bootstrap configurations to build DNN and must map any model predictions
+through the existing owned `DetectionResult`/annotation contracts. The
+existing Skittles and video-processing paths must not depend on that model.

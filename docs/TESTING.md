@@ -392,3 +392,23 @@ create MJPEG/AVI media inside the build directory. The CLI test requires
 controlled nonzero exits and diagnostics for malformed inputs and invalid
 options, without source-video mutation or unsafe output creation. See
 `docs/M4_7_VIDEO_REGRESSIONS.md`.
+
+## M5.1 (#31) selected inference-model research policy
+
+`chromascope_model_selection_policy` is a **network-free, no-ONNX-required,
+CMake-script CTest** that verifies the model ID, exact published FP32 ONNX
+SHA-256, source identity, Apache-2.0 metadata, local full license text,
+required attribution notices and the fact that model weights are not bundled.
+The CTest is available in GUI Release, CLI-only Release, sanitizers and Windows.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R chromascope_model_selection_policy --output-on-failure
+python3 scripts/check_model_selection.py
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+`python3 scripts/check_model_selection.py --artifact /path/to/model.onnx`
+performs an optional offline *full-byte* SHA-256 check for an independently
+obtained weight file. No model download, inference, runtime DNN dependency, or
+new visual/media fixture is introduced in this milestone.

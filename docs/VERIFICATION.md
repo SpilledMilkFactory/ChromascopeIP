@@ -615,3 +615,26 @@ media and malformed samples under the CTest build tree. Initial headless
 policy checks do not establish native OpenCV/CLI execution. Final acceptance
 requires all 68 CTests in the usual local configurations, sanitizer and
 static analysis, unchanged GUI/CLI operation, and all six hosted checks.
+
+## M4.7 accepted / M5.1 (#31) research and license selection — November 12, 2026
+
+The user confirmed that M4.7's corrected one-frame EOF regression passed,
+**68/68 CTests** succeeded in GUI Release, CLI-only Release, and ASan/UBSan
+configurations, and all six GitHub Actions checks passed before the merge.
+M4.7 is accepted as the Milestone 5 baseline.
+
+M5.1 selects **OpenCV Zoo NanoDet-Plus-M 1.5x FP32 ONNX** for future
+multi-class inference, with explicit Apache-2.0 directory license evidence,
+a published model SHA-256, source/attribution/redistribution notices and
+out-of-source weight handling. See [`M5_1_MODEL_SELECTION.md`](M5_1_MODEL_SELECTION.md).
+The research gate adds one offline manifest/notice CTest; the **expected
+suite is 69 CTests**. No third-party model, training data, or OpenCV DNN
+runtime changes are shipped at M5.1. The existing photo-redistribution and
+binary packaging license reviews remain open.
+
+**Preliminary verification is not final acceptance:** check the new manifest
+CTest, Python manifest checker and the quality tests, then run native GUI,
+CLI-only and ASan/UBSan builds and **69/69 CTests** in each configuration. The
+six hosted Linux/Windows/Quality Actions checks must pass on the final PR
+revision before merging. Actual inference and package redistribution are
+future milestones and cannot be accepted under this research issue.

@@ -20,3 +20,14 @@ I reviewed the current project files and build configurations; I did not perform
 - Required M11/M12 action: gather exact per-artifact license texts, notices, linkage inventories, and SBOMs; assess codecs and static dependencies.
 
 **Milestone interpretation:** M1.8's *audit implementation* is ready for review; unconditional redistribution clearance and any claim that v1.0 is fully license-qualified remain **blocked**. I will carry these findings forward explicitly rather than marking unknown rights as verified.
+
+## M5.1 general detector model-selection addendum (November 12, 2026)
+
+I selected an **Apache-2.0-licensed OpenCV Zoo NanoDet FP32 ONNX checkpoint**
+for future multi-class detection, with its official published SHA-256, full
+standard license text, and author attributions recorded under `models/` and
+`licenses/`. See [M5.1 research](M5_1_MODEL_SELECTION.md). This source-only
+change does **not** ship the model binary, incorporate OpenCV DNN, or authorize
+release of the four historically archived photographs. Distribution of the
+ONNX remains conditional on retaining notices, exact artifact-hash checks,
+per-platform bill of materials and renewed release qualification.

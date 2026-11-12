@@ -352,3 +352,11 @@ add_test(NAME chromascope_cli_video_error_paths COMMAND "${CMAKE_COMMAND}"
 set_tests_properties(chromascope_cli_video_error_paths PROPERTIES
     LABELS "cli;integration;regression;video;videoio;negative;security;fixtures"
     TIMEOUT 90)
+
+# M5.1 (#31): research/attribution only. Offline CMake policy gate: no
+# model binaries or optional Python/ONNX runtime are required by CTest.
+add_test(NAME chromascope_model_selection_policy COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_SOURCE_ROOT=${PROJECT_SOURCE_DIR}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_model_selection.cmake")
+set_tests_properties(chromascope_model_selection_policy PROPERTIES
+    LABELS "model;license;security;regression;negative" TIMEOUT 15)

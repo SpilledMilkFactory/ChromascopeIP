@@ -37,3 +37,21 @@ For each distribution artifact, I will record an SBOM or equivalent dependency i
 its configured licensing; document linkage and shipping strategy per target
 package. Windows Media Foundation is a system dependency rather than an
 OpenCV-distributed FFmpeg artifact. The license audit remains open.
+
+## M5.1 (#31) proposed general-detector model (metadata only)
+
+The selected future model is **OpenCV Zoo NanoDet-Plus-M 1.5x, 416×416, FP32
+ONNX** (`models/selected_model.json`). OpenCV Zoo's NanoDet directory expressly
+licenses **all directory files under Apache-2.0**, and the original NanoDet
+source also uses Apache-2.0. The published OpenCV-hosted ONNX SHA-256 is
+`4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186`.
+See [the selection decision](M5_1_MODEL_SELECTION.md),
+[model notices](../models/NANODET_NOTICES.md), and
+[Apache-2.0 license](../licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt).
+
+No weights or training data are bundled; the selected model is not yet used
+by the executable. This license evidence supports conditional future model
+redistribution, not an unconditional approval of any final package. Source
+`main` is mutable; model bytes must match SHA-256. OpenCV DNN integration and
+license/notice/SBOM review remain future acceptance gates. Existing historical
+photograph and codec-release restrictions are unchanged.

@@ -50,6 +50,8 @@ add_library(chromascope_core STATIC
     src/core/VideoPlayer.cpp
     src/core/CpuDnnAdapter.cpp
     src/core/DnnTensorPolicy.cpp
+    src/core/DnnPreprocessGeometry.cpp
+    src/core/DnnPreprocessing.cpp
 )
 find_package(Threads REQUIRED)
 add_library(ChromascopeIP::Core ALIAS chromascope_core)

@@ -374,3 +374,15 @@ add_test(NAME chromascope_integration_cpu_dnn_adapter
         "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m5-2-cpu-dnn")
 set_tests_properties(chromascope_integration_cpu_dnn_adapter PROPERTIES
     LABELS "integration;model;dnn;cpu;security;regression;negative" TIMEOUT 120)
+
+# M5.3 (#33): deterministic geometry and actual OpenCV resize/normalize/letterbox.
+chromascope_add_cpp_test(chromascope_unit_dnn_preprocess_geometry
+    unit/test_dnn_preprocess_geometry.cpp "unit;model;dnn;preprocessing;negative" 30)
+add_executable(chromascope_integration_dnn_preprocessing
+    integration/test_dnn_preprocessing.cpp)
+target_link_libraries(chromascope_integration_dnn_preprocessing PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_dnn_preprocessing)
+add_test(NAME chromascope_integration_dnn_preprocessing
+    COMMAND chromascope_integration_dnn_preprocessing)
+set_tests_properties(chromascope_integration_dnn_preprocessing PROPERTIES
+    LABELS "integration;model;dnn;preprocessing;regression;negative" TIMEOUT 40)

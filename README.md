@@ -480,3 +480,13 @@ static-build linking requirements remain a hosted acceptance gate. A new
 independent DNN CMake consumer checks the installed package in each CI job.
 See [`docs/M5_2_CPU_DNN.md`](docs/M5_2_CPU_DNN.md) for the API boundaries,
 synthetic ONNX fixture, and platform verification requirements.
+
+### M5.3 — Deterministic neural-network image preprocessing (pending acceptance)
+
+The C++ `preprocess_dnn_frame` contract converts owned upright RGB8/BGR8
+frames to 416×416 RGB FP32 NCHW NanoDet input with integer-defined letterbox
+geometry, per-channel normalization and reversible source/model coordinates.
+A configurable stretch option supports model-specific needs. Two new headless
+preprocessing tests bring the expected suite to **73 CTests**. See
+[`docs/M5_3_DNN_PREPROCESSING.md`](docs/M5_3_DNN_PREPROCESSING.md).
+No pretrained weights, detections or GUI controls are added by M5.3.

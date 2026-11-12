@@ -429,3 +429,16 @@ ctest --test-dir build/presets/linux-release -R 'cpu_dnn' --output-on-failure
 
 The Linux and Windows installed-package consumers also link/run the `dnn`
 module; separate full CTests and quality workflows must pass before merge.
+
+## M5.3 (#33) — Deterministic preprocessing acceptance
+
+Expected suite **73 CTests**. The geometry unit test is OpenCV-independent;
+the integration test uses OpenCV resize, RGB/BGR conversion and NCHW packing.
+
+```bash
+ctest --test-dir build/presets/linux-release -R 'dnn_preprocess' --output-on-failure
+ctest --preset linux-release --output-on-failure
+```
+
+See [`M5_3_DNN_PREPROCESSING.md`](M5_3_DNN_PREPROCESSING.md) for channel,
+padding and coordinate-mapping semantics and portability limitations.

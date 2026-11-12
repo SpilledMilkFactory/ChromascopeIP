@@ -41,3 +41,10 @@ Thumbs.db
 # Python policy-test and local tooling bytecode (never commit generated state).
 __pycache__/
 *.py[cod]
+
+# M5.1: model binaries are third-party artifacts, not repository source.
+/models/*.onnx
+/models/*.pth
+/models/*.pt
+/models/*.bin
+/models/cache/

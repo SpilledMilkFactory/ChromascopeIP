@@ -4,9 +4,9 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M1–M3.6 and M4.1–M4.2 accepted through issue #25, with 56 passing native CTests and six hosted checks. M4.3 adds bounded asynchronous decoding, seeking and cancellation (expected 58 tests). GUI/CLI video playback, live capture, camera handling, and packaging remain future issues. The existing still-image GUI/CLI and Dear ImGui 1.93.0 remain unchanged.
+> **Development stage:** M0–M4.7 accepted through issue #30 with 68 passing native CTests in GUI Release, CLI Release, and ASan/UBSan, plus six passing hosted GitHub Actions checks. Recorded-video GUI playback and CLI probing/extraction are available; live camera capture and multi-class model inference remain future work. M5.1 selects a licensed general detector without changing runtime behavior.
 
-## What works in M0–M0.3
+## Current capabilities (through accepted M4.7)
 
 | Capability | C++ library | CLI | GUI |
 | --- | :---: | :---: | :---: |
@@ -18,7 +18,9 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 | Export annotated JPEG/PNG | Yes | Yes | Yes |
 | Save structured machine-readable JSON | — | Yes | — |
 | Open the four archived examples | Yes | Yes | Yes |
-| Native video, webcam, general object/people detection | **Planned** | **No** | **No** |
+| Recorded-video decoding and navigation | Yes | Probe/extract | Play/seek |
+| Webcam capture | **Planned** | **No** | **No** |
+| General multi-class object detection | Model selected; inference planned | **No** | **No** |
 
 The current **Skittles** profile uses classical image processing, not a trained model. Hough-circle candidates and an HSV color classifier perform best on reasonably separated, roughly round candies. Real-world people, arbitrary objects, occlusions, and camera streams will require different algorithms. I am planning those as separate milestones after the accepted M0.3 baseline.
 
@@ -416,3 +418,29 @@ player prefers bounded decoder-reported frame intervals and falls back to
 nominal FPS (or 30 FPS when unknown); audio is explicitly ignored. `--video-probe`
 and `--extract-frame` preserve video JSON schema v1 with additive rotation,
 timing-source and audio-policy fields. See `docs/M4_6_VIDEO_MEDIA.md`.
+
+### M4.7 — Synthetic recorded-video fixtures and error-path verification
+
+Three headless CTests generate deterministic MJPEG scenarios in each build
+folder and exercise decoder EOF/seek recovery, timing limits, and controlled
+CLI failures without modifying inputs or producing forbidden outputs. The
+expected suite increases from 65 to **68 CTests**. See
+[`docs/M4_7_VIDEO_REGRESSIONS.md`](docs/M4_7_VIDEO_REGRESSIONS.md).
+
+## M5.1 — Multi-class object-detector selection (pending native acceptance)
+
+The future general object-detection backend is **OpenCV Zoo NanoDet-Plus-M
+1.5x (416×416, FP32 ONNX)**. OpenCV Zoo explicitly identifies Apache-2.0
+for the NanoDet model directory. A published artifact SHA-256, attribution
+notice, full standard Apache-2.0 license and redistribution checklist are
+recorded in [`docs/M5_1_MODEL_SELECTION.md`](docs/M5_1_MODEL_SELECTION.md),
+[`models/selected_model.json`](models/selected_model.json), and
+[`models/NANODET_NOTICES.md`](models/NANODET_NOTICES.md).
+
+**M5.1 is research and compliance preparation only.** No checkpoint is
+bundled; the OpenCV DNN module, inference, GUI overlays for general objects,
+and model-backed CLI options are *not* yet implemented. Existing Skittles
+processing and recorded-video functionality are unchanged. The new
+`chromascope_model_selection_policy` headless CTest raises the expected suite
+from 68 to **69**; normal tests remain fully offline. Historical photograph
+redistribution is still blocked pending rights verification.

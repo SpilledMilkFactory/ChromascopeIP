@@ -1,6 +1,7 @@
 #pragma once
 
 #include "chromascope/ImageFrame.hpp"
+#include "chromascope/VideoMediaPolicy.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -24,6 +25,7 @@ enum class VideoReadStatus : std::uint8_t {
 struct VideoFramePacket {
     std::uint64_t index = 0; // zero-based, monotonic between seeks
     ImageFrame image;        // independent owned copy of decoded BGR8 pixels
+    VideoTimestampSource timestamp_source = VideoTimestampSource::Unavailable;
 };
 
 struct VideoReadResult {
@@ -55,6 +57,7 @@ public:
     [[nodiscard]] std::uint64_t next_index() const;
     [[nodiscard]] std::optional<double> frames_per_second() const;
     [[nodiscard]] std::optional<std::uint64_t> reported_frame_count() const;
+    [[nodiscard]] VideoRotationInfo rotation_info() const;
 
 private:
     struct Impl;

@@ -566,3 +566,37 @@ numeric/extension validation are not a substitute for native OpenCV builds.
 M4.5 acceptance remains pending GUI and CLI native Release testing, all 62
 CTests, ASan/UBSan, clang-tidy and policy/provenance gates, manual unchanged-GUI
 regressions, and six successful hosted GitHub Actions checks.
+
+## M4.5 acceptance / M4.6 preparation — November 11, 2026
+
+The user confirmed all **62 CTests** passed in Ubuntu GUI Release, CLI-only
+Release and ASan/UBSan, plus the two focused M4.5 CLI-video cases, CI-policy,
+fixture provenance and ten Python quality checks. They also confirmed unchanged
+GUI/CLI behavior, six successful GitHub Actions checks, and the M4.5 merge.
+
+M4.6 (#29) adds rotation and timestamp-source contracts, bounded VFR-aware
+playback pacing, unknown-FPS fallback and explicit video-only audio handling.
+The expected suite is **65**. Preliminary C++ policy and offline patch checks
+must not be confused with native OpenCV integration or hosted CI acceptance.
+
+
+## M4.6 Ubuntu 24.04 Quality CI portability correction — pending hosted sign-off
+
+On the M4.6 pull request, `Quality / ubuntu-24.04 / First-party ASan UBSan clang-tidy`
+failed during its **Release compilation**, before CTest, ASan/UBSan or clang-tidy could run.
+The hosted GCC 13.3.0 compiler emitted `-Werror=maybe-uninitialized` while inlining
+`video_presentation_delay()` from `VideoMediaPolicy.hpp` into `VideoPlayer::update()`.
+The caller previously constructed optional presentation times using a nested
+conditional aggregate initializer, which confused GCC's optimized data-flow
+analysis. The correction value-initializes `VideoTimeSample` before assigning
+available timestamp values and leaves the timing policy unchanged.
+
+Added focused unit assertions for missing decoder-reported values and mixed
+estimated/reported timing, including both absent-optional paths. Compiling
+`VideoPlayer.cpp` at `-O3 -DNDEBUG -Wall -Wextra -Wpedantic -Wformat=2 -Werror`
+provides an explicit regression check. The expected CTest count remains **65**.
+
+The original diagnostic was reproduced independently with GCC 14.2.0 using
+those flags, then resolved without disabling warnings. The M4.6 unit test
+passes under GCC 14 Release and ASan/UBSan. **Hosted GCC 13.3.0 verification,**
+all six GitHub Actions jobs and final merge acceptance remain pending.

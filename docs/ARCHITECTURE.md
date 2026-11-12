@@ -141,3 +141,13 @@ indexes and a lossless output extension; `CliOutputPaths.hpp` continues to
 perform safe destination resolution and input-alias checks. The CLI uses only
 `VideoSource`, `ImageFrameCV`, and `ImageIO` for actual decoding and export.
 See `docs/M4_5_CLI_VIDEO.md` for the JSON and failure contracts.
+
+## M4.6 — Video media-policy seam
+
+`VideoMediaPolicy.hpp` is an OpenCV-free normalization, timestamp provenance,
+and playback-delay policy. `VideoSource` handles OpenCV-specific orientation
+opt-out and BGR8 rotation, `AsyncVideoDecoder` shares generation-scoped rotation
+metadata, and `VideoPlayer` paces bounded decoder-reported intervals where
+available. CLI schema v1 exposes additive rotation/timestamp-source/audio-policy
+fields. Audio streams are not decoded or synchronized. See
+`docs/M4_6_VIDEO_MEDIA.md` for backend limitations.

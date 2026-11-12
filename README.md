@@ -406,3 +406,13 @@ M3.5 safe-output rules, and accepts strict zero-based frame indexes. Two
 additional tests bring the **expected suite to 62 CTests**. See
 [M4.5 CLI video contract](docs/M4_5_CLI_VIDEO.md) for commands, backend
 limitations, error behavior, and native qualification requirements.
+
+### M4.6 — Recorded-media orientation and timing
+
+VideoSource now reports rotation handling and timestamp provenance. When
+rotation metadata is usable, it physically normalizes pixels only after
+confirming that decoder-managed automatic orientation is disabled. The video
+player prefers bounded decoder-reported frame intervals and falls back to
+nominal FPS (or 30 FPS when unknown); audio is explicitly ignored. `--video-probe`
+and `--extract-frame` preserve video JSON schema v1 with additive rotation,
+timing-source and audio-policy fields. See `docs/M4_6_VIDEO_MEDIA.md`.

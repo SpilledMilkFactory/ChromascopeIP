@@ -159,7 +159,7 @@ void AsyncVideoDecoder::loop() noexcept {
                     if (command.first_frame != 0)
                         source->seek_to(command.first_frame);
                     discovered = VideoStreamInfo{source->frames_per_second(),
-                                                 source->reported_frame_count()};
+                                                 source->reported_frame_count(), source->rotation_info()};
                 } catch (const std::exception& exception) {
                     error = exception.what();
                     source.reset();

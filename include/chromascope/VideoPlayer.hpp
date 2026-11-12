@@ -51,7 +51,8 @@ private:
     std::uint64_t requested_frame_ = 0;
     std::optional<VideoFramePacket> displayed_;
     std::optional<VideoStreamInfo> info_;
-    Clock::time_point next_due_ = Clock::time_point::min();
+    std::optional<VideoDecodeEvent> held_event_; // one decoded frame held for timestamp pacing
+    std::optional<Clock::time_point> displayed_at_;
     double fps_override_ = 0.0; // zero means use the decoder's nominal FPS
     std::string status_ = "Open a recording to begin.";
     bool playing_ = false;

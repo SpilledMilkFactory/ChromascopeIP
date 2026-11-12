@@ -303,3 +303,25 @@ add_test(NAME chromascope_cli_video_probe_extract COMMAND "${CMAKE_COMMAND}"
 set_tests_properties(chromascope_cli_video_probe_extract PROPERTIES
     LABELS "cli;video;videoio;integration;regression;negative;security;formats"
     TIMEOUT 90)
+
+# M4.6: rotation metadata, VFR position pacing, absent FPS and explicit
+# video-only audio handling; no third-party media assets are distributed.
+chromascope_add_cpp_test(chromascope_unit_video_media_policy
+    unit/test_video_media_policy.cpp "unit;core;video;timing;rotation;negative" 20)
+add_executable(chromascope_integration_video_media integration/test_video_media.cpp)
+target_link_libraries(chromascope_integration_video_media PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_video_media)
+target_include_directories(chromascope_integration_video_media PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/core")
+add_test(NAME chromascope_integration_video_media
+    COMMAND chromascope_integration_video_media
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-6-media")
+set_tests_properties(chromascope_integration_video_media PROPERTIES
+    LABELS "integration;core;video;videoio;rotation;timing;regression" TIMEOUT 50)
+add_test(NAME chromascope_cli_video_media_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_VIDEO_FIXTURE=$<TARGET_FILE:chromascope_cli_video_fixture>"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-6-cli"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_media.cmake")
+set_tests_properties(chromascope_cli_video_media_contract PROPERTIES
+    LABELS "cli;integration;video;videoio;rotation;timing;regression" TIMEOUT 60)

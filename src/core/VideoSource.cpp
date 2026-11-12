@@ -2,6 +2,7 @@
 
 #include "chromascope/ImageFrameCV.hpp"
 #include "chromascope/ResourceBudget.hpp"
+#include "VideoMediaCV.hpp"
 
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
@@ -36,28 +37,6 @@ constexpr double max_plausible_fps = 1'000'000.0;
     return static_cast<std::uint64_t>(count);
 }
 
-[[nodiscard]] std::optional<std::chrono::nanoseconds> nanos_from_seconds(long double seconds) {
-    const long double nanoseconds = seconds * 1'000'000'000.0L;
-    const auto maximum = static_cast<long double>(std::numeric_limits<std::int64_t>::max());
-    if (!std::isfinite(nanoseconds) || nanoseconds < 0.0L || nanoseconds > maximum - 1.0L)
-        return std::nullopt;
-    return std::chrono::nanoseconds(static_cast<std::int64_t>(std::round(nanoseconds)));
-}
-
-[[nodiscard]] std::optional<std::chrono::nanoseconds> presentation_time(
-    double position_msec, std::uint64_t index, std::optional<double> fps) {
-    // Some backends report zero for every frame, even with valid FPS.
-    if (std::isfinite(position_msec) && position_msec > 0.0)
-        if (auto time = nanos_from_seconds(static_cast<long double>(position_msec) / 1000.0L))
-            return time;
-    if (fps)
-        return nanos_from_seconds(static_cast<long double>(index) /
-                                  static_cast<long double>(*fps));
-    if (index == 0 && std::isfinite(position_msec) && position_msec == 0.0)
-        return std::chrono::nanoseconds::zero();
-    return std::nullopt;
-}
-
 void validate_reported_dimensions(const cv::VideoCapture& capture) {
     const double width = capture.get(cv::CAP_PROP_FRAME_WIDTH);
     const double height = capture.get(cv::CAP_PROP_FRAME_HEIGHT);
@@ -83,6 +62,7 @@ struct VideoSource::Impl {
     std::optional<double> fps;
     std::optional<std::uint64_t> frame_count;
     std::optional<std::chrono::nanoseconds> previous_time;
+    VideoRotationInfo rotation;
 };
 
 VideoSource::VideoSource(std::unique_ptr<Impl> implementation) noexcept
@@ -110,6 +90,20 @@ VideoSource VideoSource::open(const std::filesystem::path& path, VideoBackend ba
         validate_reported_dimensions(source->capture);
         source->fps = usable_fps(source->capture.get(cv::CAP_PROP_FPS));
         source->frame_count = usable_count(source->capture.get(cv::CAP_PROP_FRAME_COUNT));
+        const auto rotation = normalized_video_rotation(
+            source->capture.get(cv::CAP_PROP_ORIENTATION_META));
+        source->rotation.clockwise_degrees = rotation;
+        if (!rotation) {
+            source->rotation.handling = VideoRotationHandling::InvalidMetadata;
+        } else if (*rotation != 0) {
+            // Never compensate a second time when OpenCV already owns rotation.
+            // A backend that cannot disable automatic rotation is decoder-managed.
+            const bool disabled = source->capture.set(cv::CAP_PROP_ORIENTATION_AUTO, 0.0);
+            const double current = source->capture.get(cv::CAP_PROP_ORIENTATION_AUTO);
+            source->rotation.handling = disabled && std::isfinite(current) && current == 0.0
+                ? VideoRotationHandling::AppliedFromMetadata
+                : VideoRotationHandling::DecoderManaged;
+        }
     } catch (const cv::Exception& exception) {
         throw std::runtime_error(std::string("VideoSource OpenCV open failed: ") + exception.what());
     }
@@ -137,16 +131,20 @@ VideoReadResult VideoSource::read_next() {
     // Validate the true decoded dimensions BEFORE copying into an owned frame.
     resources::validate_image(decoded.cols, decoded.rows, 3);
 
-    auto time = presentation_time(impl.capture.get(cv::CAP_PROP_POS_MSEC),
-                                  impl.next_index, impl.fps);
-    if (time && impl.previous_time && *time < *impl.previous_time)
-        time = impl.previous_time; // some codecs report fluctuating positions
+    const auto time = video_presentation_sample(
+        impl.capture.get(cv::CAP_PROP_POS_MSEC), impl.next_index, impl.fps, impl.previous_time);
     FrameMetadata metadata;
-    if (time) {
-        metadata.timestamp = FrameTimestamp{*time, TimestampDomain::MediaPresentation};
-        impl.previous_time = *time;
+    if (time.value) {
+        metadata.timestamp = FrameTimestamp{*time.value, TimestampDomain::MediaPresentation};
+        impl.previous_time = time.value;
     }
-    VideoFramePacket packet{impl.next_index, from_cv_mat(decoded, PixelFormat::BGR8, metadata)};
+    // OpenCV may have already performed the transform. Only turn the raw image
+    // when backend auto-orientation was demonstrably disabled at open time.
+    const cv::Mat oriented = impl.rotation.handling == VideoRotationHandling::AppliedFromMetadata
+        ? detail::rotate_video_pixels(decoded, *impl.rotation.clockwise_degrees) : decoded;
+    resources::validate_image(oriented.cols, oriented.rows, 3);
+    VideoFramePacket packet{impl.next_index,
+        from_cv_mat(oriented, PixelFormat::BGR8, metadata), time.source};
     ++impl.next_index;
     return {VideoReadStatus::Frame, std::move(packet)};
 }
@@ -190,6 +188,11 @@ std::optional<double> VideoSource::frames_per_second() const {
 std::optional<std::uint64_t> VideoSource::reported_frame_count() const {
     if (!implementation_) throw std::logic_error("VideoSource was moved from");
     return implementation_->frame_count;
+}
+
+VideoRotationInfo VideoSource::rotation_info() const {
+    if (!implementation_) throw std::logic_error("VideoSource was moved from");
+    return implementation_->rotation;
 }
 
 } // namespace chromascope

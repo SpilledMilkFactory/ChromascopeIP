@@ -22,6 +22,9 @@ namespace chromascope {
 struct VideoStreamInfo {
     std::optional<double> frames_per_second;
     std::optional<std::uint64_t> reported_frame_count;
+    VideoRotationInfo rotation;
+    // Audio decoding, playback, synchronization, and audio stream detection are
+    // outside this video-only API; unknown audio presence is never called silence.
 };
 
 struct VideoBufferLimits {

@@ -547,3 +547,22 @@ M4.3 merge; cross-platform CI acceptance of M4.4 remains outstanding.
 M4.4 adds two CTests (expected total **60**), headless transport tests
 and interactive GUI recorded-video verification. The current handoff patch
 is not yet accepted until native and hosted verification succeed.
+
+
+## M4.4 acceptance / M4.5 CLI video preparation — November 11, 2026
+
+The user supplied local **60/60 CTests passed** in Ubuntu GUI Release,
+CLI-only Release, and ASan/UBSan builds; all seven video-labeled checks passed
+separately, quality/provenance and ten Python policy tests completed, and
+manual playback/still-image GUI checks were reported successful. The user also
+supplied a screenshot of all six successful hosted GitHub Actions checks and
+confirmed that M4.4 (#27) was merged. This establishes the accepted M4.4
+baseline without representing the M4.5 implementation as already qualified.
+
+M4.5 (#28) introduces two new headless CTests, expected total **62**, for
+CLI video probing, strict numeric frame extraction, lossless PNG pixels, JSON
+schema v1, and path/argument rejection. Local preliminary tests of strict CLI
+numeric/extension validation are not a substitute for native OpenCV builds.
+M4.5 acceptance remains pending GUI and CLI native Release testing, all 62
+CTests, ASan/UBSan, clang-tidy and policy/provenance gates, manual unchanged-GUI
+regressions, and six successful hosted GitHub Actions checks.

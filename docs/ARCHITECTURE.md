@@ -127,3 +127,17 @@ the queue reaches its event-count or owned-byte budget. New open, seek and
 cancel commands invalidate old generations and queued output. Terminal EOF
 and errors are distinct events. No GUI or camera subsystem is introduced.
 See `docs/M4_3_ASYNC_VIDEO.md` for lifecycle and limitations.
+
+
+## M4.5 CLI recorded-video operations
+
+The still-image CLI (`src/cli/main.cpp`) now dispatches two mutually exclusive
+recorded-file commands to the existing synchronous `VideoSource` API: probe one
+decodable frame and metadata, or seek to an explicitly requested zero-based
+frame and export its owned BGR8 pixels to PNG. These commands deliberately do
+not create a competing decoder pipeline or start GUI playback services. The
+CLI-specific OpenCV-independent `VideoCliContract.hpp` validates exact numeric
+indexes and a lossless output extension; `CliOutputPaths.hpp` continues to
+perform safe destination resolution and input-alias checks. The CLI uses only
+`VideoSource`, `ImageFrameCV`, and `ImageIO` for actual decoding and export.
+See `docs/M4_5_CLI_VIDEO.md` for the JSON and failure contracts.

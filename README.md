@@ -376,7 +376,7 @@ from **54 to 56**. See [the VideoSource contract](docs/M4_2_VIDEO_SOURCE.md)
 for validation, timestamp limitations, and negative-path requirements.
 
 
-## M4.3 — Bounded asynchronous video decoder (pending acceptance)
+## M4.3 — Bounded asynchronous video decoder (accepted)
 
 `AsyncVideoDecoder` runs recorded-file opens, seeks, and frame decoding on a
 single dedicated worker. Nonblocking commands and polling use generation IDs
@@ -384,5 +384,25 @@ to invalidate stale buffered and in-flight results on seek/cancel. Both frame
 count and owned-pixel bytes are bounded (defaults: 3 events, 64 MiB). Frame,
 EOF and error events are distinct. Two new headless tests bring the expected
 suite to **58 CTests**. See [the M4.3 decoder contract](docs/M4_3_ASYNC_VIDEO.md)
-for limitations and verification instructions. No GUI/CLI video playback or
-camera input is added in this milestone.
+for limitations and verification instructions. M4.3 itself adds no GUI playback or
+camera input; the later M4.4 milestone introduces GUI playback.
+
+
+## M4.4 — Recorded-video GUI player (accepted)
+
+A separate Dear ImGui recorded-video workspace now supports background video
+loading, Play/Pause, frame stepping, timeline seeking, and EOF replay using the
+M4.2/M4.3 decoding contracts. Existing still-image workflows remain separate.
+The 60-test GUI Release, CLI Release, and sanitizer suites and six hosted GitHub
+Actions checks passed before M4.4 was merged. See
+[the recorded-video GUI contract](docs/M4_4_VIDEO_GUI.md).
+
+## M4.5 — Video probe and deterministic frame extraction (pending acceptance)
+
+The existing `chromascope-cli` gains `--video-probe` and `--extract-frame N`
+commands, optionally selecting the `opencv-mjpeg` backend and emitting
+schema-v1 JSON. Extraction writes lossless decoded-pixel PNGs, enforces the
+M3.5 safe-output rules, and accepts strict zero-based frame indexes. Two
+additional tests bring the **expected suite to 62 CTests**. See
+[M4.5 CLI video contract](docs/M4_5_CLI_VIDEO.md) for commands, backend
+limitations, error behavior, and native qualification requirements.

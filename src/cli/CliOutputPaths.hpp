@@ -26,7 +26,7 @@ inline bool is_within_directory(const std::filesystem::path& path,
 }
 
 inline OutputPaths validate_output_paths(const std::filesystem::path& input,
-                                         OutputPaths paths) {
+                                         OutputPaths paths, const char* input_kind = "image") {
     namespace fs = std::filesystem;
     if (!paths.directory.empty()) {
         if (paths.image.empty() && paths.mask.empty() && paths.json.empty())
@@ -54,7 +54,7 @@ inline OutputPaths validate_output_paths(const std::filesystem::path& input,
         const auto normalized = fs::weakly_canonical(*path);
         if (normalized == input_path ||
             (fs::exists(*path) && fs::equivalent(*path, input)))
-            throw std::invalid_argument(std::string(name) + " cannot overwrite the input image");
+            throw std::invalid_argument(std::string(name) + " cannot overwrite the input " + input_kind);
         if (fs::is_directory(*path))
             throw std::invalid_argument(std::string(name) + " must designate a file, not a directory");
         // Never follow a pre-existing output symlink to overwrite an unrelated file.

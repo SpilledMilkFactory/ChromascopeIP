@@ -285,3 +285,21 @@ add_test(NAME chromascope_integration_video_player
 set_tests_properties(chromascope_integration_video_player PROPERTIES
     LABELS "integration;core;video;videoio;gui-contract;regression;lifecycle;async;negative"
     TIMEOUT 90)
+
+# M4.5: strict video frame-index and lossless-PNG CLI contracts; real
+# recorded-file probe and pixel-exact indexed extraction via synthetic MJPEG.
+chromascope_add_cpp_test(chromascope_unit_cli_video_contract
+    unit/test_cli_video_contract.cpp "unit;core;cli;video;negative" 20)
+target_include_directories(chromascope_unit_cli_video_contract PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/cli")
+add_executable(chromascope_cli_video_fixture integration/video_cli_fixture.cpp)
+target_link_libraries(chromascope_cli_video_fixture PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_cli_video_fixture)
+add_test(NAME chromascope_cli_video_probe_extract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_VIDEO_FIXTURE=$<TARGET_FILE:chromascope_cli_video_fixture>"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m4-5-cli-video"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video.cmake")
+set_tests_properties(chromascope_cli_video_probe_extract PROPERTIES
+    LABELS "cli;video;videoio;integration;regression;negative;security;formats"
+    TIMEOUT 90)

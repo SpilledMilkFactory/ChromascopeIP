@@ -92,3 +92,13 @@ commands, and pass **both** `-DCMAKE_PREFIX_PATH=...-videoio` and
 to override any stale cached `OpenCV_DIR`. The default CI prefix is populated with the new build on a fresh cache
 key. On Windows rerun the separate static MSVC bootstrap in new scratch/install
 directories; `verify_opencv_windows_x64.ps1` probes the recorded-video module.
+
+## M5.2 isolated OpenCV DNN migration
+
+`find_package` now requires `dnn` in OpenCV 5.1.0. On Linux use a new
+`$HOME/.local/opt/opencv-5.1.0-dnn-videoio` prefix, or another fresh prefix,
+and set **both** `-DOpenCV_DIR=<prefix>/lib/cmake/opencv5` and
+`-DCMAKE_PREFIX_PATH=<prefix>` for **every** configured preset. The previous
+`videoio`-only prefix remains untouched. See `docs/M5_2_CPU_DNN.md` for
+bootstrap and verification commands. The pinned Windows MSVC build must also
+be rebuilt with Protobuf and DNN; old cached static packages are rejected.

@@ -412,3 +412,20 @@ python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
 performs an optional offline *full-byte* SHA-256 check for an independently
 obtained weight file. No model download, inference, runtime DNN dependency, or
 new visual/media fixture is introduced in this milestone.
+
+## M5.2 (#32) — CPU-first OpenCV DNN adapter
+
+Requires a **fresh isolated OpenCV 5.1.0 prefix built with `dnn`**; M4's
+`videoio`-only prefix is intentionally rejected. See
+[`M5_2_CPU_DNN.md`](M5_2_CPU_DNN.md). The expected suite is **71 CTests**.
+New tests: `chromascope_unit_cpu_dnn_contract` and
+`chromascope_integration_cpu_dnn_adapter`. The latter synthesizes a compact
+weight-free ONNX graph, runs a CPU forward, checks result ownership, and
+rejects invalid models. No pretrained weights are downloaded or committed.
+
+```bash
+ctest --test-dir build/presets/linux-release -R 'cpu_dnn' --output-on-failure
+```
+
+The Linux and Windows installed-package consumers also link/run the `dnn`
+module; separate full CTests and quality workflows must pass before merge.

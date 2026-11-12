@@ -31,3 +31,11 @@ change does **not** ship the model binary, incorporate OpenCV DNN, or authorize
 release of the four historically archived photographs. Distribution of the
 ONNX remains conditional on retaining notices, exact artifact-hash checks,
 per-platform bill of materials and renewed release qualification.
+
+### M5.2 — DNN and Protobuf review before release
+
+OpenCV's `dnn` module and its internally compiled Protobuf dependency are
+new components in M5.2's installed OpenCV package. Their exact compiled
+libraries, notices and transitive source licenses must be enumerated during
+binary release qualification. This milestone does not redistribute a NanoDet
+checkpoint and does not alter original fixture photo-rights restrictions.

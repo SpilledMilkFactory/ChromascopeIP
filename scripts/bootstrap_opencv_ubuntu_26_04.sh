@@ -39,19 +39,19 @@ fi
 cmake -S "${source_dir}" -B "${build_dir}" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${prefix}" \
-    -DBUILD_LIST=core,imgproc,imgcodecs,videoio \
+    -DBUILD_LIST=core,imgproc,imgcodecs,videoio,dnn \
     -DBUILD_TESTS=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_EXAMPLES=OFF \
     -DBUILD_opencv_apps=OFF -DBUILD_opencv_python2=OFF \
     -DBUILD_opencv_python3=OFF -DBUILD_JAVA=OFF \
     -DWITH_FFMPEG=ON -DWITH_GSTREAMER=OFF \
-    -DWITH_OPENCL=OFF
+    -DWITH_OPENCL=OFF -DWITH_PROTOBUF=ON -DBUILD_PROTOBUF=ON
 cmake --build "${build_dir}" --parallel "${OPENCV_BUILD_JOBS:-$(nproc)}"
 cmake --install "${build_dir}"
 # Probe the installed package, not the OpenCV build tree. A source revision
 # marker alone cannot demonstrate videoio functionality or FFmpeg detection.
 "$(dirname "${BASH_SOURCE[0]}")/verify_opencv_linux_videoio.sh" "${prefix}" "${workspace}/consumer-probe"
 printf '%s\n' "${actual_revision}" > "${prefix}/.chromascope-opencv-source-revision"
-printf 'commit=%s\nmodules=core,imgproc,imgcodecs,videoio\nvideo_backend=ffmpeg\ngstreamer=OFF\nconsumer_probe=PASS\n' \
+printf 'commit=%s\nmodules=core,imgproc,imgcodecs,videoio,dnn\nvideo_backend=ffmpeg\ngstreamer=OFF\ndnn_backend=opencv_cpu\nprotobuf=ON\nconsumer_probe=PASS\n' \
     "${actual_revision}" > "${prefix}/.chromascope-opencv-videoio-build.txt"
 printf '\nOpenCV %s installed to %s\n' "${version}" "${prefix}"
 printf 'Now configure ChromascopeIP with:\n'

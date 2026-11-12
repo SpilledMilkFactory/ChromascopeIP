@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0–M4.7 accepted through issue #30 with 68 passing native CTests in GUI Release, CLI Release, and ASan/UBSan, plus six passing hosted GitHub Actions checks. Recorded-video GUI playback and CLI probing/extraction are available; live camera capture and multi-class model inference remain future work. M5.1 selects a licensed general detector without changing runtime behavior.
+> **Development stage:** M0–M5.1 accepted through issue #31 with 69 passing native CTests and six passing hosted GitHub Actions checks. Recorded-video GUI playback and CLI probing/extraction remain available; M5.2 adds a CPU-first DNN tensor adapter, while full NanoDet detection and live camera capture remain future work.
 
 ## Current capabilities (through accepted M4.7)
 
@@ -427,7 +427,7 @@ CLI failures without modifying inputs or producing forbidden outputs. The
 expected suite increases from 65 to **68 CTests**. See
 [`docs/M4_7_VIDEO_REGRESSIONS.md`](docs/M4_7_VIDEO_REGRESSIONS.md).
 
-## M5.1 — Multi-class object-detector selection (pending native acceptance)
+## M5.1 — Multi-class object-detector selection (accepted)
 
 The future general object-detection backend is **OpenCV Zoo NanoDet-Plus-M
 1.5x (416×416, FP32 ONNX)**. OpenCV Zoo explicitly identifies Apache-2.0
@@ -444,3 +444,39 @@ processing and recorded-video functionality are unchanged. The new
 `chromascope_model_selection_policy` headless CTest raises the expected suite
 from 68 to **69**; normal tests remain fully offline. Historical photograph
 redistribution is still blocked pending rights verification.
+
+## M5.2 — OpenCV 5.1.0 CPU DNN adapter (pending native acceptance)
+
+The C++ core now requires OpenCV **5.1.0 with the `dnn` module**, in addition
+to the existing image/video modules. The public `CpuDnnAdapter` owns a CPU
+OpenCV network and accepts/returns bounded, independently owned float32 tensors
+without exposing OpenCV types in its public interface. It serializes concurrent
+`forward()` calls and rejects malformed shape, nonfinite data, and excessive
+memory use. This is **raw inference only**: the selected NanoDet model's BGR
+preprocessing, letterboxing, class decoding, confidence filtering, and NMS are
+**not implemented** yet. Existing still-image and video workflows do not run
+DNN automatically. No pretrained weights are bundled or downloaded.
+
+**Side-by-side Linux dependency upgrade:** An earlier OpenCV `videoio`-only
+prefix cannot satisfy M5.2. Preserve it and build a new isolated prefix:
+
+```bash
+export OPENCV_INSTALL_PREFIX="$HOME/.local/opt/opencv-5.1.0-dnn-videoio"
+export OPENCV_BUILD_WORKSPACE="$HOME/.cache/chromascope/opencv-5.1.0-dnn"
+./scripts/bootstrap_opencv_ubuntu_26_04.sh
+cmake --preset linux-release \
+  -DOpenCV_DIR="$OPENCV_INSTALL_PREFIX/lib/cmake/opencv5" \
+  -DCMAKE_PREFIX_PATH="$OPENCV_INSTALL_PREFIX" \
+  -DCHROMASCOPE_WARNINGS_AS_ERRORS=ON
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release --output-on-failure
+```
+
+**Use the same explicit `OpenCV_DIR` and `CMAKE_PREFIX_PATH` for the
+`linux-cli-release` and `linux-cli-sanitize` presets.** The bootstrap refuses
+an existing install destination; never overwrite the accepted M4 prefix.
+OpenCV DNN introduces its pinned internal Protobuf dependency; the CI Windows
+static-build linking requirements remain a hosted acceptance gate. A new
+independent DNN CMake consumer checks the installed package in each CI job.
+See [`docs/M5_2_CPU_DNN.md`](docs/M5_2_CPU_DNN.md) for the API boundaries,
+synthetic ONNX fixture, and platform verification requirements.

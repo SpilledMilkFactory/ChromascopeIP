@@ -360,3 +360,17 @@ add_test(NAME chromascope_model_selection_policy COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_model_selection.cmake")
 set_tests_properties(chromascope_model_selection_policy PROPERTIES
     LABELS "model;license;security;regression;negative" TIMEOUT 15)
+
+# M5.2 (#32): strict tensor/invalid-model contract and real CPU DNN forward
+# using a tiny generated weight-free ONNX graph in the build tree.
+chromascope_add_cpp_test(chromascope_unit_cpu_dnn_contract
+    unit/test_cpu_dnn_contract.cpp "unit;model;dnn;cpu;security;negative" 30)
+add_executable(chromascope_integration_cpu_dnn_adapter
+    integration/test_cpu_dnn_adapter.cpp)
+target_link_libraries(chromascope_integration_cpu_dnn_adapter PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_cpu_dnn_adapter)
+add_test(NAME chromascope_integration_cpu_dnn_adapter
+    COMMAND chromascope_integration_cpu_dnn_adapter
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m5-2-cpu-dnn")
+set_tests_properties(chromascope_integration_cpu_dnn_adapter PROPERTIES
+    LABELS "integration;model;dnn;cpu;security;regression;negative" TIMEOUT 120)

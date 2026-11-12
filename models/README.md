@@ -34,3 +34,13 @@ rather than the branch name defines the chosen checkpoint.
 The `scripts/check_model_selection.py` tool needs only Python 3's standard
 library. A separately registered headless CTest checks metadata and licensing
 without Python or network access.
+
+## M5.2 CPU DNN integration boundary
+
+The C++ core now exposes `chromascope::CpuDnnAdapter` for local OpenCV 5.1.0
+CPU-only inference on **already prepared** NCHW FP32 input tensors. This
+feature does not bundle or automatically fetch the selected ONNX weights,
+nor does it preprocess pixels or interpret NanoDet's raw outputs. Verify any
+external model artifact first with `scripts/check_model_selection.py --artifact`
+using the M5.1 manifest digest. See `docs/M5_2_CPU_DNN.md` for the API and
+side-by-side DNN-enabled dependency installation.

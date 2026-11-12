@@ -42,8 +42,8 @@ if (-not $SkipStampCheck) {
     foreach ($expected in @(
         "commit=$expectedCommit", 'opencv=5.1.0', 'architecture=x64',
         'toolchain=Visual Studio 17 2022', 'configuration=Release',
-        'shared=OFF', 'static_crt=OFF', 'modules=core,imgproc,imgcodecs,videoio', 'video_backend=msmf',
-        'protobuf=OFF', 'windows_pthread_hook=ON', 'consumer_probe=PASS'
+        'shared=OFF', 'static_crt=OFF', 'modules=core,imgproc,imgcodecs,videoio,dnn', 'video_backend=msmf',
+        'protobuf=ON', 'dnn_backend=opencv_cpu', 'windows_pthread_hook=ON', 'consumer_probe=PASS'
     )) {
         if ($fields -notcontains $expected) {
             throw "OpenCV provenance mismatch: $expected"
@@ -72,4 +72,9 @@ if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
     throw "OpenCV consumer executable missing: $exe"
 }
 Invoke-Checked -Program $exe -Arguments @()
+$dnnExe = Join-Path $build 'Release\opencv_dnn_consumer.exe'
+if (-not (Test-Path -LiteralPath $dnnExe -PathType Leaf)) {
+    throw "OpenCV DNN consumer executable missing: $dnnExe"
+}
+Invoke-Checked -Program $dnnExe -Arguments @()
 Write-Host "PASS: OpenCV 5.1.0 MSVC static videoio package configures, links and runs: $opencvDir"

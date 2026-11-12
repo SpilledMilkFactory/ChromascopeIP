@@ -6,10 +6,16 @@
 #include "chromascope/ImageFrameCV.hpp"
 #include "chromascope/ImageIO.hpp"
 #include "CliOutputPaths.hpp"
+#include "VideoCliContract.hpp"
+#include "chromascope/VideoSource.hpp"
 
 #include <opencv2/core/version.hpp>
 
 #include <cmath>
+#include <cstdint>
+#include <optional>
+#include <chrono>
+#include <locale>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -21,6 +27,7 @@
 #include <string_view>
 #include <variant>
 #include <type_traits>
+#include <utility>
 
 namespace {
 struct Options {
@@ -31,14 +38,23 @@ struct Options {
     std::string profile_id = "skittles";
     chromascope::Settings settings;
     std::map<std::string, double, std::less<>> profile_options;
+    bool video_probe = false;
+    std::optional<std::uint64_t> extract_frame;
+    chromascope::VideoBackend video_backend = chromascope::VideoBackend::Automatic;
+    bool video_backend_explicit = false;
     bool legacy_settings_changed = false;
     std::set<std::string> legacy_keys;
 };
 
 void usage(std::ostream& os) {
     os << "ChromascopeIP 0.1.3 - image processing CLI\n"
-          "Usage: chromascope-cli --input IMAGE [options]\n\n"
-          "  -i, --input FILE       Input JPG/PNG/BMP/TIFF image (required)\n"
+          "Usage: chromascope-cli --input IMAGE [options]\n"
+          "       chromascope-cli --video-probe --input VIDEO [--json FILE|-]\n"
+          "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n\n"
+          "  -i, --input FILE       Input image or recorded-video file (required)\n"
+          "      --video-probe     Inspect video metadata and first decoded frame\n"
+          "      --extract-frame N  Extract zero-based video frame N to lossless PNG\n"
+          "      --video-backend ID  Video backend: auto (default), opencv-mjpeg\n"
           "  -o, --output FILE      Save annotated image or processed raster\n"
           "      --mask-output FILE Export segmentation/contour mask separately\n"
           "      --json FILE|-     Export machine-readable JSON; - writes to stdout\n"
@@ -114,6 +130,18 @@ Options parse(int argc, char* argv[]) {
         } else if (flag == "--json-version") {
             once(flag, "json-version");
             o.json_version = parse_integer(next(i, argc, argv, flag));
+        } else if (flag == "--video-probe") {
+            once(flag, "video-action"); o.video_probe = true;
+        } else if (flag == "--extract-frame") {
+            once(flag, "video-action");
+            o.extract_frame = chromascope::cli::parse_video_frame_index(next(i, argc, argv, flag));
+        } else if (flag == "--video-backend") {
+            once(flag, "video-backend");
+            o.video_backend_explicit = true;
+            const auto value = next(i, argc, argv, flag);
+            if (value == "auto") o.video_backend = chromascope::VideoBackend::Automatic;
+            else if (value == "opencv-mjpeg") o.video_backend = chromascope::VideoBackend::OpenCVMJPEG;
+            else throw std::invalid_argument("Unknown --video-backend (supported: auto, opencv-mjpeg)");
         } else if (flag == "--mode" || flag == "--profile") {
             once(flag, "profile");
             o.profile_id = next(i, argc, argv, flag);
@@ -156,12 +184,28 @@ Options parse(int argc, char* argv[]) {
     }
     if (o.input.empty()) throw std::invalid_argument("--input is required");
     if (o.profile_id.empty()) throw std::invalid_argument("--profile requires a nonempty ID");
+    const bool video = o.video_probe || o.extract_frame.has_value();
+    if (video) {
+        if (single_use.contains("profile") || !o.profile_options.empty() ||
+            o.legacy_settings_changed || single_use.contains("no-labels") ||
+            !o.mask_output.empty())
+            throw std::invalid_argument("Video commands cannot use still-image profile or annotation options");
+        if (o.video_probe && !o.output.empty())
+            throw std::invalid_argument("--video-probe does not accept --output; use --extract-frame");
+        if (o.extract_frame) {
+            if (o.output.empty())
+                throw std::invalid_argument("--extract-frame requires --output FRAME.png");
+            chromascope::cli::validate_video_png_path(o.output);
+        }
+    } else if (o.video_backend_explicit) {
+        throw std::invalid_argument("--video-backend requires --video-probe or --extract-frame");
+    }
     if (o.json_version != 1)
         throw std::invalid_argument("Unsupported JSON schema version (supported: 1)");
     if (single_use.contains("json-version") && o.json.empty() && !o.json_stdout)
         throw std::invalid_argument("--json-version requires --json FILE|-");
-    if (o.profile_id == "skittles") chromascope::validate_settings(o.settings);
-    else if (o.legacy_settings_changed)
+    if (!video && o.profile_id == "skittles") chromascope::validate_settings(o.settings);
+    else if (!video && o.legacy_settings_changed)
         throw std::invalid_argument("Legacy Skittles flags cannot be used with other profiles; use --set");
     for (const auto& key : o.legacy_keys) {
         if (o.profile_options.contains(key))
@@ -263,6 +307,87 @@ void write_general_json(std::ostream& stream, const Options& options,
     stream << "\n  ]\n}\n";
 }
 
+// Video JSON is schema-versioned independently of still-image detection JSON.
+// Optional decoder metadata is emitted as JSON null, never as invented zeroes.
+void write_video_json(std::ostream& stream, const Options& options,
+                      const chromascope::VideoSource& source,
+                      const chromascope::VideoFramePacket& frame) {
+    stream.imbue(std::locale::classic());
+    stream << "{\n  \"schema_version\": 1,\n"
+              "  \"application\": \"ChromascopeIP\",\n"
+           << "  \"operation\": \"" << (options.video_probe ? "video_probe" : "frame_extract")
+           << "\",\n  \"input\": \"" << escape_json(options.input.string()) << "\",\n"
+           << "  \"backend\": \""
+           << (options.video_backend == chromascope::VideoBackend::OpenCVMJPEG
+               ? "opencv-mjpeg" : "auto") << "\",\n"
+           << "  \"fps\": ";
+    if (const auto fps = source.frames_per_second())
+        stream << std::fixed << std::setprecision(6) << *fps;
+    else stream << "null";
+    stream << ",\n  \"reported_frame_count\": ";
+    if (const auto count = source.reported_frame_count()) stream << *count;
+    else stream << "null";
+    stream << ",\n  \"frame\": {\n"
+           << "    \"index\": " << frame.index << ",\n"
+           << "    \"width\": " << frame.image.width() << ",\n"
+           << "    \"height\": " << frame.image.height() << ",\n"
+           << "    \"timestamp_ns\": ";
+    const auto& timestamp = frame.image.metadata().timestamp;
+    if (timestamp) stream << timestamp->value.count();
+    else stream << "null";
+    stream << "\n  }";
+    if (options.extract_frame)
+        stream << ",\n  \"output\": \"" << escape_json(options.output.string()) << "\"";
+    stream << "\n}\n";
+}
+
+int run_video_command(Options options) {
+    // Validate paths before touching video data or creating any output files.
+    const auto paths = chromascope::cli::validate_output_paths(
+        options.input, {options.output, {}, options.json, options.output_dir}, "video");
+    options.output = paths.image;
+    options.json = paths.json;
+    chromascope::VideoSource source = chromascope::VideoSource::open(
+        options.input, options.video_backend);
+    if (options.extract_frame && *options.extract_frame != 0)
+        source.seek_to(*options.extract_frame);
+    auto result = source.read_next();
+    if (result.status != chromascope::VideoReadStatus::Frame || !result.frame)
+        throw std::runtime_error("Video does not contain the requested decodable frame");
+    if (options.extract_frame && result.frame->index != *options.extract_frame)
+        throw std::runtime_error("Video decoder returned an unexpected frame index");
+    // Only commit output paths after decoding succeeded. Revalidate after the
+    // explicit directory is created, matching the still-image CLI contract.
+    chromascope::cli::prepare_output_directory(paths);
+    (void)chromascope::cli::validate_output_paths(
+        options.input, {options.output, {}, options.json, {}}, "video");
+    if (options.extract_frame)
+        chromascope::write_image(options.output,
+            chromascope::to_cv_mat_copy(result.frame->image));
+    if (options.json_stdout) {
+        write_video_json(std::cout, options, source, *result.frame);
+    } else {
+        std::cout << "Video: " << options.input.string() << "\n"
+                  << "Frame: " << result.frame->index << "\n"
+                  << "Dimensions: " << result.frame->image.width() << "x"
+                  << result.frame->image.height() << "\n";
+        if (auto fps = source.frames_per_second())
+            std::cout << "FPS: " << std::fixed << std::setprecision(3) << *fps << "\n";
+        else std::cout << "FPS: unknown\n";
+        if (auto count = source.reported_frame_count())
+            std::cout << "Reported frames: " << *count << "\n";
+        else std::cout << "Reported frames: unknown\n";
+        if (!options.output.empty()) std::cout << "Saved: " << options.output.string() << "\n";
+    }
+    if (!options.json.empty()) {
+        std::ofstream output(options.json, std::ios::binary | std::ios::trunc);
+        if (!output) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
+        write_video_json(output, options, source, *result.frame);
+        if (!output) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
+    }
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -297,6 +422,8 @@ int main(int argc, char* argv[]) {
             }
         }
         Options options = parse(argc, argv);
+        if (options.video_probe || options.extract_frame)
+            return run_video_command(std::move(options));
         // Resolve and validate profile settings before touching image data or outputs.
         chromascope::ProcessorProfile profile = options.profile_id == "skittles"
             ? chromascope::skittles_profile_from_settings(options.settings)

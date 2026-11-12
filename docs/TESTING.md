@@ -350,3 +350,25 @@ suite: **60 CTests**; run `ctest -L video --output-on-failure` and full
 GUI Release, CLI Release, and CLI sanitizer configurations. Manual GUI
 verification of recorded-video navigation is required; see
 [M4_4_VIDEO_GUI.md](M4_4_VIDEO_GUI.md).
+
+
+## M4.5 recorded-video CLI contracts
+
+Two new tests increase the expected registered suite from 60 to **62**:
+
+- `chromascope_unit_cli_video_contract`: strict zero-based integer parsing,
+  OpenCV double cursor representability, and lossless PNG-only export.
+- `chromascope_cli_video_probe_extract`: real executable probing and indexed
+  synthetic MJPEG frame extraction, JSON v1 fields/stdout, pixel-equivalent PNG
+  validation, unsafe paths, invalid modes/arguments, out-of-range seeks, and
+  preserved source-video bytes. The helper generates video only in `build/`.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'unit_cli_video_contract|cli_video_probe_extract' --output-on-failure
+ctest --test-dir build/presets/linux-release -L video --output-on-failure
+```
+
+The tests intentionally use OpenCV's built-in MJPEG backend for a reproducible
+per-backend reference; no assertion is made that arbitrary compressed formats
+seek with perfect frame accuracy. See `docs/M4_5_CLI_VIDEO.md`.

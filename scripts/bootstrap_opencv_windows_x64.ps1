@@ -59,12 +59,12 @@ Invoke-Native cmake @(
     '-G', 'Visual Studio 17 2022', '-A', 'x64',
     "-DCMAKE_INSTALL_PREFIX=$install",
     "-DOPENCV_CMAKE_HOOKS_DIR=$hookDir",
-    '-DBUILD_LIST=core,imgproc,imgcodecs,videoio',
+    '-DBUILD_LIST=core,imgproc,imgcodecs,videoio,dnn',
     '-DBUILD_SHARED_LIBS=OFF',
     '-DBUILD_WITH_STATIC_CRT=OFF',
-    # This still-image build does not use DNN; Protobuf would export an
-    # unavailable libprotobuf imported target in this OpenCV 5.1.0 MSVC layout.
-    '-DWITH_PROTOBUF=OFF',
+    # M5.2: DNN's ONNX parser needs Protobuf. Use the internal pinned
+    # OpenCV dependency build rather than a floating external package.
+    '-DWITH_PROTOBUF=ON', '-DBUILD_PROTOBUF=ON',
     '-DBUILD_TESTS=OFF', '-DBUILD_PERF_TESTS=OFF',
     '-DBUILD_EXAMPLES=OFF', '-DBUILD_DOCS=OFF',
     '-DBUILD_opencv_apps=OFF', '-DBUILD_JAVA=OFF',
@@ -94,9 +94,10 @@ $metadata = @(
     'configuration=Release',
     'shared=OFF',
     'static_crt=OFF',
-    'modules=core,imgproc,imgcodecs,videoio',
+    'modules=core,imgproc,imgcodecs,videoio,dnn',
     'video_backend=msmf',
-    'protobuf=OFF',
+    'protobuf=ON',
+    'dnn_backend=opencv_cpu',
     'windows_pthread_hook=ON',
     'consumer_probe=PASS'
 ) -join "`n"

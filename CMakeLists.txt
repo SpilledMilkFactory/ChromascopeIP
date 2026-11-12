@@ -22,7 +22,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ChromascopeQuality.cmake")
 
 # A system OpenCV 4.x must NOT silently satisfy this dependency.
-find_package(OpenCV 5.1.0 EXACT REQUIRED COMPONENTS core geometry imgproc imgcodecs videoio)
+find_package(OpenCV 5.1.0 EXACT REQUIRED COMPONENTS core geometry imgproc imgcodecs videoio dnn)
 message(STATUS "ChromascopeIP OpenCV: ${OpenCV_VERSION} at ${OpenCV_DIR}")
 
 add_library(chromascope_core STATIC
@@ -48,6 +48,8 @@ add_library(chromascope_core STATIC
     src/core/VideoSource.cpp
     src/core/AsyncVideoDecoder.cpp
     src/core/VideoPlayer.cpp
+    src/core/CpuDnnAdapter.cpp
+    src/core/DnnTensorPolicy.cpp
 )
 find_package(Threads REQUIRED)
 add_library(ChromascopeIP::Core ALIAS chromascope_core)

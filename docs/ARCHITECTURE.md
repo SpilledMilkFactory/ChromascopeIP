@@ -164,3 +164,15 @@ A future milestone must explicitly extend both source-pinned OpenCV 5.1.0
 bootstrap configurations to build DNN and must map any model predictions
 through the existing owned `DetectionResult`/annotation contracts. The
 existing Skittles and video-processing paths must not depend on that model.
+
+## M5.2 CPU DNN adapter boundary
+
+`CpuDnnAdapter` is an independent, synchronous OpenCV DNN CPU backend. Its
+public API uses only an owned `DnnTensor {shape, values}` and an explicit
+on-disk model path. Implementation details (`cv::dnn::Net`, locking and
+forward) live inside `src/core/`; no OpenCV inference types cross the public
+header boundary. Model-specific normalization, NanoDet outputs to
+`DetectionResult`, asynchronous scheduling, and GUI/CLI exposure are future
+integration layers, not implicit behavior of the adapter. Model weights are
+never automatically downloaded or committed; M5.1 SHA-256 verification remains
+the caller's trust prerequisite.

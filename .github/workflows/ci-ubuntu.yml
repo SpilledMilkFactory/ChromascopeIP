@@ -56,7 +56,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.local/opt/opencv-5.1.0
-          key: opencv-5.1.0-${{ matrix.os }}-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap_opencv_ubuntu_26_04.sh', 'scripts/verify_opencv_linux_videoio.sh', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp') }}-v2
+          key: opencv-5.1.0-${{ matrix.os }}-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap_opencv_ubuntu_26_04.sh', 'scripts/verify_opencv_linux_videoio.sh', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp', 'tests/quality/opencv_videoio_consumer/dnn_probe.cpp') }}-m5-2-dnn-v1
 
       - name: Build isolated OpenCV 5.1.0 on cache miss
         if: steps.opencv-cache.outputs.cache-hit != 'true'
@@ -75,7 +75,7 @@ jobs:
           test -f "$prefix/lib/cmake/opencv5/OpenCVConfig.cmake"
           marker="$prefix/.chromascope-opencv-videoio-build.txt"
           test -f "$marker"
-          grep -Fxq 'modules=core,imgproc,imgcodecs,videoio' "$marker"
+          grep -Fxq 'modules=core,imgproc,imgcodecs,videoio,dnn' "$marker"
           grep -Fxq 'video_backend=ffmpeg' "$marker"
           grep -Fxq 'consumer_probe=PASS' "$marker"
           ./scripts/verify_opencv_linux_videoio.sh "$prefix" "$RUNNER_TEMP/chromascope-opencv-m41-consumer"

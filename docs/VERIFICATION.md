@@ -638,3 +638,22 @@ CLI-only and ASan/UBSan builds and **69/69 CTests** in each configuration. The
 six hosted Linux/Windows/Quality Actions checks must pass on the final PR
 revision before merging. Actual inference and package redistribution are
 future milestones and cannot be accepted under this research issue.
+
+## M5.2 (#32) — CPU DNN adapter and dependency migration (November 12, 2026)
+
+M5.1 NanoDet research/attribution checks were accepted with 69 CTests and six
+hosted checks. The M5.2 implementation requires pinned OpenCV 5.1.0 DNN in
+all local and CI builds and adds a synchronous CPU-only, owned float32 tensor
+adapter. The new `chromascope_unit_cpu_dnn_contract` and
+`chromascope_integration_cpu_dnn_adapter` tests bring the expected suite to
+**71 CTests**. The latter generates a weight-free ONNX ReLU graph inside its
+CTest build directory and checks numeric forwarding and output independence.
+No selected NanoDet checkpoint is fetched, bundled, or executed by CI.
+
+**Preliminary verification** is limited to OpenCV-independent C++ tensor
+contract tests, source/patch checks, and CMake/CI policy verification.
+**Pending**: native OpenCV 5.1.0 DNN-enabled builds, Windows MSVC static
+DNN/Protobuf link acceptance, the actual ONNX integration test, all 71 CTests
+in each supported configuration, clang-tidy, ASan/UBSan, manual GUI regression,
+and all six hosted GitHub Actions checks. M5.2 does not yet implement
+NanoDet-specific detection preprocessing/postprocessing or package approval.

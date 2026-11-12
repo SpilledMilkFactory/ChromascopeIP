@@ -14,3 +14,4 @@ cmake -S "${repo_root}/tests/quality/opencv_videoio_consumer" \
     -DOpenCV_DIR="${prefix}/lib/cmake/opencv5"
 cmake --build "${workspace}" --parallel "${OPENCV_BUILD_JOBS:-2}"
 "${workspace}/opencv_videoio_consumer"
+"${workspace}/opencv_dnn_consumer"

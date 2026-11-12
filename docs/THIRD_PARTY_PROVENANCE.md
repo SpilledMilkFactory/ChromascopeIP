@@ -55,3 +55,12 @@ redistribution, not an unconditional approval of any final package. Source
 `main` is mutable; model bytes must match SHA-256. OpenCV DNN integration and
 license/notice/SBOM review remain future acceptance gates. Existing historical
 photograph and codec-release restrictions are unchanged.
+
+### M5.2 OpenCV DNN / Protobuf dependency transition
+
+The source-pinned OpenCV 5.1.0 build additionally enables `dnn` with its
+internal Protobuf build. CI cache identity, installed-package consumers and
+provenance markers are updated; **this adds a third-party runtime/component
+notice obligation** before distribution. The model artifact remains external;
+NanoDet Apache-2.0 notices and model fingerprint are recorded separately.
+Windows static MSVC DNN/Protobuf link acceptance remains a hosted CI gate.

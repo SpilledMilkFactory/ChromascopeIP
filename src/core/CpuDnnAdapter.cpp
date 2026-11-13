@@ -80,6 +80,10 @@ std::vector<DnnTensor> CpuDnnAdapter::forward(const DnnTensor& input) const {
         impl_->network.setInput(blob);
 
         const auto output_names = impl_->network.getUnconnectedOutLayersNames();
+        // Do not request an unbounded set of output layers from an arbitrary
+        // graph. Existing post-forward checks remain a second line of defense.
+        if (output_names.size() > 16U)
+            throw std::runtime_error("DNN graph declares too many output layers");
         if (output_names.empty())
             raw.push_back(impl_->network.forward());
         else

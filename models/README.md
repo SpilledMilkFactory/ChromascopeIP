@@ -59,3 +59,13 @@ nor does it preprocess pixels or interpret NanoDet's raw outputs. Verify any
 external model artifact first with `scripts/check_model_selection.py --artifact`
 using the M5.1 manifest digest. See `docs/M5_2_CPU_DNN.md` for the API and
 side-by-side DNN-enabled dependency installation.
+
+## M5.7 provenance and adversarial input testing
+
+`model_provenance.json` binds the immutable M5.1 ONNX SHA-256 and license
+records to the actual CPU inference tensor/size contract. Run
+`python3 scripts/check_object_provenance.py` to validate it and the
+synthetic object fixture manifest. These tests neither load nor distribute
+weights. `tests/fixtures/object_detection/` contains only original test
+patterns and malicious-format samples; no semantically labeled COCO data.
+See `docs/M5_7_MODEL_SECURITY.md` for residual ONNX parser risks.

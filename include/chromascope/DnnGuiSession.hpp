@@ -28,7 +28,7 @@ inline constexpr std::string_view kSelectedNanoDetFilename =
 [[nodiscard]] std::string dnn_file_sha256(const std::filesystem::path& file);
 
 struct DnnGuiOptions {
-    double confidence_threshold = 0.35;
+    double confidence_threshold = 0.50;
     double nms_iou_threshold = 0.60;
     int max_detections = 100;
 };

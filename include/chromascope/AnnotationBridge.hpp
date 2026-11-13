@@ -9,5 +9,7 @@ namespace chromascope {
 // Labels and geometry are copied; scores, class IDs, and timestamps remain
 // available to non-visual consumers but are not part of render instructions.
 [[nodiscard]] AnnotationLayer make_annotation_layer(const DetectionResult& detections);
+// M5.8: append rounded score for COCO-80 only; do not alter Skittles labels.
+[[nodiscard]] AnnotationLayer make_object_confidence_annotations(const DetectionResult& detections);
 
 } // namespace chromascope

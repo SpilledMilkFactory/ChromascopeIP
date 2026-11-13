@@ -452,3 +452,16 @@ add_test(NAME chromascope_integration_object_fixtures
         "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/object_detection")
 set_tests_properties(chromascope_integration_object_fixtures PROPERTIES
     LABELS "integration;model;fixtures;security;negative;regression" TIMEOUT 45)
+
+# M5.8: conservative COCO confidence policy, per-class overrides, explicit
+# weak-candidate diagnostics, annotation scores, and CLI rejection paths.
+chromascope_add_cpp_test(chromascope_unit_dnn_confidence_policy
+    unit/test_dnn_confidence_policy.cpp
+    "unit;model;dnn;postprocessing;security;negative;regression" 30)
+add_test(NAME chromascope_cli_object_confidence_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m5-8-cli-policy"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_object_confidence.cmake")
+set_tests_properties(chromascope_cli_object_confidence_contract PROPERTIES
+    LABELS "cli;model;dnn;postprocessing;negative;regression" TIMEOUT 90)

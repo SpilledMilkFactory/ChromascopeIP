@@ -4,6 +4,8 @@
 #include "chromascope/DnnPreprocessing.hpp"
 
 #include <cstddef>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -26,11 +28,41 @@ struct DnnBoxCandidate {
     int class_id = 0;
 };
 
+// An override applies to the selected top-1 class emitted by NanoDet's
+// decoder. It never invents a second-best class for an anchor.
+struct DnnClassThreshold {
+    int class_id = 0;
+    double threshold = 0.5;
+};
+
 struct DnnPostprocessOptions {
-    double confidence_threshold = 0.35; // Inclusive: score >= threshold.
+    double confidence_threshold = 0.50; // Inclusive, conservative M5.8 default.
     double nms_iou_threshold = 0.60;    // Suppress same-class IoU > threshold.
     std::size_t max_detections = 100;
+    // Weak *candidate* diagnostic floor, not an accepted detection cutoff.
+    // The policy never declares an unknown class or object from weak evidence.
+    double uncertainty_floor = 0.35;
+    std::vector<DnnClassThreshold> class_thresholds{};
 };
+
+struct DnnPostprocessSummary {
+    std::size_t examined_candidates = 0;
+    std::size_t weak_candidates = 0; // Valid in-frame boxes with floor <= score < class cutoff.
+    std::size_t accepted_detections = 0; // After class-aware NMS.
+    [[nodiscard]] std::string_view status() const noexcept {
+        if (accepted_detections != 0) return "accepted";
+        return weak_candidates != 0 ? "uncertain" : "no_accepted_detection";
+    }
+};
+
+// Throws on invalid/repeated class IDs, nonfinite thresholds or limits.
+void validate_dnn_postprocess_options(const DnnPostprocessOptions& options);
+[[nodiscard]] double dnn_class_threshold(const DnnPostprocessOptions& options, int class_id);
+// Decode down to the smallest threshold needed for accepted predictions or
+// weak-candidate diagnostics. The NanoDet decoder remains a top-1 decoder.
+[[nodiscard]] double minimum_dnn_decode_confidence(const DnnPostprocessOptions& options);
+// Exact COCO-80 label or decimal class ID. No ambiguous alias matching.
+[[nodiscard]] int nanodet_class_id(std::string_view label_or_id);
 
 // Validates ALL supplied candidates and geometry, even if scores are below
 // threshold. Converts to original stored-pixel coordinates, clips to the
@@ -41,6 +73,7 @@ struct DnnPostprocessOptions {
 [[nodiscard]] DetectionResult postprocess_dnn_boxes(
     const std::vector<DnnBoxCandidate>& candidates,
     const DnnPreprocessGeometry& geometry,
-    const DnnPostprocessOptions& options = {});
+    const DnnPostprocessOptions& options = {},
+    DnnPostprocessSummary* summary = nullptr);
 
 } // namespace chromascope

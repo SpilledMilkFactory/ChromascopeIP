@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -52,14 +53,7 @@ void validate_geometry(const DnnPreprocessGeometry& g) {
         throw std::invalid_argument("DNN postprocessing geometry is inconsistent");
 }
 
-void validate_options(const DnnPostprocessOptions& options, std::size_t count) {
-    if (!std::isfinite(options.confidence_threshold) ||
-        options.confidence_threshold < 0.0 || options.confidence_threshold > 1.0 ||
-        !std::isfinite(options.nms_iou_threshold) ||
-        options.nms_iou_threshold < 0.0 || options.nms_iou_threshold > 1.0)
-        throw std::invalid_argument("DNN confidence and IoU thresholds must be finite in [0,1]");
-    if (options.max_detections == 0 || options.max_detections > kMaxKept)
-        throw std::invalid_argument("DNN maximum detections must be in [1,512]");
+void validate_candidate_limit(std::size_t count) {
     if (count > kMaxCandidates)
         throw std::length_error("DNN postprocessing exceeds 4096 candidates");
 }
@@ -85,12 +79,68 @@ std::string_view nanodet_class_label(int class_id) {
     return kLabels[static_cast<std::size_t>(class_id)];
 }
 
+int nanodet_class_id(std::string_view text) {
+    for (int id = 0; id < kNanoDetClassCount; ++id)
+        if (text == kLabels[static_cast<std::size_t>(id)]) return id;
+    // from_chars rejects whitespace and trailing junk; label names are exact.
+    int id = -1;
+    if (!text.empty()) {
+        const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), id);
+        if (error == std::errc{} && end == text.data() + text.size() &&
+            id >= 0 && id < kNanoDetClassCount) return id;
+    }
+    throw std::invalid_argument("Unknown COCO-80 class (use an exact label or class ID 0..79)");
+}
+
+void validate_dnn_postprocess_options(const DnnPostprocessOptions& options) {
+    const auto valid_probability = [](double score) {
+        return std::isfinite(score) && score >= 0.0 && score <= 1.0;
+    };
+    if (!valid_probability(options.confidence_threshold) ||
+        !valid_probability(options.nms_iou_threshold) ||
+        !valid_probability(options.uncertainty_floor))
+        throw std::invalid_argument("DNN confidence, IoU and diagnostic floor must be finite in [0,1]");
+    if (options.max_detections == 0 || options.max_detections > kMaxKept)
+        throw std::invalid_argument("DNN maximum detections must be in [1,512]");
+    if (options.class_thresholds.size() > kLabels.size())
+        throw std::invalid_argument("Too many per-class confidence thresholds");
+    std::array<bool, kNanoDetClassCount> seen{};
+    for (const auto& entry : options.class_thresholds) {
+        if (entry.class_id < 0 || entry.class_id >= kNanoDetClassCount ||
+            !valid_probability(entry.threshold))
+            throw std::invalid_argument("Invalid per-class confidence threshold");
+        auto& used = seen[static_cast<std::size_t>(entry.class_id)];
+        if (used) throw std::invalid_argument("Duplicate per-class confidence threshold");
+        used = true;
+    }
+}
+
+double dnn_class_threshold(const DnnPostprocessOptions& options, int class_id) {
+    if (class_id < 0 || class_id >= kNanoDetClassCount)
+        throw std::out_of_range("NanoDet class ID must be in [0,79]");
+    for (const auto& override : options.class_thresholds)
+        if (override.class_id == class_id) return override.threshold;
+    return options.confidence_threshold;
+}
+
+double minimum_dnn_decode_confidence(const DnnPostprocessOptions& options) {
+    validate_dnn_postprocess_options(options);
+    double minimum = std::min(options.uncertainty_floor, options.confidence_threshold);
+    for (const auto& entry : options.class_thresholds)
+        minimum = std::min(minimum, entry.threshold);
+    return minimum;
+}
+
 DetectionResult postprocess_dnn_boxes(
     const std::vector<DnnBoxCandidate>& candidates,
     const DnnPreprocessGeometry& geometry,
-    const DnnPostprocessOptions& options) {
+    const DnnPostprocessOptions& options,
+    DnnPostprocessSummary* summary) {
     validate_geometry(geometry);
-    validate_options(options, candidates.size());
+    validate_dnn_postprocess_options(options);
+    validate_candidate_limit(candidates.size());
+    DnnPostprocessSummary stats;
+    stats.examined_candidates = candidates.size();
     std::vector<RankedBox> eligible;
     eligible.reserve(candidates.size());
     for (std::size_t i = 0; i < candidates.size(); ++i) {
@@ -101,7 +151,8 @@ DetectionResult postprocess_dnn_boxes(
             !std::isfinite(c.x1) || !std::isfinite(c.y1) ||
             c.x1 <= c.x0 || c.y1 <= c.y0)
             throw std::invalid_argument("Invalid decoded DNN candidate");
-        if (c.confidence < options.confidence_threshold) continue;
+        const double threshold = dnn_class_threshold(options, c.class_id);
+        if (c.confidence < options.uncertainty_floor && c.confidence < threshold) continue;
         const auto [source_x0, source_y0] = geometry.model_to_source(c.x0, c.y0);
         const auto [source_x1, source_y1] = geometry.model_to_source(c.x1, c.y1);
         if (!std::isfinite(source_x0) || !std::isfinite(source_y0) ||
@@ -112,6 +163,11 @@ DetectionResult postprocess_dnn_boxes(
         const double x1 = std::clamp(source_x1, 0.0, static_cast<double>(geometry.source_width));
         const double y1 = std::clamp(source_y1, 0.0, static_cast<double>(geometry.source_height));
         if (x1 <= x0 || y1 <= y0) continue;
+        if (c.confidence < threshold) {
+            // Diagnostics only: a weak candidate is never a recognized object.
+            if (c.confidence >= options.uncertainty_floor) ++stats.weak_candidates;
+            continue;
+        }
         eligible.push_back({{x0, y0, x1 - x0, y1 - y0}, c.confidence, c.class_id, i});
     }
     std::sort(eligible.begin(), eligible.end(), [](const RankedBox& a, const RankedBox& b) {
@@ -138,7 +194,10 @@ DetectionResult postprocess_dnn_boxes(
     for (const auto& box : retained)
         objects.push_back({box.box, std::string(nanodet_class_label(box.class_id)),
                            box.confidence, box.class_id});
-    return DetectionResult::create(geometry.source_width, geometry.source_height,
-                                   "nanodet-coco80", std::move(objects));
+    auto result = DetectionResult::create(geometry.source_width, geometry.source_height,
+                                           "nanodet-coco80", std::move(objects));
+    stats.accepted_detections = result.objects().size();
+    if (summary != nullptr) *summary = stats; // Commit diagnostics only on success.
+    return result;
 }
 } // namespace chromascope

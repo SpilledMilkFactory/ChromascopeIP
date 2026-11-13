@@ -72,7 +72,10 @@ void usage(std::ostream& os) {
           "      --set KEY=VALUE   Override a named numeric processor option (repeatable)\n"
           "      --profile object   NanoDet COCO-80 CPU object detection\n"
           "      --model FILE      Required pinned NanoDet ONNX for --profile object\n"
-          "      --confidence N    Object score threshold in [0,1], default 0.35\n"
+          "      --confidence N    Object score threshold in [0,1], default 0.50\n"
+          "      --class-threshold CLASS=N  Per-class cutoff (repeatable; exact name or 0..79)\n"
+          "      --uncertain-floor N  Diagnostic-only weak candidate floor (default 0.35)\n"
+          "      --list-object-classes  List the 80 supported NanoDet/COCO labels\n"
           "      --nms-iou N       Class-aware NMS IoU in [0,1], default 0.60\n"
           "      --max-detections N Maximum object detections in [1,512], default 100\n"
           "      --list-profiles   List processors, defaults, and option bounds\n"
@@ -167,6 +170,18 @@ Options parse(int argc, char* argv[]) {
         } else if (flag == "--nms-iou" || flag == "--nms") {
             once(flag, "object-nms");
             o.object_options.nms_iou_threshold = parse_real(next(i, argc, argv, flag));
+        } else if (flag == "--class-threshold") {
+            const auto value = next(i, argc, argv, flag);
+            const auto equals = value.rfind('=');
+            if (equals == std::string::npos || equals == 0 || equals + 1 == value.size())
+                throw std::invalid_argument("--class-threshold requires CLASS=N");
+            const int id = chromascope::nanodet_class_id(
+                std::string_view(value).substr(0, equals));
+            const double threshold = parse_real(value.substr(equals + 1));
+            o.object_options.class_thresholds.push_back({id, threshold});
+        } else if (flag == "--uncertain-floor") {
+            once(flag, "uncertain-floor");
+            o.object_options.uncertainty_floor = parse_real(next(i, argc, argv, flag));
         } else if (flag == "--max-detections") {
             once(flag, "object-max");
             const int value = parse_integer(next(i, argc, argv, flag));
@@ -214,16 +229,13 @@ Options parse(int argc, char* argv[]) {
     const bool object = o.profile_id == "object";
     const bool object_arguments = single_use.contains("model") ||
         single_use.contains("object-confidence") || single_use.contains("object-nms") ||
-        single_use.contains("object-max");
+        single_use.contains("object-max") ||
+        single_use.contains("uncertain-floor") || !o.object_options.class_thresholds.empty();
     if (object) {
         if (o.model.empty()) throw std::invalid_argument("--profile object requires --model FILE");
         if (!o.profile_options.empty() || o.legacy_settings_changed || !o.mask_output.empty())
             throw std::invalid_argument("Object detection does not accept --set, legacy, or --mask-output options");
-        if (!std::isfinite(o.object_options.confidence_threshold) ||
-            o.object_options.confidence_threshold < 0 || o.object_options.confidence_threshold > 1 ||
-            !std::isfinite(o.object_options.nms_iou_threshold) ||
-            o.object_options.nms_iou_threshold < 0 || o.object_options.nms_iou_threshold > 1)
-            throw std::invalid_argument("Object confidence and NMS thresholds must be in [0,1]");
+        chromascope::validate_dnn_postprocess_options(o.object_options);
     } else if (object_arguments) {
         throw std::invalid_argument("--model and object thresholds require --profile object");
     }
@@ -456,7 +468,8 @@ int run_video_command(Options options) {
 }
 
 void write_object_json(std::ostream& stream, const Options& options,
-                       const chromascope::DetectionResult& result, double elapsed_ms) {
+                       const chromascope::DetectionResult& result, double elapsed_ms,
+                       const chromascope::DnnPostprocessSummary& summary) {
     stream.imbue(std::locale::classic());
     stream << std::fixed << std::setprecision(6);
     stream << "{\n  \"schema_version\": 1,\n"
@@ -472,6 +485,20 @@ void write_object_json(std::ostream& stream, const Options& options,
            << "  \"confidence_threshold\": " << options.object_options.confidence_threshold << ",\n"
            << "  \"nms_iou_threshold\": " << options.object_options.nms_iou_threshold << ",\n"
            << "  \"max_detections\": " << options.object_options.max_detections << ",\n"
+           << "  \"uncertainty\": {\"status\": \"" << summary.status()
+           << "\", \"diagnostic_floor\": " << options.object_options.uncertainty_floor
+           << ", \"candidate_count\": " << summary.examined_candidates
+           << ", \"weak_candidate_count\": " << summary.weak_candidates
+           << ", \"note\": \"Weak candidates are not identified unknown objects\"},\n"
+           << "  \"class_thresholds\": [";
+    for (std::size_t i = 0; i < options.object_options.class_thresholds.size(); ++i) {
+        const auto& entry = options.object_options.class_thresholds[i];
+        stream << (i ? ", " : "") << "{\"class_id\": " << entry.class_id
+               << ", \"label\": \""
+               << escape_json(chromascope::nanodet_class_label(entry.class_id))
+               << "\", \"threshold\": " << entry.threshold << "}";
+    }
+    stream << "],\n"
            << "  \"total\": " << result.objects().size() << ",\n"
               "  \"detections\": [";
     const auto& detections = result.objects();
@@ -512,9 +539,10 @@ int run_object_command(Options options) {
     const auto prepared = chromascope::preprocess_dnn_frame(frame);
     const auto tensors = adapter.forward(prepared.tensor);
     const auto decoded = chromascope::decode_nanodet_outputs(
-        tensors, options.object_options.confidence_threshold);
+        tensors, chromascope::minimum_dnn_decode_confidence(options.object_options));
+    chromascope::DnnPostprocessSummary detection_summary;
     const auto detected = chromascope::postprocess_dnn_boxes(
-        decoded, prepared.geometry, options.object_options);
+        decoded, prepared.geometry, options.object_options, &detection_summary);
     const auto elapsed = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count();
 
@@ -525,21 +553,22 @@ int run_object_command(Options options) {
         options.model, {options.output, {}, options.json, {}}, "model");
     if (!options.output.empty())
         chromascope::write_image(options.output, chromascope::render_annotations(
-            image, chromascope::make_annotation_layer(detected),
+            image, chromascope::make_object_confidence_annotations(detected),
             {.show_outlines = true, .show_labels = options.labels}));
     if (options.json_stdout) {
-        write_object_json(std::cout, options, detected, elapsed);
+        write_object_json(std::cout, options, detected, elapsed, detection_summary);
     } else {
         std::cout << "Profile: object (NanoDet COCO-80)\nInput: " << options.input.string()
                   << "\nModel: " << options.model.string()
                   << "\nDetected: " << detected.objects().size()
+                  << "\nWeak candidates (not recognized objects): " << detection_summary.weak_candidates
                   << "\nElapsed: " << std::fixed << std::setprecision(2) << elapsed << " ms\n";
         if (!options.output.empty()) std::cout << "Saved: " << options.output.string() << "\n";
     }
     if (!options.json.empty()) {
         std::ofstream file(options.json, std::ios::binary | std::ios::trunc);
         if (!file) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
-        write_object_json(file, options, detected, elapsed);
+        write_object_json(file, options, detected, elapsed, detection_summary);
         if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
     }
     return 0;
@@ -556,6 +585,17 @@ int main(int argc, char* argv[]) {
             }
             if (std::string_view(argv[i]) == "--version") {
                 std::cout << "ChromascopeIP 0.1.3 (OpenCV " << CV_VERSION << ")\n";
+                return 0;
+            }
+        }
+        for (int i = 1; i < argc; ++i) {
+            if (std::string_view(argv[i]) == "--list-object-classes") {
+                if (argc != 2)
+                    throw std::invalid_argument("--list-object-classes must be used alone");
+                std::cout << "NanoDet COCO-80 supported classes (0..79):\n";
+                for (int id = 0; id < chromascope::kNanoDetClassCount; ++id)
+                    std::cout << id << "\t" << chromascope::nanodet_class_label(id) << "\n";
+                std::cout << "Other objects are not recognized classes.\n";
                 return 0;
             }
         }
@@ -576,7 +616,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 std::cout << "object - NanoDet COCO-80 CPU detections (requires --model ONNX)\n"
-                             "  --confidence=0.35 [0,1]\n  --nms-iou=0.60 [0,1]\n"
+                             "  --confidence=0.50 [0,1]\n  --nms-iou=0.60 [0,1]\n"
                              "  --max-detections=100 [1,512] integer\n";
                 return 0;
             }

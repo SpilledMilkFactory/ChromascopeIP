@@ -32,7 +32,7 @@ void verify() {
 
     const auto g = make_dnn_preprocess_geometry(640, 320);
     // Person A and B overlap strongly, while car C overlaps the same box.
-    // Another person D is below the default .35 confidence cutoff.
+    // Another person D is below the explicit historic .35 test cutoff.
     const std::vector<DnnBoxCandidate> boxes{
         {20, 124, 120, 224, .90, 0},
         {22, 125, 121, 222, .85, 0},
@@ -40,7 +40,7 @@ void verify() {
         {240, 124, 290, 174, .34, 0},
         {300, 125, 360, 180, .35, 0},
     };
-    const auto r = postprocess_dnn_boxes(boxes, g);
+    const auto r = postprocess_dnn_boxes(boxes, g, {.confidence_threshold = .35});
     check(r.width() == 640 && r.height() == 320 && r.processor_id() == "nanodet-coco80", "result identity");
     check(r.objects().size() == 3, "threshold, class-aware NMS and inclusive threshold");
     check(r.objects()[0].class_id == 0 && r.objects()[0].label == "person" &&
@@ -51,7 +51,7 @@ void verify() {
     check(std::abs(first.x - (20.0 * 640.0 / 416.0)) < 1e-9 &&
           std::abs(first.y - (20.0 * 320.0 / 208.0)) < 1e-9,
           "letterbox mapping inverted");
-    const auto reread = postprocess_dnn_boxes(boxes, g);
+    const auto reread = postprocess_dnn_boxes(boxes, g, {.confidence_threshold = .35});
     check(reread.objects().size() == r.objects().size() &&
           std::get<BoxGeometry>(reread.objects()[0].geometry).x == first.x,
           "NMS is repeatable");

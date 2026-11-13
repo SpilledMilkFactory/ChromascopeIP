@@ -671,3 +671,19 @@ bring the expected suite to **73**. No model weights or new external assets.
 5.1.0 GUI and CLI Release, 73 CTests in both plus ASan/UBSan, clang-tidy,
 policy/provenance, manual still-image/video regression and six hosted Actions
 jobs before merging.
+
+
+## M5.3 accepted / M5.4 (#34) pending native acceptance — November 12, 2026
+
+The user verified the M5.3 two-test preprocessing group, 73/73 CTests in GUI
+Release, CLI-only Release, and ASan/UBSan, plus quality/provenance checks and
+all six hosted GitHub Actions jobs before merging M5.3.
+
+M5.4 introduces OpenCV-independent NanoDet contiguous COCO-80 class names,
+inclusive confidence gating, bounded model-space candidate validation, exact
+M5.3 inverse geometry mapping/clipping, deterministic class-aware greedy NMS,
+and owned source-space `DetectionResult` output. No ONNX weights, model
+loading or real detector decoding is introduced. Two CTests increase the
+expected count to **75**. Preliminary local GCC/Clang/sanitizer checks are not
+native OpenCV 5.1.0 qualification: all full Release/sanitizer/quality suites,
+manual GUI/CLI regressions and hosted CI jobs must pass before accepting #34.

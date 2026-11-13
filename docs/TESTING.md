@@ -442,3 +442,24 @@ ctest --preset linux-release --output-on-failure
 
 See [`M5_3_DNN_PREPROCESSING.md`](M5_3_DNN_PREPROCESSING.md) for channel,
 padding and coordinate-mapping semantics and portability limitations.
+
+
+## M5.4 (#34) — Class labels, confidence filtering, deterministic NMS
+
+The expected suite is **75 CTests** (up from 73). The two new tests use
+synthetic decoded boxes, no ONNX weights, and no additional media assets.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'dnn_postprocess' --output-on-failure
+ctest --preset linux-release --output-on-failure
+```
+
+The unit test checks the complete COCO-80 label table, finite/bounded
+thresholds, class-aware suppression, deterministic tie ordering, resource caps
+and rejection of malformed coordinates/IDs. The integration test verifies
+M5.3 geometry inverse mappings, source-coordinate clipping, `DetectionResult`
+validation/ownership, and unchanged cross-class overlaps. Run the same suite
+under CLI-only Release and ASan/UBSan, with clang-tidy, provenance, Python
+quality gates and all six hosted GitHub Actions checks before acceptance.
+See `docs/M5_4_DNN_POSTPROCESSING.md` for exact numerical conventions.

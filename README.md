@@ -490,3 +490,14 @@ A configurable stretch option supports model-specific needs. Two new headless
 preprocessing tests bring the expected suite to **73 CTests**. See
 [`docs/M5_3_DNN_PREPROCESSING.md`](docs/M5_3_DNN_PREPROCESSING.md).
 No pretrained weights, detections or GUI controls are added by M5.3.
+
+
+### M5.4 — Class labels, confidence gating and class-aware NMS (pending acceptance)
+
+A bounded, model-independent C++ postprocessor maps the selected NanoDet
+COCO-80 model-output IDs to labels, gates decoded candidate scores, performs
+stable class-aware greedy non-maximum suppression, and maps/clips letterboxed
+boxes to original-image pixel boundaries. It returns an owned `DetectionResult`
+and keeps inference, raw NanoDet tensor decoding and GUI overlays separate.
+Two new headless CTests raise the expected suite to **75**. See
+[`docs/M5_4_DNN_POSTPROCESSING.md`](docs/M5_4_DNN_POSTPROCESSING.md).

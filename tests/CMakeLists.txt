@@ -386,3 +386,12 @@ add_test(NAME chromascope_integration_dnn_preprocessing
     COMMAND chromascope_integration_dnn_preprocessing)
 set_tests_properties(chromascope_integration_dnn_preprocessing PROPERTIES
     LABELS "integration;model;dnn;preprocessing;regression;negative" TIMEOUT 40)
+
+# M5.4 (#34): contiguous NanoDet COCO80 labels, bounded confidence gating,
+# deterministic class-aware NMS, and owned source-space DetectionResult output.
+chromascope_add_cpp_test(chromascope_unit_dnn_postprocess_policy
+    unit/test_dnn_postprocess_policy.cpp
+    "unit;core;model;dnn;postprocessing;negative;regression" 30)
+chromascope_add_cpp_test(chromascope_integration_dnn_postprocess_result
+    integration/test_dnn_postprocess_result.cpp
+    "integration;core;model;dnn;postprocessing;regression;negative" 40)

@@ -52,6 +52,7 @@ add_library(chromascope_core STATIC
     src/core/DnnTensorPolicy.cpp
     src/core/DnnPreprocessGeometry.cpp
     src/core/DnnPreprocessing.cpp
+    src/core/DnnPostprocessing.cpp
 )
 find_package(Threads REQUIRED)
 add_library(ChromascopeIP::Core ALIAS chromascope_core)

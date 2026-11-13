@@ -544,3 +544,40 @@ add_test(NAME chromascope_cli_annotated_video_export_contract COMMAND "${CMAKE_C
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_export.cmake")
 set_tests_properties(chromascope_cli_annotated_video_export_contract PROPERTIES
     LABELS "cli;video;export;security;negative;regression" TIMEOUT 60)
+
+# M6.5 (#42): isolated regression gates for source-frame detection after
+# seeking/reopening, streaming frame selection, and visible MJPEG export pixels.
+# All fixtures are generated under build/test-artifacts, with no ONNX weights,
+# archival photographs, third-party videos, audio or webcam dependencies.
+add_executable(chromascope_regression_recorded_video_detection_seek
+    regression/test_recorded_video_detection_seek.cpp)
+target_link_libraries(chromascope_regression_recorded_video_detection_seek PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_regression_recorded_video_detection_seek)
+target_include_directories(chromascope_regression_recorded_video_detection_seek PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_regression_recorded_video_detection_seek
+    COMMAND chromascope_regression_recorded_video_detection_seek
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-5-detection-seek")
+set_tests_properties(chromascope_regression_recorded_video_detection_seek PROPERTIES
+    LABELS "regression;integration;video;videoio;model;dnn;seeking;timing;async;security" TIMEOUT 90)
+
+add_executable(chromascope_regression_recorded_video_stream_seek
+    regression/test_recorded_video_stream_seek.cpp)
+target_link_libraries(chromascope_regression_recorded_video_stream_seek PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_regression_recorded_video_stream_seek)
+target_include_directories(chromascope_regression_recorded_video_stream_seek PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_regression_recorded_video_stream_seek
+    COMMAND chromascope_regression_recorded_video_stream_seek
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-5-stream-seek")
+set_tests_properties(chromascope_regression_recorded_video_stream_seek PROPERTIES
+    LABELS "regression;integration;video;videoio;model;dnn;seeking;streaming;negative" TIMEOUT 90)
+
+add_executable(chromascope_regression_recorded_video_export_pixels
+    regression/test_recorded_video_export_pixels.cpp)
+target_link_libraries(chromascope_regression_recorded_video_export_pixels PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_regression_recorded_video_export_pixels)
+target_include_directories(chromascope_regression_recorded_video_export_pixels PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_regression_recorded_video_export_pixels
+    COMMAND chromascope_regression_recorded_video_export_pixels
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-5-export-pixels")
+set_tests_properties(chromascope_regression_recorded_video_export_pixels PROPERTIES
+    LABELS "regression;integration;video;videoio;export;annotation;security;negative" TIMEOUT 90)

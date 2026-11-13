@@ -688,3 +688,40 @@ For a real video, run `--export-annotated-video --input samples/FrenchHorn.mp4
 --audio-policy drop`, inspect the output visually and verify that it has no
 audio stream. Note that MJPEG is lossy and output FPS is constant even if the
 source is VFR. Do not bundle third-party recordings or checkpoint weights.
+
+## M6.5 (#42) — Recorded-video regression qualification
+
+Three additional, independently runnable CTests bring the expected suite to
+**96** (the **25** Python quality tests are unchanged):
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R '^chromascope_regression_recorded_video_' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+`chromascope_regression_recorded_video_detection_seek` checks content-aware
+random seek/replay after EOF, owned frame/detection lifetime, timestamp
+provenance, conservative confidence rejection, and stale overlay rejection
+when switching between videos with identical indexes and dimensions.
+`chromascope_regression_recorded_video_stream_seek` checks original source
+indexes across seeked frame-step analysis, explicit EOF versus frame caps,
+consumer exception propagation without read-ahead, and invalid timestamp
+rejection before publication. `chromascope_regression_recorded_video_export_pixels`
+decodes the exported MJPEG AVI to check burned-in, moving box outlines,
+absence of stale boxes on the no-detection frame, output FPS/geometry/count,
+input-file preservation, no-overwrite, and temporary-output cleanup on
+cancellation, exact frame caps, and failed frame associations. MJPEG is lossy;
+image tests use robust pixel differences, not byte-exact encoded comparisons.
+
+Generate all test assets at runtime beneath each CTest build directory. None
+of the sample recordings or local ONNX weights are required or committed.
+After the tests, run clang-tidy, repository policy/provenance checks and the
+25 Python quality tests. Manually verify a locally generated M6.4 export in
+ChromascopeIP, and optionally inspect its audio/codec with `ffprobe` (not a
+portable mandatory CI dependency). All six GitHub Actions checks must pass
+before accepting issue #42. See `docs/M6_5_VIDEO_REGRESSIONS.md`.

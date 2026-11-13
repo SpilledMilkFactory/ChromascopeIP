@@ -839,3 +839,20 @@ algorithms changed; the expected suite remains **87 CTests**.
 **Acceptance remains pending:** focused CTest #62, full 87 CTests in all
 three configurations, quality checks, real-model manual video-frame export,
 and six hosted GitHub Actions checks on the final PR revision.
+
+## M6.1 accepted / M6.2 (#39) pending — November 13, 2026
+
+The user reported **87/87 CTests passed** in GUI Release, CLI Release and
+ASan/UBSan after the M6.1 video-probe diagnostic correction. Manual GUI/CLI
+regression and recorded-frame NanoDet JSON/PNG exports passed. All six hosted
+GitHub Actions checks were green before merging PR #38. No sample-video or
+ONNX weight binary is added to source control.
+
+M6.2 introduces independent off-thread full-recording inference, bounded
+progress/cancellation, a 256-result cache, and original-coordinate, exact-frame
+playback overlays. Two headless tests increase the expected suite to **89**;
+25 Python quality tests remain. Preliminary completion of synthetic tests is
+not native signoff. Require native OpenCV 5.1.0 builds, all 89 CTests in the
+three configurations, static analysis/policy/provenance, manual GUI playback
+and cancellation with a real local model, regression of legacy processing,
+and all six GitHub Actions checks before closing #39.

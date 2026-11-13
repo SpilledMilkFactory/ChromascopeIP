@@ -9,6 +9,7 @@
 #include "chromascope/ImageFrameCV.hpp"
 #include "chromascope/ImageViewport.hpp"
 #include "chromascope/VideoPlayer.hpp"
+#include "chromascope/AsyncRecordedVideoDetection.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
 
@@ -104,6 +105,9 @@ struct App {
     std::array<int, chromascope::kColorCount> color_counts{};
     double analysis_elapsed_ms = 0.0;
     chromascope::VideoPlayer video_player;
+    chromascope::AsyncRecordedVideoDetection video_detection;
+    std::filesystem::path video_opened_path;
+    bool video_show_detections = true;
     Texture video_texture;
     chromascope::ImageViewport video_view;
     std::uint64_t video_seek_target = 0;
@@ -280,7 +284,8 @@ struct App {
     }
 
     bool draw_viewport_texture(const char* widget, const Texture& texture,
-                               chromascope::ImageViewport& view) {
+                               chromascope::ImageViewport& view,
+                               const chromascope::DetectionResult* video_detections = nullptr) {
         if (!texture.id || texture.source_width <= 0 || texture.source_height <= 0) {
             ImGui::TextDisabled("No image available.");
             return false;
@@ -332,6 +337,28 @@ struct App {
         // Draw the complete texture using its source-image aspect ratio. The
         // identical transform applies to pre-rasterized source-pixel geometry.
         draw->AddImage(static_cast<ImTextureID>(texture.id), top_left, bottom_right);
+        // Draw immutable detection boxes in the SAME source-image transform as
+        // the video texture, so pan/zoom and preview downsampling stay aligned.
+        // Only the GUI thread draws; the detector worker has no OpenGL access.
+        if (video_detections &&
+            video_detections->width() == texture.source_width &&
+            video_detections->height() == texture.source_height) {
+            const float scale_x = (bottom_right.x - top_left.x) /
+                static_cast<float>(texture.source_width);
+            const float scale_y = (bottom_right.y - top_left.y) /
+                static_cast<float>(texture.source_height);
+            for (const auto& object : video_detections->objects()) {
+                const auto* box = std::get_if<chromascope::BoxGeometry>(&object.geometry);
+                if (!box) continue;
+                const ImVec2 a{top_left.x + static_cast<float>(box->x) * scale_x,
+                               top_left.y + static_cast<float>(box->y) * scale_y};
+                const ImVec2 b{a.x + static_cast<float>(box->width) * scale_x,
+                               a.y + static_cast<float>(box->height) * scale_y};
+                draw->AddRect(a, b, IM_COL32(80, 220, 175, 255), 0.0f, 0, 2.0f);
+                draw->AddText(ImVec2(a.x, a.y - 16.0f), IM_COL32(100, 255, 200, 255),
+                              object.label.c_str());
+            }
+        }
         draw->PopClipRect();
         if (hovered) {
             const auto point = view.canvas_to_image({
@@ -407,6 +434,8 @@ struct App {
     void open_video(const std::filesystem::path& file) {
         try {
             video_player.open(file);
+            video_detection.cancel();
+            video_opened_path = file;
             video_texture.reset();
             video_view.fit();
             video_seek_target = 0;
@@ -493,6 +522,7 @@ struct App {
                     } else {
                         if (picker_model) {
                             detector_session.unload();
+                            video_detection.cancel();
                             std::snprintf(detector_model_path.data(), detector_model_path.size(),
                                           "%s", entry.path().string().c_str());
                         } else if (picker_video) open_video(entry.path());
@@ -525,6 +555,7 @@ struct App {
                              detector_model_path.size())) {
             // Editing a path invalidates the prior verified identity immediately.
             detector_session.unload();
+            video_detection.cancel();
         }
         if (ImGui::Button("Browse ONNX...", ImVec2(-1, 0)))
             open_file_picker(false, true);
@@ -552,7 +583,7 @@ struct App {
         if (ImGui::SliderFloat("NMS IoU cutoff", &iou, 0.0f, 1.0f, "%.2f"))
             detector_options.nms_iou_threshold = iou;
         ImGui::SliderInt("Max detections", &detector_options.max_detections, 1, 512);
-        if (ImGui::CollapsingHeader("Per-class threshold preview (CLI supports overrides)")) {
+        if (ImGui::CollapsingHeader("Per-class thresholds (recorded-video detection)")) {
             ImGui::SliderInt("COCO class ID", &detector_selected_class, 0,
                              chromascope::kNanoDetClassCount - 1);
             ImGui::Text("Class: %s", std::string(chromascope::nanodet_class_label(
@@ -560,7 +591,7 @@ struct App {
             auto& override_score = detector_class_overrides[
                 static_cast<std::size_t>(detector_selected_class)];
             bool enabled = override_score.has_value();
-            if (ImGui::Checkbox("Preview override", &enabled)) {
+            if (ImGui::Checkbox("Video override", &enabled)) {
                 if (enabled) override_score = 0.75F;
                 else override_score.reset();
             }
@@ -569,9 +600,9 @@ struct App {
                 if (ImGui::SliderFloat("Class confidence", &score,
                                        0.0F, 1.0F, "%.2f")) override_score = score;
             }
-            ImGui::TextDisabled("Preview only; use CLI --class-threshold CLASS=N to apply.");
+            ImGui::TextDisabled("Overrides apply when starting video analysis; CLI also supports them.");
         }
-        ImGui::TextDisabled("These settings are preview-only for raw GUI inference.");
+        ImGui::TextDisabled("Raw still-image inference ignores these settings; video analysis uses them.");
         ImGui::TextDisabled("CLI --profile object performs decoded filtering and exports.");
         const bool ready = detector_session.ready_for(detector_model_path.data());
         ImGui::BeginDisabled(!ready || !input_frame || busy);
@@ -601,6 +632,25 @@ struct App {
         }
         ImGui::TextWrapped("Raw ONNX outputs only. No decoded object boxes, "
                            "classification overlays or detector exports yet.");
+    }
+
+    void start_video_detection() {
+        try {
+            if (video_opened_path.empty() || !video_player.has_source())
+                throw std::invalid_argument("Open a recorded video before detecting objects");
+            chromascope::DnnPostprocessOptions policy;
+            policy.confidence_threshold = detector_options.confidence_threshold;
+            policy.nms_iou_threshold = detector_options.nms_iou_threshold;
+            policy.max_detections = static_cast<std::size_t>(detector_options.max_detections);
+            for (int i = 0; i < chromascope::kNanoDetClassCount; ++i) {
+                if (const auto value = detector_class_overrides[static_cast<std::size_t>(i)])
+                    policy.class_thresholds.push_back({i, *value});
+            }
+            (void)video_detection.start(video_opened_path, detector_model_path.data(), policy);
+            video_status.clear();
+        } catch (const std::exception& e) {
+            video_status = std::string("Video detection rejected: ") + e.what();
+        }
     }
 
     void draw_video_ui() {
@@ -636,6 +686,8 @@ struct App {
         }
         ImGui::SameLine();
         if (ImGui::Button("Close video", ImVec2(-1, 0))) {
+            video_detection.cancel();
+            video_opened_path.clear();
             video_player.close();
             video_texture.reset();
             video_view.fit();
@@ -695,6 +747,64 @@ struct App {
         }
         ImGui::EndDisabled();
         ImGui::Separator();
+        ImGui::TextUnformatted("RECORDED-VIDEO OBJECT DETECTION (M6.2)");
+        ImGui::InputText("ONNX model", detector_model_path.data(),
+                         detector_model_path.size());
+        if (ImGui::IsItemEdited()) video_detection.cancel();
+        if (ImGui::Button("Browse detector model...", ImVec2(-1, 0)))
+            open_file_picker(false, true);
+        float confidence = static_cast<float>(detector_options.confidence_threshold);
+        if (ImGui::SliderFloat("Video confidence", &confidence, 0.0f, 1.0f, "%.2f"))
+            detector_options.confidence_threshold = confidence;
+        float iou = static_cast<float>(detector_options.nms_iou_threshold);
+        if (ImGui::SliderFloat("Video NMS IoU", &iou, 0.0f, 1.0f, "%.2f"))
+            detector_options.nms_iou_threshold = iou;
+        ImGui::SliderInt("Video max boxes", &detector_options.max_detections, 1, 512);
+        if (ImGui::CollapsingHeader("Video per-class confidence")) {
+            ImGui::SliderInt("Video class ID", &detector_selected_class, 0,
+                             chromascope::kNanoDetClassCount - 1);
+            ImGui::Text("COCO: %s", std::string(chromascope::nanodet_class_label(
+                detector_selected_class)).c_str());
+            auto& threshold = detector_class_overrides[
+                static_cast<std::size_t>(detector_selected_class)];
+            bool enabled = threshold.has_value();
+            if (ImGui::Checkbox("Override this class", &enabled)) {
+                if (enabled) threshold = 0.75F;
+                else threshold.reset();
+            }
+            if (threshold) {
+                float value = *threshold;
+                if (ImGui::SliderFloat("Video class confidence", &value, 0.0F, 1.0F, "%.2f"))
+                    threshold = value;
+            }
+            ImGui::TextDisabled("Changes apply when you next start analysis.");
+        }
+        ImGui::Checkbox("Show matched-frame overlays", &video_show_detections);
+        ImGui::BeginDisabled(!has_source);
+        if (ImGui::Button("Analyze recording", ImVec2(-1, 0))) start_video_detection();
+        ImGui::EndDisabled();
+        const auto progress = video_detection.snapshot();
+        const bool working = progress.stage == chromascope::VideoDetectionStage::Processing ||
+                             progress.stage == chromascope::VideoDetectionStage::Queued;
+        if (working && ImGui::Button("Cancel video detection", ImVec2(-1, 0)))
+            video_detection.cancel();
+        if (progress.reported_total_frames && *progress.reported_total_frames > 0) {
+            const float fraction = std::clamp(static_cast<float>(progress.processed_frames) /
+                static_cast<float>(*progress.reported_total_frames), 0.0f, 1.0f);
+            ImGui::ProgressBar(fraction, ImVec2(-1, 0));
+            ImGui::Text("Processed: %llu / %llu frames",
+                static_cast<unsigned long long>(progress.processed_frames),
+                static_cast<unsigned long long>(*progress.reported_total_frames));
+        } else {
+            ImGui::Text("Processed: %llu frames (total unknown)",
+                static_cast<unsigned long long>(progress.processed_frames));
+        }
+        ImGui::TextWrapped("%s", progress.message.c_str());
+        ImGui::TextDisabled("Recent detection cache: %zu / %zu frames",
+            progress.cached_frames, chromascope::AsyncRecordedVideoDetection::kMaxCachedFrames);
+        ImGui::TextDisabled("Decoder and NanoDet run off-thread; cached overlays only.");
+        ImGui::TextDisabled("Frames not yet processed or evicted show no overlay.");
+        ImGui::Separator();
         ImGui::TextWrapped("%s", video_player.status().c_str());
         if (!video_status.empty()) ImGui::TextWrapped("%s", video_status.c_str());
         ImGui::EndChild();
@@ -707,9 +817,20 @@ struct App {
         ImGui::SameLine();
         ImGui::TextDisabled("Wheel: zoom | Middle/right drag: pan | Double-click: fit");
         ImGui::Separator();
-        if (video_texture.id)
-            draw_viewport_texture("##video_canvas", video_texture, video_view);
-        else ImGui::TextWrapped("Open a video. The first decoded frame appears here.");
+        if (video_texture.id && current) {
+            std::shared_ptr<const chromascope::RecordedVideoObjectDetection> matched;
+            if (video_show_detections && current)
+                matched = video_detection.overlay_for(*current);
+            if (matched) {
+                ImGui::Text("Matched frame %llu: %zu objects (%.1f ms)",
+                    static_cast<unsigned long long>(matched->frame_index),
+                    matched->inference.detections.objects().size(), matched->elapsed_ms);
+            } else {
+                ImGui::TextDisabled("No cached detection for the current frame.");
+            }
+            draw_viewport_texture("##video_canvas", video_texture, video_view,
+                matched ? &matched->inference.detections : nullptr);
+        } else ImGui::TextWrapped("Open a video. The first decoded frame appears here.");
         ImGui::EndChild();
         if (browse_requested) {
             ImGui::OpenPopup("Select media");

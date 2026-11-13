@@ -187,3 +187,14 @@ owned `DetectionResult` with source-frame coordinates plus the original video
 frame index and timestamp provenance. Decode, preprocessing and model inference
 are synchronous in this milestone and MUST be scheduled off the GUI thread when
 continuous video analysis is added later. See `docs/M6_1_RECORDED_OBJECT_DETECTION.md`.
+
+## M6.2 recorded-video inference session and GUI overlay
+
+`AsyncRecordedVideoDetection` owns one persistent `std::jthread` for a separate
+`VideoSource` and the M6.1 SHA-256-checked `RecordedVideoObjectDetector`.
+A one-slot replaceable job request, cancellation generations, progress
+snapshots, and a 256-frame bounded cache are protected by one mutex. The GUI
+polls progress/result snapshots without blocking on OpenCV and never passes
+OpenGL textures across threads. The immutable cached result is drawn using the
+same `ImageViewport` transform as the displayed frame, after exact index,
+geometry, timestamp, and provenance matching. See `docs/M6_2_ASYNC_VIDEO_GUI.md`.

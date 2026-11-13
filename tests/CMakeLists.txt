@@ -488,3 +488,19 @@ add_test(NAME chromascope_cli_video_object_contract COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_object.cmake")
 set_tests_properties(chromascope_cli_video_object_contract PROPERTIES
     LABELS "cli;video;model;dnn;negative;security;regression" TIMEOUT 60)
+
+# M6.2 (#39): bounded async recorded inference, independent playback, progress,
+# cancellation and immutable frame-identity-matched overlay snapshots.
+chromascope_add_cpp_test(chromascope_unit_async_recorded_detection_policy
+    unit/test_async_recorded_detection_policy.cpp
+    "unit;async;video;model;dnn;gui-contract;negative;regression" 30)
+add_executable(chromascope_integration_async_recorded_detection
+    integration/test_async_recorded_video_detection.cpp)
+target_link_libraries(chromascope_integration_async_recorded_detection PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_async_recorded_detection)
+target_include_directories(chromascope_integration_async_recorded_detection PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_async_recorded_detection
+    COMMAND chromascope_integration_async_recorded_detection
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-2-async-recorded")
+set_tests_properties(chromascope_integration_async_recorded_detection PROPERTIES
+    LABELS "integration;async;video;model;dnn;gui-contract;negative;regression" TIMEOUT 60)

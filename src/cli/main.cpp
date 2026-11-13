@@ -13,6 +13,8 @@
 #include "chromascope/DnnPreprocessing.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
 #include "chromascope/NanoDetDecoder.hpp"
+#include "chromascope/ObjectFrameInference.hpp"
+#include "chromascope/RecordedVideoObjectDetection.hpp"
 
 #include <opencv2/core/version.hpp>
 
@@ -45,6 +47,7 @@ struct Options {
     std::map<std::string, double, std::less<>> profile_options;
     bool video_probe = false;
     std::optional<std::uint64_t> extract_frame;
+    std::optional<std::uint64_t> detect_video_frame;
     chromascope::VideoBackend video_backend = chromascope::VideoBackend::Automatic;
     bool video_backend_explicit = false;
     std::filesystem::path model;
@@ -57,10 +60,12 @@ void usage(std::ostream& os) {
     os << "ChromascopeIP 0.1.3 - image processing CLI\n"
           "Usage: chromascope-cli --input IMAGE [options]\n"
           "       chromascope-cli --video-probe --input VIDEO [--json FILE|-]\n"
-          "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n\n"
+          "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n"
+          "       chromascope-cli --detect-video-frame INDEX --input VIDEO --profile object --model ONNX [--json FILE|-]\n\n"
           "  -i, --input FILE       Input image or recorded-video file (required)\n"
           "      --video-probe     Inspect video metadata and first decoded frame\n"
           "      --extract-frame N  Extract zero-based video frame N to lossless PNG\n"
+          "      --detect-video-frame N  Detect COCO objects in recorded frame N (zero-based)\n"
           "      --video-backend ID  Video backend: auto (default), opencv-mjpeg\n"
           "  -o, --output FILE      Save annotated image or processed raster\n"
           "      --mask-output FILE Export segmentation/contour mask separately\n"
@@ -150,6 +155,9 @@ Options parse(int argc, char* argv[]) {
         } else if (flag == "--extract-frame") {
             once(flag, "video-action");
             o.extract_frame = chromascope::cli::parse_video_frame_index(next(i, argc, argv, flag));
+        } else if (flag == "--detect-video-frame") {
+            once(flag, "video-action");
+            o.detect_video_frame = chromascope::cli::parse_video_frame_index(next(i, argc, argv, flag));
         } else if (flag == "--video-backend") {
             once(flag, "video-backend");
             o.video_backend_explicit = true;
@@ -225,7 +233,8 @@ Options parse(int argc, char* argv[]) {
     }
     if (o.input.empty()) throw std::invalid_argument("--input is required");
     if (o.profile_id.empty()) throw std::invalid_argument("--profile requires a nonempty ID");
-    const bool video = o.video_probe || o.extract_frame.has_value();
+    const bool video_object = o.detect_video_frame.has_value();
+    const bool video = o.video_probe || o.extract_frame.has_value() || video_object;
     const bool object = o.profile_id == "object";
     const bool object_arguments = single_use.contains("model") ||
         single_use.contains("object-confidence") || single_use.contains("object-nms") ||
@@ -240,19 +249,25 @@ Options parse(int argc, char* argv[]) {
         throw std::invalid_argument("--model and object thresholds require --profile object");
     }
     if (video) {
-        if (single_use.contains("profile") || object_arguments || !o.profile_options.empty() ||
-            o.legacy_settings_changed || single_use.contains("no-labels") ||
-            !o.mask_output.empty())
-            throw std::invalid_argument("Video commands cannot use still-image profile or annotation options");
-        if (o.video_probe && !o.output.empty())
-            throw std::invalid_argument("--video-probe does not accept --output; use --extract-frame");
-        if (o.extract_frame) {
-            if (o.output.empty())
-                throw std::invalid_argument("--extract-frame requires --output FRAME.png");
-            chromascope::cli::validate_video_png_path(o.output);
+        if (video_object) {
+            if (!object)
+                throw std::invalid_argument("--detect-video-frame requires --profile object and --model");
+            if (!o.output.empty()) chromascope::cli::validate_video_png_path(o.output);
+        } else {
+            if (single_use.contains("profile") || object_arguments || !o.profile_options.empty() ||
+                o.legacy_settings_changed || single_use.contains("no-labels") ||
+                !o.mask_output.empty())
+                throw std::invalid_argument("Video probe/extraction cannot use object-profile options");
+            if (o.video_probe && !o.output.empty())
+                throw std::invalid_argument("--video-probe does not accept --output; use --extract-frame");
+            if (o.extract_frame) {
+                if (o.output.empty())
+                    throw std::invalid_argument("--extract-frame requires --output FRAME.png");
+                chromascope::cli::validate_video_png_path(o.output);
+            }
         }
     } else if (o.video_backend_explicit) {
-        throw std::invalid_argument("--video-backend requires --video-probe or --extract-frame");
+        throw std::invalid_argument("--video-backend requires a recorded-video command");
     }
     if (o.json_version != 1)
         throw std::invalid_argument("Unsupported JSON schema version (supported: 1)");
@@ -469,15 +484,35 @@ int run_video_command(Options options) {
 
 void write_object_json(std::ostream& stream, const Options& options,
                        const chromascope::DetectionResult& result, double elapsed_ms,
-                       const chromascope::DnnPostprocessSummary& summary) {
+                       const chromascope::DnnPostprocessSummary& summary,
+                       const chromascope::RecordedVideoObjectDetection* video = nullptr) {
     stream.imbue(std::locale::classic());
     stream << std::fixed << std::setprecision(6);
     stream << "{\n  \"schema_version\": 1,\n"
               "  \"application\": \"ChromascopeIP\",\n"
               "  \"profile\": \"object\",\n"
               "  \"processor\": \"nanodet-coco80\",\n"
-           << "  \"input\": \"" << escape_json(options.input.string()) << "\",\n"
-           << "  \"model\": \"" << escape_json(options.model.string()) << "\",\n"
+           << "  \"input\": \"" << escape_json(options.input.string()) << "\",\n";
+    if (video) {
+        stream << "  \"source_kind\": \"recorded_video\",\n"
+                  "  \"operation\": \"video_frame_detect\",\n"
+               << "  \"frame_index\": " << video->frame_index << ",\n"
+                  "  \"timestamp_ns\": ";
+        if (const auto& stamp = video->inference.detections.timestamp())
+            stream << stamp->value.count();
+        else stream << "null";
+        stream << ",\n  \"timestamp_source\": \"";
+        switch (video->timestamp_source) {
+            case chromascope::VideoTimestampSource::DecoderReported:
+                stream << "decoder_reported"; break;
+            case chromascope::VideoTimestampSource::EstimatedFromFPS:
+                stream << "estimated_from_fps"; break;
+            case chromascope::VideoTimestampSource::Unavailable:
+                stream << "unavailable"; break;
+        }
+        stream << "\",\n";
+    }
+    stream << "  \"model\": \"" << escape_json(options.model.string()) << "\",\n"
            << "  \"model_sha256\": \"" << chromascope::kSelectedNanoDetSha256 << "\",\n"
               "  \"backend\": \"opencv-cpu\",\n"
            << "  \"width\": " << result.width() << ", \"height\": " << result.height() << ",\n"
@@ -536,13 +571,9 @@ int run_object_command(Options options) {
         throw std::runtime_error("ONNX model changed while loading");
     const auto image = chromascope::read_image(options.input);
     const auto frame = chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8);
-    const auto prepared = chromascope::preprocess_dnn_frame(frame);
-    const auto tensors = adapter.forward(prepared.tensor);
-    const auto decoded = chromascope::decode_nanodet_outputs(
-        tensors, chromascope::minimum_dnn_decode_confidence(options.object_options));
-    chromascope::DnnPostprocessSummary detection_summary;
-    const auto detected = chromascope::postprocess_dnn_boxes(
-        decoded, prepared.geometry, options.object_options, &detection_summary);
+    const auto outcome = chromascope::infer_object_frame(frame, adapter, options.object_options);
+    const auto& detected = outcome.detections;
+    const auto& detection_summary = outcome.summary;
     const auto elapsed = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count();
 
@@ -569,6 +600,62 @@ int run_object_command(Options options) {
         std::ofstream file(options.json, std::ios::binary | std::ios::trunc);
         if (!file) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
         write_object_json(file, options, detected, elapsed, detection_summary);
+        if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
+    }
+    return 0;
+}
+
+
+int run_video_object_command(Options options) {
+    // Match the still-image CLI's output protection, plus the video source.
+    const auto paths = chromascope::cli::validate_output_paths(
+        options.input, {options.output, {}, options.json, options.output_dir}, "video");
+    options.output = paths.image;
+    options.json = paths.json;
+    (void)chromascope::cli::validate_output_paths(
+        options.model, {options.output, {}, options.json, {}}, "model");
+
+    // Exactly one trusted model load for this command; repeated frame processing
+    // by callers of RecordedVideoObjectDetector reuses the same CPU network.
+    chromascope::RecordedVideoObjectDetector detector(options.model, options.object_options);
+    auto source = chromascope::VideoSource::open(options.input, options.video_backend);
+    const auto index = *options.detect_video_frame;
+    if (index != 0) source.seek_to(index);
+    auto decoded = source.read_next();
+    if (decoded.status != chromascope::VideoReadStatus::Frame || !decoded.frame ||
+        decoded.frame->index != index)
+        throw std::runtime_error("Video does not contain the requested decodable frame");
+    const auto result = detector.detect(*decoded.frame);
+
+    // Create outputs only AFTER successful inference; repeat path validation
+    // after directory creation to avoid symlink/alias overwrites.
+    chromascope::cli::prepare_output_directory(paths);
+    (void)chromascope::cli::validate_output_paths(
+        options.input, {options.output, {}, options.json, {}}, "video");
+    (void)chromascope::cli::validate_output_paths(
+        options.model, {options.output, {}, options.json, {}}, "model");
+    if (!options.output.empty()) {
+        const auto image = chromascope::to_cv_mat_copy(decoded.frame->image);
+        chromascope::write_image(options.output, chromascope::render_annotations(
+            image, chromascope::make_object_confidence_annotations(result.inference.detections),
+            {.show_outlines = true, .show_labels = options.labels}));
+    }
+    if (options.json_stdout) {
+        write_object_json(std::cout, options, result.inference.detections,
+                          result.elapsed_ms, result.inference.summary, &result);
+    } else {
+        std::cout << "Recorded frame: " << result.frame_index
+                  << "\nProfile: object (NanoDet COCO-80)\nDetected: "
+                  << result.inference.detections.objects().size()
+                  << "\nWeak candidates: " << result.inference.summary.weak_candidates
+                  << "\nElapsed inference: " << result.elapsed_ms << " ms\n";
+        if (!options.output.empty()) std::cout << "Saved: " << options.output.string() << "\n";
+    }
+    if (!options.json.empty()) {
+        std::ofstream file(options.json, std::ios::binary | std::ios::trunc);
+        if (!file) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
+        write_object_json(file, options, result.inference.detections,
+                          result.elapsed_ms, result.inference.summary, &result);
         if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
     }
     return 0;
@@ -622,6 +709,8 @@ int main(int argc, char* argv[]) {
             }
         }
         Options options = parse(argc, argv);
+        if (options.detect_video_frame)
+            return run_video_object_command(std::move(options));
         if (options.video_probe || options.extract_frame)
             return run_video_command(std::move(options));
         if (options.profile_id == "object")

@@ -555,3 +555,13 @@ JSON v1 retains existing fields and adds `uncertainty` and `class_thresholds`.
 The GUI still runs raw inference (not object overlays). See
 [`docs/M5_8_DETECTION_RELIABILITY.md`](docs/M5_8_DETECTION_RELIABILITY.md)
 for the boundaries and accuracy caveats before M6 recorded-video detection.
+
+### M6.1 — Recorded-video frame object detection (native acceptance pending)
+
+The pinned NanoDet COCO-80 CPU backend can analyze **one selected recorded-video
+frame** using `--detect-video-frame N --profile object --model FILE`, including
+M5.8 per-class confidence policies and source-frame coordinates. The command
+can export JSON with zero-based frame identity, timestamp/provenance, and
+annotated PNG without modifying video playback. This is not yet continuous
+recording inference, tracking, or live-camera detection. See
+[the M6.1 recorded-video detection contract](docs/M6_1_RECORDED_OBJECT_DETECTION.md).

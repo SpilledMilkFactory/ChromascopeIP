@@ -801,3 +801,22 @@ count remains **25**. Require native OpenCV 5.1.0 GUI and CLI Release,
 ASan/UBSan, clang-tidy, policy/provenance, manual CLI/GUI regression,
 real-model sample inspection, and all six hosted CI checks before acceptance.
 M6 should reuse this confidence policy before frame-wise detection/tracking.
+
+## M6.1 (#38) — Recorded-video frame object detection (pending native acceptance)
+
+The M5.8 baseline was accepted by the user: 84/84 GUI Release CTests, 84/84
+CLI Release CTests, 84/84 sanitizer CTests, repository quality checks, manual
+GUI/CLI regressions and all six GitHub Actions checks passed before merging.
+
+M6.1 introduces `RecordedVideoObjectDetector`, a common still/video frame
+postprocessing API, and `--detect-video-frame` to run the same verified NanoDet
+backend on a selected zero-based video frame. Three headless tests increase
+the expected CTest suite from **84 to 87**, without model weights. Independent
+media timestamp availability and provenance are preserved. A pipeline failure
+never masquerades as a successful empty detection result. No video tracking,
+continuous inference or GUI playback integration is claimed.
+
+**Outstanding acceptance gates:** native OpenCV 5.1.0 builds, 87/87 CTests
+under GUI Release, CLI-only Release and ASan/UBSan, clang-tidy, repository
+policy/provenance checks, manual real-ONNX video frame JSON/PNG export and
+existing GUI/CLI regression, and all six hosted GitHub Actions checks.

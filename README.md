@@ -565,3 +565,16 @@ can export JSON with zero-based frame identity, timestamp/provenance, and
 annotated PNG without modifying video playback. This is not yet continuous
 recording inference, tracking, or live-camera detection. See
 [the M6.1 recorded-video detection contract](docs/M6_1_RECORDED_OBJECT_DETECTION.md).
+
+### M6.2 — Asynchronous recorded-video detection, progress and overlays
+
+In the **Recorded video** workspace, open a recording and choose **Analyze
+recording** to execute the M6.1 NanoDet detector on an independent, bounded
+background worker. The GUI shows completed-frame progress, offers nonblocking
+cancellation, and draws accepted confidence-bearing detections only over the
+identical, timestamp-matched playback frame. Panning, zooming and downsampled
+previews use the same source-coordinate transform. At most 256 recent frame
+results remain cached; earlier frames can have no overlay after eviction.
+The model must be installed locally and match the pinned SHA-256; video/person
+tracking and accuracy tuning are not introduced here. See
+[`docs/M6_2_ASYNC_VIDEO_GUI.md`](docs/M6_2_ASYNC_VIDEO_GUI.md).

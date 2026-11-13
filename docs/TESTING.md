@@ -613,3 +613,28 @@ Manually test `chromascope-cli --input /path/to/video.avi --detect-video-frame 0
 with the locally verified checkpoint and a recorded clip. See
 `docs/M6_1_RECORDED_OBJECT_DETECTION.md` for output safety, timestamp policy,
 and the explicitly deferred GUI/video scheduling scope.
+
+## M6.2 — Async recorded-video GUI and overlay acceptance (#39)
+
+Two headless tests bring the total to **89 CTests**. The integration test
+creates a synthetic MJPEG/AVI clip in the build tree, exercises fake-model
+asynchronous progress, match-only overlays, cancel/replace, failure, and
+recovery without ONNX weights. The unit test covers request validation and
+nonblocking cancellation. Neither test uses the GUI or the user's video.
+
+```sh
+ctest --test-dir build/presets/linux-release \
+  -R 'async_recorded_detection' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Then run clang-tidy, policy/provenance checks, 25 Python quality tests, and
+all six hosted workflows. The manual GUI check must open a real recording,
+run **Analyze recording** using the pinned local NanoDet checkpoint, observe
+progress and matching overlays, test pause/seek/zoom/cancel, and confirm no
+stale boxes appear after opening a different video. See
+`docs/M6_2_ASYNC_VIDEO_GUI.md` for the cache and timing limitations.

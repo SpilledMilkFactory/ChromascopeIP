@@ -901,3 +901,26 @@ weights or user-supplied video files are committed in this milestone.
 CLI-only Release, ASan/UBSan (93/93), clang-tidy, provenance/CI policy,
 25 Python quality checks, real-model silent AVI creation and replay, GUI
 cancellation/output cleanup, and all six hosted CI jobs before merging #41.
+
+## M6.4 accepted / M6.5 (#42) pending — November 13, 2026
+
+M6.4 was accepted after **93/93 CTests** passed in GUI Release, CLI-only
+Release and ASan/UBSan, all **25 Python quality tests** passed, and six hosted
+Debian/Ubuntu/Windows/quality checks succeeded. The user manually verified
+M6.4 GUI/CLI behavior, exported the FrenchHorn sample, and merged PR #41.
+An independently inspected submitted `annotated.avi` was MJPEG/AVI, 1920×1080,
+25 FPS, 270 video frames, and no audio stream. Neither the source sample movie
+nor the output AVI is committed as a test fixture.
+
+M6.5 adds three headless cross-layer regression CTests for recorded-frame
+postprocessing after seeking, stale overlay generation isolation, streamed
+frame-step ordering/EOF/error handling, and annotated-video encoded pixels,
+FPS override, no-overwrite, and canceled/failed staging cleanup. The expected
+suite is **96 CTests**; Python quality remains at 25. These tests synthesize
+MJPEG files under the build tree, inject deterministic model outputs, and do
+not require a local ONNX checkpoint or external video footage.
+
+**M6.5 is pending native acceptance.** Run the three new CTests first, then all
+96 in GUI Release, CLI-only Release and ASan/UBSan, clang-tidy, CI/provenance
+policy and Python tests, and manual recorded-video/AVI/JSONL regressions. All
+six hosted checks must succeed before merging #42.

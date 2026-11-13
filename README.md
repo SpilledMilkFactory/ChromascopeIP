@@ -593,7 +593,7 @@ There is no in-memory video-result cache or annotated-video export in this CLI
 operation. The existing single-frame and GUI commands are unchanged. See
 [`docs/M6_3_VIDEO_JSONL.md`](docs/M6_3_VIDEO_JSONL.md).
 
-### M6.4 (#41) — Silent annotated-video export (pending native acceptance)
+### M6.4 (#41) — Silent annotated-video export (accepted)
 
 Recordings can be exported through the GUI's **Export annotated AVI** control
 or via `chromascope-cli --export-annotated-video`. Export deliberately supports
@@ -605,3 +605,15 @@ not source VFR timestamps. For a video with unavailable nominal FPS, specify
 off the GUI thread; export uses a private temporary AVI and publishes only
 on successful EOF. No pre-existing file is overwritten. See
 [the M6.4 video export contract](docs/M6_4_ANNOTATED_VIDEO_EXPORT.md).
+
+### M6.5 (#42) — Recorded-video detection, seeking, and export regressions
+
+Three additional **offline, cross-platform CTests** guard the M6 recorded-video
+pipeline: deterministic source-frame detection and seek replay, independent
+recording/overlay generations, frame-step and streaming completion semantics,
+and pixel-visible MJPEG/AVI annotation export with transactional cleanup.
+Tests synthesize their own small AVI files in the CTest build tree and inject
+synthetic NanoDet tensors or owned detections; they do **not** bundle ONNX
+weights, outside footage, or media copied from the user's workspace. The
+expected suite increases to **96 CTests** (Python quality remains 25). See
+[`docs/M6_5_VIDEO_REGRESSIONS.md`](docs/M6_5_VIDEO_REGRESSIONS.md).

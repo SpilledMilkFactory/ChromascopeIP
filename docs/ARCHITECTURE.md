@@ -223,3 +223,17 @@ no-overwrite publish separates completed videos from interrupted runs. The GUI
 uses a cooperative `std::jthread` with progress and cancellation; the CLI
 uses the synchronous path. No tracking, audio preservation, H.264, MP4,
 VFR retiming, video/audio synchronization, or frame sampling are claimed.
+
+## M6.5 recorded-video cross-layer regression boundaries
+
+`tests/support/RecordedVideoRegression.hpp` generates small, wholly synthetic
+MJPEG/AVI inputs. Three standalone regression programs exercise real
+`VideoSource`, the recorded-frame NanoDet post-forward boundary, asynchronous
+GUI overlay snapshots, sequential analysis, and the production annotated-video
+export path. The tests contain no model checkpoint and no external media.
+All source files remain unchanged by these test additions. The regression
+acceptance specifically verifies source-frame ownership and seek replay,
+exact timestamps/provenance, weak-candidate gating, source-specific overlay
+invalidation, frame-step/EOF distinction, frame-specific encoded annotation
+pixels, CFR FPS override, and no published artifacts on failed exports.
+See `docs/M6_5_VIDEO_REGRESSIONS.md`.

@@ -53,6 +53,7 @@ add_library(chromascope_core STATIC
     src/core/DnnPreprocessGeometry.cpp
     src/core/DnnPreprocessing.cpp
     src/core/DnnPostprocessing.cpp
+    src/core/NanoDetDecoder.cpp
     src/core/DnnModelSha256.cpp
     src/core/DnnGuiSession.cpp
 )

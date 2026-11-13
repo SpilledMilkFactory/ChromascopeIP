@@ -56,12 +56,55 @@ foreach(_required IN ITEMS "OpenCV" "RangiLyu" "Sri Siddarth Chakaravarthy" "Apa
         message(FATAL_ERROR "M5.1 attribution missing: ${_required}")
     endif()
 endforeach()
+# M5.6 clarification: a local, ignored and SHA-256-verified checkpoint may
+# live beside the manifest. "model_bundled=false" forbids Git-tracked weights,
+# not a developer's untracked working-copy file. Fail closed for source
+# archives that contain binaries without Git metadata.
+set(_approved_file "${CHROMASCOPE_SOURCE_ROOT}/models/object_detection_nanodet_2022nov.onnx")
 file(GLOB _weights LIST_DIRECTORIES FALSE
     "${CHROMASCOPE_SOURCE_ROOT}/models/*.onnx"
     "${CHROMASCOPE_SOURCE_ROOT}/models/*.pt"
     "${CHROMASCOPE_SOURCE_ROOT}/models/*.pth"
     "${CHROMASCOPE_SOURCE_ROOT}/models/*.bin")
-if(_weights)
-    message(FATAL_ERROR "M5.1 source model directory must not bundle weights: ${_weights}")
+set(_git_dir "${CHROMASCOPE_SOURCE_ROOT}/.git")
+if(EXISTS "${_git_dir}")
+    find_program(_git_executable NAMES git)
+    if(NOT _git_executable)
+        message(FATAL_ERROR "M5.1 policy cannot verify Git-tracked model files: git missing")
+    endif()
+    # Debian containers can run as root against a checkout owned by the host.
+    # Trust this exact checkout for this command only, not every directory.
+    execute_process(
+        COMMAND "${_git_executable}" -c "safe.directory=${CHROMASCOPE_SOURCE_ROOT}"
+            -C "${CHROMASCOPE_SOURCE_ROOT}" ls-files --cached -- models
+        RESULT_VARIABLE _git_result OUTPUT_VARIABLE _tracked_files ERROR_VARIABLE _git_error)
+    if(NOT _git_result EQUAL 0)
+        message(FATAL_ERROR "M5.1 cannot inspect Git-tracked model files: ${_git_error}")
+    endif()
+    string(REPLACE "\n" ";" _tracked_list "${_tracked_files}")
+    foreach(_tracked IN LISTS _tracked_list)
+        if(_tracked MATCHES "\\.(onnx|pt|pth|bin)$")
+            message(FATAL_ERROR "M5.1 model weights must not be Git-tracked: ${_tracked}")
+        endif()
+    endforeach()
+elseif(_weights)
+    message(FATAL_ERROR "M5.1 source archive contains model weights without Git provenance: ${_weights}")
 endif()
-message(STATUS "PASS: M5.1 NanoDet artifact identity, Apache-2.0 notices and no-bundling policy")
+foreach(_weight IN LISTS _weights)
+    if(NOT _weight STREQUAL "${_approved_file}")
+        message(FATAL_ERROR "M5.1 unapproved local model artifact: ${_weight}")
+    endif()
+    execute_process(
+        COMMAND "${_git_executable}" -c "safe.directory=${CHROMASCOPE_SOURCE_ROOT}"
+            -C "${CHROMASCOPE_SOURCE_ROOT}" check-ignore --quiet --
+            models/object_detection_nanodet_2022nov.onnx
+        RESULT_VARIABLE _ignored_result)
+    if(NOT _ignored_result EQUAL 0)
+        message(FATAL_ERROR "M5.1 local ONNX is not Git-ignored: ${_weight}")
+    endif()
+    file(SHA256 "${_weight}" _local_sha256)
+    if(NOT _local_sha256 STREQUAL "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186")
+        message(FATAL_ERROR "M5.1 local ONNX checksum mismatch: ${_weight}")
+    endif()
+endforeach()
+message(STATUS "PASS: M5.1 NanoDet identity, Apache-2.0 notices and no-bundling policy")

@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -55,8 +56,57 @@ def validate_fields(data):
     return failures
 
 
+def validate_local_weights(repo_root, expected_sha256=EXPECTED_SHA256):
+    """Permit only a pinned, ignored local model; reject committed weights.
+
+    A source archive containing weights without Git metadata cannot prove the
+    no-bundling rule and must fail closed. Neither check downloads anything.
+    """
+    root = Path(repo_root)
+    models = root / "models"
+    weights = sorted({p for pattern in ("*.onnx", "*.pt", "*.pth", "*.bin")
+                      for p in models.glob(pattern)})
+    errors = []
+    if not (root / ".git").exists():
+        if weights:
+            errors.append("model weights present outside a verifiable Git checkout")
+        return errors
+
+    def git(*args):
+        try:
+            return subprocess.run(["git", "-c", f"safe.directory={root.resolve()}",
+                                   "-C", str(root), *args],
+                                  capture_output=True, text=True, check=False)
+        except OSError as exc:
+            errors.append(f"cannot verify Git model policy: {exc}")
+            return None
+
+    tracked = git("ls-files", "--cached", "--", "models")
+    if tracked is None:
+        return errors
+    if tracked.returncode != 0:
+        errors.append("cannot inspect tracked model files: " + tracked.stderr.strip())
+        return errors
+    for rel in tracked.stdout.splitlines():
+        if Path(rel).suffix.lower() in {".onnx", ".pt", ".pth", ".bin"}:
+            errors.append(f"model weights are Git-tracked: {rel}")
+
+    for path in weights:
+        rel = path.relative_to(root).as_posix()
+        if path.name != EXPECTED_FILE:
+            errors.append(f"unapproved local model artifact: {rel}")
+            continue
+        ignored = git("check-ignore", "--quiet", "--", rel)
+        if ignored is None or ignored.returncode != 0:
+            errors.append(f"local model is not protected by .gitignore: {rel}")
+        mismatch = verify_artifact(path, expected_sha256)
+        if mismatch:
+            errors.append(f"local model {rel}: {mismatch}")
+    return errors
+
+
 def validate_repository(repo_root, manifest_path=None):
-    """Check manifest, full license, notices and absent source-tree weights."""
+    """Check manifest, license, notices, and source-vs-local weight policy."""
     root = Path(repo_root)
     manifest = Path(manifest_path) if manifest_path is not None else root / "models/selected_model.json"
     try:
@@ -86,9 +136,7 @@ def validate_repository(repo_root, manifest_path=None):
             "Apache", EXPECTED_SHA256
         )):
             errors.append("model attribution/notice text is incomplete")
-    for suffix in ("*.onnx", "*.pt", "*.pth", "*.bin"):
-        if list((root / "models").glob(suffix)):
-            errors.append("source models directory contains weight binaries")
+    errors.extend(validate_local_weights(root))
     return errors
 
 

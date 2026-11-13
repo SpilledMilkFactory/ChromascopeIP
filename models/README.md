@@ -8,22 +8,37 @@ The machine-readable selection is [`selected_model.json`](selected_model.json).
 The attribution and Apache-2.0 redistribution requirements are in
 [`NANODET_NOTICES.md`](NANODET_NOTICES.md).
 
-**No ONNX checkpoint is bundled in the source tree and no inference backend is
-implemented by this milestone.** The present OpenCV 5.1.0 bootstrap only
-builds `core`, `imgproc`, `imgcodecs`, and `videoio` (plus geometry as configured);
-adding `dnn` to the exact pinned Linux/Windows builds is future work.
+**Model binaries are not committed or distributed by this repository.**
+M5.2–M5.6 added OpenCV DNN CPU inference and model-aware GUI/CLI controls;
+this M5.1 selection record predates that implementation.
 
 ## Optional verification of the official model file
 
-If you independently obtain the FP32 ONNX model from the URL in the manifest,
-store it **outside the source tree**, for example in `build/model-cache/`, and
-verify it before use:
+If you independently obtain the selected FP32 ONNX model, you may place
+it at the GUI's default relative path
+`models/object_detection_nanodet_2022nov.onnx` **for local use only**.
+The `.gitignore` rule keeps it untracked. Both the CMake and Python model
+policy tests permit this exact path only when Git confirms it is ignored
+and the file's SHA-256 matches the pinned manifest. A different or corrupted
+weight file fails the policy, as does a model file that has been forcibly
+staged or committed to Git.
+
+Alternatively, store the checkpoint outside the source tree (e.g.
+`build/model-cache/object_detection_nanodet_2022nov.onnx`) and select it in
+the GUI or supply the absolute path with CLI `--model`.
 
 ```bash
 python3 scripts/check_model_selection.py
 python3 scripts/check_model_selection.py --artifact \
-  build/model-cache/object_detection_nanodet_2022nov.onnx
+  models/object_detection_nanodet_2022nov.onnx
+# Before a commit, confirm the local checkpoint is ignored:
+git check-ignore -v models/object_detection_nanodet_2022nov.onnx
 ```
+
+**Do not use `git add -f` on model weights**, put them into release archives,
+or change `model_bundled` to `true` without a separate redistribution review.
+Normal CTest and Python policy checks do not need a model file; they remain
+offline and model-optional.
 
 The second command is offline and checks the complete model bytes against
 SHA-256. It does not execute a model, contact the network, or verify inference

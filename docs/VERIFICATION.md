@@ -705,3 +705,55 @@ hash/lifecycle tests and syntax checks are preliminary, not final native
 qualification: accept only after real OpenCV 5.1.0 GUI/CLI Release builds,
 77/77 CTests in each required local configuration, sanitizers, clang-tidy,
 manual GUI/CLI regressions and all six hosted CI checks on the final revision.
+
+
+## M5.5 accepted / M5.6 (#36) CLI general object detection — November 12, 2026
+
+The user verified M5.5 with 77/77 CTests in GUI Release, CLI-only Release and
+ASan/UBSan, clang-tidy and 16/16 Python quality tests; all six hosted GitHub
+Actions checks passed before the merge. The GUI loaded the actual pinned ONNX
+and displayed the expected six raw NanoDet output shapes. Warnings observed
+while switching images required re-verifying/reloading the model as designed;
+they are not evidence of a failed test. M5.5 is accepted.
+
+M5.6 adds a real NanoDet box decoder, CPU model-backed CLI `--profile object`,
+required SHA-256-verified `--model`, confidence/NMS/max detections controls,
+source-space COCO-80 JSON schema v1 and optional annotated image export. The
+existing GUI remains raw-inference-only. Two headless CTests raise the expected
+suite to **79**. Preliminary standalone GCC and sanitizer verification of the
+decoder and C++ syntax checks do **not** qualify native OpenCV 5.1.0 inference.
+Acceptance requires full Release/sanitizer/quality suites, actual pinned-model
+CLI JSON and annotation comparison, manual classic/video regressions, and all
+six hosted CI jobs on the final PR revision.
+
+## M5.6 model-policy correction — local ONNX vs bundled weights
+
+The native M5.6 Release, CLI-only Release and ASan/UBSan runs each passed
+78/79 tests; test #69 rejected the separately downloaded, Git-ignored pinned
+ONNX checkpoint stored at the GUI's default model path. The standalone Python
+model-policy quality test failed for the same reason. The M5.1 policy was
+corrected to distinguish untracked, SHA-256-verified developer model files
+from Git-tracked or source-archived weights. Model binaries are still excluded
+from commits and release artifacts. The full 79-test suite and six hosted
+GitHub Actions checks remain outstanding for the corrected revision.
+
+
+### M5.6 — Native CLI output ordering and Debian Git ownership correction
+
+The user reported all 79 CTests and 20 Python quality tests passing locally,
+while the verified NanoDet CLI failed before export with
+`Unexpected NanoDet score/distribution tensor shape`. The M5.5 GUI and actual
+model showed that OpenCV 5.1.0 exposes three score tensors followed by three
+distribution tensors; the original decoder wrongly expected alternating pairs.
+The corrected decoder identifies heads by validated anchor and channel counts
+and tests grouped and interleaved ordering, malformed or duplicated heads, and
+stride-64 optional heads. Additionally, Debian 12/13 CI CTest #69 failed
+with `fatal: detected dubious ownership`, because the model policy invoked Git
+inside a checkout owned by a different UID. CMake and Python model-policy Git
+queries now use command-scoped trust for the precise checkout path, retaining
+strict weight tracking, ignore, and checksum checks.
+
+Final verification remains pending: native actual-model CLI JSON/image exports,
+79/79 tests in all local configurations, 21/21 Python quality tests, and all
+six hosted CI checks on the final PR revision. No pretrained weights or
+new dependencies are part of this correction.

@@ -1,5 +1,8 @@
 """M5.1 offline model-license, source-tree, and artifact-integrity tests."""
 import importlib.util
+import hashlib
+import shutil
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -40,6 +43,61 @@ class ModelSelectionPolicyTests(unittest.TestCase):
             self.assertIsNotNone(model.verify_artifact(path))
             path.write_bytes(b"not the approved ONNX checkpoint")
             self.assertIn("SHA-256 mismatch", model.verify_artifact(path))
+
+    @unittest.skipUnless(shutil.which("git"), "requires Git to check repository index")
+    def test_ignored_pinned_local_model_allowed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / ".gitignore").write_text("/models/*.onnx\n")
+            models = root / "models"
+            models.mkdir()
+            payload = b"test-only deterministic synthetic artifact"
+            checkpoint = models / model.EXPECTED_FILE
+            checkpoint.write_bytes(payload)
+            sha = hashlib.sha256(payload).hexdigest()
+            self.assertEqual([], model.validate_local_weights(root, sha))
+            self.assertFalse((root / ".git" / "index").exists())
+
+            checkpoint.write_bytes(b"changed bytes")
+            errors = model.validate_local_weights(root, sha)
+            self.assertTrue(any("SHA-256 mismatch" in error for error in errors))
+
+    @unittest.skipUnless(shutil.which("git"), "requires Git to check repository index")
+    def test_reject_tracked_model_even_if_checksum_valid(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / ".gitignore").write_text("/models/*.onnx\n")
+            models = root / "models"
+            models.mkdir()
+            checkpoint = models / model.EXPECTED_FILE
+            payload = b"test-only deterministic synthetic artifact"
+            checkpoint.write_bytes(payload)
+            subprocess.run(["git", "-C", str(root), "add", "-f", "--", "models/" + model.EXPECTED_FILE], check=True)
+            errors = model.validate_local_weights(root, hashlib.sha256(payload).hexdigest())
+            self.assertTrue(any("Git-tracked" in error for error in errors), errors)
+
+    @unittest.skipUnless(shutil.which("git"), "requires Git to check repository index")
+    def test_reject_unapproved_local_model(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / ".gitignore").write_text("/models/*.onnx\n")
+            models = root / "models"
+            models.mkdir()
+            (models / "other.onnx").write_bytes(b"unapproved checkpoint")
+            errors = model.validate_local_weights(root)
+            self.assertTrue(any("unapproved local model" in error for error in errors), errors)
+
+    def test_reject_source_archive_with_unproven_model(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            models = root / "models"
+            models.mkdir()
+            (models / model.EXPECTED_FILE).write_bytes(b"checkpoint in source archive")
+            errors = model.validate_local_weights(root)
+            self.assertTrue(any("outside a verifiable Git checkout" in e for e in errors), errors)
 
     def test_accept_matching_offline_digest_logic(self):
         import hashlib

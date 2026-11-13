@@ -502,7 +502,7 @@ and keeps inference, raw NanoDet tensor decoding and GUI overlays separate.
 Two new headless CTests raise the expected suite to **75**. See
 [`docs/M5_4_DNN_POSTPROCESSING.md`](docs/M5_4_DNN_POSTPROCESSING.md).
 
-### M5.5 — GUI model status and CPU inference controls (pending native acceptance)
+### M5.5 — GUI model status and CPU inference controls (accepted)
 
 The still-image workspace exposes the selected NanoDet COCO-80 CPU profile,
 local model path, pinned SHA-256 verification and asynchronous load state,
@@ -513,3 +513,19 @@ classes, boxes, annotations, or exports**. Existing Skittles and image-filter
 profiles remain separate and unchanged. Two new headless CTests increase the
 expected suite from **75 to 77**. See
 [`docs/M5_5_DNN_GUI.md`](docs/M5_5_DNN_GUI.md).
+
+
+### M5.6 — Model-backed CLI object detection and JSON exports (pending native acceptance)
+
+`chromascope-cli --profile object --model FILE` verifies the M5.1-pinned
+NanoDet-Plus-M 1.5x ONNX SHA-256 and runs CPU inference using the M5.2 adapter
+and M5.3 416×416 preprocessing. A new bounded decoder interprets the actual
+[1,N,80] score and [1,N,32] DFL box outputs and forwards decoded boxes to
+M5.4's confidence gating, class-aware NMS and source-image mapping. Use
+`--confidence 0.35 --nms-iou 0.60 --max-detections 100`, and optionally
+`--json -` or `--json results.json`, and `--output annotated.png` for labels
+and boxes. The model must be obtained separately; **weights are never bundled
+or downloaded by the CLI**. This does not change the M5.5 GUI's raw-only
+inference diagnostic. Two new headless CTests bring the expected suite to
+**79**. See [`docs/M5_6_CLI_OBJECT.md`](docs/M5_6_CLI_OBJECT.md) for exact
+options, JSON fields, safety contracts, and native acceptance requirements.

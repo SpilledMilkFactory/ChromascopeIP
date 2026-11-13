@@ -420,3 +420,15 @@ add_test(NAME chromascope_integration_dnn_gui_session
 set_tests_properties(chromascope_integration_dnn_gui_session PROPERTIES
     LABELS "integration;gui-contract;model;dnn;cpu;security;regression;negative"
     TIMEOUT 90)
+
+# M5.6 (#36): real COCO-80 NanoDet box decode and CLI safety/validation.
+chromascope_add_cpp_test(chromascope_unit_nanodet_decoder
+    unit/test_nanodet_decoder.cpp
+    "unit;core;model;dnn;postprocessing;regression;negative" 30)
+add_test(NAME chromascope_cli_object_error_paths COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m5-6-object-errors"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_object.cmake")
+set_tests_properties(chromascope_cli_object_error_paths PROPERTIES
+    LABELS "cli;integration;model;dnn;security;negative;regression" TIMEOUT 90)

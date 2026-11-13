@@ -8,6 +8,11 @@
 #include "CliOutputPaths.hpp"
 #include "VideoCliContract.hpp"
 #include "chromascope/VideoSource.hpp"
+#include "chromascope/CpuDnnAdapter.hpp"
+#include "chromascope/DnnGuiSession.hpp"
+#include "chromascope/DnnPreprocessing.hpp"
+#include "chromascope/DnnPostprocessing.hpp"
+#include "chromascope/NanoDetDecoder.hpp"
 
 #include <opencv2/core/version.hpp>
 
@@ -42,6 +47,8 @@ struct Options {
     std::optional<std::uint64_t> extract_frame;
     chromascope::VideoBackend video_backend = chromascope::VideoBackend::Automatic;
     bool video_backend_explicit = false;
+    std::filesystem::path model;
+    chromascope::DnnPostprocessOptions object_options;
     bool legacy_settings_changed = false;
     std::set<std::string> legacy_keys;
 };
@@ -63,6 +70,11 @@ void usage(std::ostream& os) {
           "      --mode skittles   Legacy alias for --profile skittles\n"
           "      --profile ID      Select a registered processing profile\n"
           "      --set KEY=VALUE   Override a named numeric processor option (repeatable)\n"
+          "      --profile object   NanoDet COCO-80 CPU object detection\n"
+          "      --model FILE      Required pinned NanoDet ONNX for --profile object\n"
+          "      --confidence N    Object score threshold in [0,1], default 0.35\n"
+          "      --nms-iou N       Class-aware NMS IoU in [0,1], default 0.60\n"
+          "      --max-detections N Maximum object detections in [1,512], default 100\n"
           "      --list-profiles   List processors, defaults, and option bounds\n"
           "      --accumulator N   Hough sensitivity threshold, default 31\n"
           "      --edge N          Hough edge threshold, default 95\n"
@@ -147,6 +159,20 @@ Options parse(int argc, char* argv[]) {
             o.profile_id = next(i, argc, argv, flag);
             if (flag == "--mode" && o.profile_id != "skittles")
                 throw std::invalid_argument("--mode only supports skittles; use --profile ID");
+        } else if (flag == "--model") {
+            once(flag, "model"); o.model = required_path(i, argc, argv, flag);
+        } else if (flag == "--confidence" || flag == "--confidence-threshold") {
+            once(flag, "object-confidence");
+            o.object_options.confidence_threshold = parse_real(next(i, argc, argv, flag));
+        } else if (flag == "--nms-iou" || flag == "--nms") {
+            once(flag, "object-nms");
+            o.object_options.nms_iou_threshold = parse_real(next(i, argc, argv, flag));
+        } else if (flag == "--max-detections") {
+            once(flag, "object-max");
+            const int value = parse_integer(next(i, argc, argv, flag));
+            if (value < 1 || value > 512)
+                throw std::invalid_argument("--max-detections must be in [1,512]");
+            o.object_options.max_detections = static_cast<std::size_t>(value);
         } else if (flag == "--set") {
             const auto setting = next(i, argc, argv, flag);
             const auto pos = setting.find('=');
@@ -185,8 +211,24 @@ Options parse(int argc, char* argv[]) {
     if (o.input.empty()) throw std::invalid_argument("--input is required");
     if (o.profile_id.empty()) throw std::invalid_argument("--profile requires a nonempty ID");
     const bool video = o.video_probe || o.extract_frame.has_value();
+    const bool object = o.profile_id == "object";
+    const bool object_arguments = single_use.contains("model") ||
+        single_use.contains("object-confidence") || single_use.contains("object-nms") ||
+        single_use.contains("object-max");
+    if (object) {
+        if (o.model.empty()) throw std::invalid_argument("--profile object requires --model FILE");
+        if (!o.profile_options.empty() || o.legacy_settings_changed || !o.mask_output.empty())
+            throw std::invalid_argument("Object detection does not accept --set, legacy, or --mask-output options");
+        if (!std::isfinite(o.object_options.confidence_threshold) ||
+            o.object_options.confidence_threshold < 0 || o.object_options.confidence_threshold > 1 ||
+            !std::isfinite(o.object_options.nms_iou_threshold) ||
+            o.object_options.nms_iou_threshold < 0 || o.object_options.nms_iou_threshold > 1)
+            throw std::invalid_argument("Object confidence and NMS thresholds must be in [0,1]");
+    } else if (object_arguments) {
+        throw std::invalid_argument("--model and object thresholds require --profile object");
+    }
     if (video) {
-        if (single_use.contains("profile") || !o.profile_options.empty() ||
+        if (single_use.contains("profile") || object_arguments || !o.profile_options.empty() ||
             o.legacy_settings_changed || single_use.contains("no-labels") ||
             !o.mask_output.empty())
             throw std::invalid_argument("Video commands cannot use still-image profile or annotation options");
@@ -413,6 +455,96 @@ int run_video_command(Options options) {
     return 0;
 }
 
+void write_object_json(std::ostream& stream, const Options& options,
+                       const chromascope::DetectionResult& result, double elapsed_ms) {
+    stream.imbue(std::locale::classic());
+    stream << std::fixed << std::setprecision(6);
+    stream << "{\n  \"schema_version\": 1,\n"
+              "  \"application\": \"ChromascopeIP\",\n"
+              "  \"profile\": \"object\",\n"
+              "  \"processor\": \"nanodet-coco80\",\n"
+           << "  \"input\": \"" << escape_json(options.input.string()) << "\",\n"
+           << "  \"model\": \"" << escape_json(options.model.string()) << "\",\n"
+           << "  \"model_sha256\": \"" << chromascope::kSelectedNanoDetSha256 << "\",\n"
+              "  \"backend\": \"opencv-cpu\",\n"
+           << "  \"width\": " << result.width() << ", \"height\": " << result.height() << ",\n"
+           << "  \"elapsed_ms\": " << elapsed_ms << ",\n"
+           << "  \"confidence_threshold\": " << options.object_options.confidence_threshold << ",\n"
+           << "  \"nms_iou_threshold\": " << options.object_options.nms_iou_threshold << ",\n"
+           << "  \"max_detections\": " << options.object_options.max_detections << ",\n"
+           << "  \"total\": " << result.objects().size() << ",\n"
+              "  \"detections\": [";
+    const auto& detections = result.objects();
+    for (std::size_t i = 0; i < detections.size(); ++i) {
+        const auto& obj = detections[i];
+        const auto& box = std::get<chromascope::BoxGeometry>(obj.geometry);
+        stream << (i ? ",\n" : "\n")
+               << "    {\"class_id\": " << *obj.class_id
+               << ", \"label\": \"" << escape_json(obj.label)
+               << "\", \"score\": " << obj.score
+               << ", \"geometry\": {\"type\": \"box\", \"x\": " << box.x
+               << ", \"y\": " << box.y << ", \"width\": " << box.width
+               << ", \"height\": " << box.height << "}}";
+    }
+    stream << (detections.empty() ? "" : "\n") << "  ]\n}\n";
+}
+
+int run_object_command(Options options) {
+    // Validate outputs before decoding untrusted media or loading a model.
+    const auto paths = chromascope::cli::validate_output_paths(
+        options.input, {options.output, {}, options.json, options.output_dir});
+    options.output = paths.image;
+    options.json = paths.json;
+    if (!options.model.has_extension() || options.model.extension() != ".onnx")
+        throw std::invalid_argument("--model must identify a local .onnx file");
+    // Protect the model against --output/--json aliases, including hard links.
+    (void)chromascope::cli::validate_output_paths(
+        options.model, {options.output, {}, options.json, {}} , "model");
+    if (chromascope::dnn_file_sha256(options.model) != chromascope::kSelectedNanoDetSha256)
+        throw std::runtime_error("ONNX SHA-256 mismatch: expected the selected NanoDet artifact");
+
+    const auto start = std::chrono::steady_clock::now();
+    chromascope::CpuDnnAdapter adapter(options.model);
+    if (chromascope::dnn_file_sha256(options.model) != chromascope::kSelectedNanoDetSha256)
+        throw std::runtime_error("ONNX model changed while loading");
+    const auto image = chromascope::read_image(options.input);
+    const auto frame = chromascope::from_cv_mat(image, chromascope::PixelFormat::BGR8);
+    const auto prepared = chromascope::preprocess_dnn_frame(frame);
+    const auto tensors = adapter.forward(prepared.tensor);
+    const auto decoded = chromascope::decode_nanodet_outputs(
+        tensors, options.object_options.confidence_threshold);
+    const auto detected = chromascope::postprocess_dnn_boxes(
+        decoded, prepared.geometry, options.object_options);
+    const auto elapsed = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - start).count();
+
+    chromascope::cli::prepare_output_directory(paths);
+    (void)chromascope::cli::validate_output_paths(
+        options.input, {options.output, {}, options.json, {}});
+    (void)chromascope::cli::validate_output_paths(
+        options.model, {options.output, {}, options.json, {}}, "model");
+    if (!options.output.empty())
+        chromascope::write_image(options.output, chromascope::render_annotations(
+            image, chromascope::make_annotation_layer(detected),
+            {.show_outlines = true, .show_labels = options.labels}));
+    if (options.json_stdout) {
+        write_object_json(std::cout, options, detected, elapsed);
+    } else {
+        std::cout << "Profile: object (NanoDet COCO-80)\nInput: " << options.input.string()
+                  << "\nModel: " << options.model.string()
+                  << "\nDetected: " << detected.objects().size()
+                  << "\nElapsed: " << std::fixed << std::setprecision(2) << elapsed << " ms\n";
+        if (!options.output.empty()) std::cout << "Saved: " << options.output.string() << "\n";
+    }
+    if (!options.json.empty()) {
+        std::ofstream file(options.json, std::ios::binary | std::ios::trunc);
+        if (!file) throw std::runtime_error("Cannot open JSON file: " + options.json.string());
+        write_object_json(file, options, detected, elapsed);
+        if (!file) throw std::runtime_error("Cannot write JSON file: " + options.json.string());
+    }
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -443,12 +575,17 @@ int main(int argc, char* argv[]) {
                                   << (option.integral ? " integer" : "") << "\n";
                     }
                 }
+                std::cout << "object - NanoDet COCO-80 CPU detections (requires --model ONNX)\n"
+                             "  --confidence=0.35 [0,1]\n  --nms-iou=0.60 [0,1]\n"
+                             "  --max-detections=100 [1,512] integer\n";
                 return 0;
             }
         }
         Options options = parse(argc, argv);
         if (options.video_probe || options.extract_frame)
             return run_video_command(std::move(options));
+        if (options.profile_id == "object")
+            return run_object_command(std::move(options));
         // Resolve and validate profile settings before touching image data or outputs.
         chromascope::ProcessorProfile profile = options.profile_id == "skittles"
             ? chromascope::skittles_profile_from_settings(options.settings)

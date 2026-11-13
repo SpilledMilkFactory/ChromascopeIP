@@ -489,3 +489,45 @@ shows output dimensions, never detection boxes; test cancellation, unload and
 path edits; switch to classical profiles and test image/video regressions.
 See `docs/M5_5_DNN_GUI.md`. Confidence and NMS controls are reserved for the
 future decoded-box pipeline and do not affect raw forward outputs today.
+
+
+## M5.6 (#36) — model-backed CLI object inference and JSON
+
+The CLI adds `--profile object --model FILE`, confidence/NMS/max detection
+thresholds, and `--json FILE|-`. Real NanoDet outputs are decoded to source-
+space labeled boxes (not fabricated empty results). Model bytes remain
+excluded from the repository and are not needed by the **two new headless
+CTest checks**:
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'nanodet_decoder|cli_object_error_paths' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Expected **79/79 CTests** in each configuration; run clang-tidy, CI policy,
+photo provenance, and 16 Python quality tests as usual. Manual acceptance
+requires a separately obtained pinned NanoDet ONNX file: confirm the hash,
+run `--profile object --model ... --json -`, inspect class IDs and source-space
+boxes, verify the annotated export, then regression-test the classical
+profiles and recorded-video CLI/GUI. See `docs/M5_6_CLI_OBJECT.md`.
+
+## M5.6 — Locally installed ONNX and the M5.1 policy gate
+
+A verified, untracked `models/object_detection_nanodet_2022nov.onnx` may
+be present during GUI/CLI testing. The offline M5.1 policy now checks the
+exact SHA-256, its `.gitignore` status, and the Git index instead of rejecting
+all model files on disk. Any tracked model weights or unapproved/corrupted
+model artifacts remain a hard failure. A source archive containing weights
+without Git provenance fails closed. No weights are required for regular CI.
+
+```bash
+git check-ignore -v models/object_detection_nanodet_2022nov.onnx
+python3 scripts/check_model_selection.py --artifact models/object_detection_nanodet_2022nov.onnx
+ctest --test-dir build/presets/linux-release -R chromascope_model_selection_policy --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```

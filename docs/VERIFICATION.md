@@ -948,3 +948,28 @@ DNN/videoio configuration, run 98/98 Release, CLI Release and ASan/UBSan
 CTests, clang-tidy, 25 Python quality tests and policy/provenance checks;
 manually verify JSONL timing, GUI timing display, and a complete silent AVI
 export; require all six hosted GitHub Actions checks before merging #43.
+
+## M6.6 accepted / M6.7 untracked confidence-parity improvement — November 13, 2026
+
+The user confirmed **98/98 CTests** in GUI Release, CLI-only Release and
+ASan/UBSan, 25 Python quality checks, manually verified the GUI, JSONL and
+silent MJPEG/AVI output, and observed all six Debian/Ubuntu/Windows/quality
+GitHub Actions checks passing. M6.6 was merged before this M6.7 work.
+
+A source audit found that M5.8's conservative 0.50 default, COCO-80 labels,
+per-class overrides, and weak-candidate filtering were already used by
+recorded-video backend/CLI. M6.7 adds no model heuristic: it supplies missing
+interactive GUI score captions, in-workspace supported-class listing, editable
+weak diagnostic floor, frame-matched status/weak-candidate presentation, and
+bounded whole-recording diagnostic counts; encoded AVI exports report the same
+weak summaries. Confidence is not calibrated probability. Weak candidates are
+not classified unknown objects. The expected suite becomes **100 CTests** with
+two offline coverage additions; Python quality remains 25.
+
+**M6.7 native acceptance pending:** pin OpenCV 5.1.0 with DNN/videoio; run 100
+CTests in GUI Release, CLI-only Release and ASan/UBSan, clang-tidy, provenance
+and CI policy, and 25 Python quality tests. Manually confirm preview/AVI
+confidence captions, per-class override effects, uncertain-only versus no-
+evidence frames, cancellation/reset, and existing GUI/CLI regressions. Require
+all six hosted checks before merge. No official GitHub issue number is assigned
+for this supplemental milestone. See `docs/M6_7_VIDEO_CONFIDENCE.md`.

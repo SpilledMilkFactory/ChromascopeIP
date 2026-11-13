@@ -52,7 +52,7 @@ std::uint64_t AsyncRecordedVideoDetection::start(
     pending_ = Job{generation_, video, model, std::move(options), backend};
     results_.clear();
     progress_ = {VideoDetectionStage::Queued, generation_, 0, std::nullopt, 0,
-                 "Video detection queued; verifying model on background worker...", {}};
+                 "Video detection queued; verifying model on background worker...", {}, {}};
     condition_.notify_one();
     return generation_;
 }
@@ -63,7 +63,7 @@ void AsyncRecordedVideoDetection::cancel() noexcept {
     pending_.reset();
     results_.clear();
     progress_ = {VideoDetectionStage::Canceled, generation_, 0, std::nullopt, 0,
-                 "Video detection canceled; an in-flight frame may still finish privately.", {}};
+                 "Video detection canceled; an in-flight frame may still finish privately.", {}, {}};
     condition_.notify_one();
 }
 
@@ -140,6 +140,7 @@ void AsyncRecordedVideoDetection::process(const Job& job, std::stop_token token)
                 // Only publish timings for committed, current-generation frames.
                 progress_.performance.record(VideoTimingStage::Decode, decode_elapsed);
                 progress_.performance.record(VideoTimingStage::Inference, inference_elapsed);
+                progress_.confidence.record(owned->inference.summary);
                 results_[owned->frame_index] = std::move(owned);
                 while (results_.size() > kMaxCachedFrames) results_.erase(results_.begin());
                 progress_.processed_frames = frame_count + 1;

@@ -597,3 +597,19 @@ add_test(NAME chromascope_integration_video_stage_performance
         "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-6-stage-performance")
 set_tests_properties(chromascope_integration_video_stage_performance PROPERTIES
     LABELS "integration;regression;video;videoio;timing;performance;export;streaming" TIMEOUT 90)
+
+# M6.7 (pre-M7 quality enhancement): video presentation/diagnostic parity with
+# the existing M5.8 conservative confidence and per-class uncertainty policy.
+chromascope_add_cpp_test(chromascope_unit_video_confidence_presentation
+    unit/test_video_confidence_presentation.cpp
+    "unit;video;model;dnn;postprocessing;annotation;security;regression;negative" 25)
+add_executable(chromascope_integration_video_confidence_parity
+    integration/test_video_confidence_parity.cpp)
+target_link_libraries(chromascope_integration_video_confidence_parity PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_video_confidence_parity)
+target_include_directories(chromascope_integration_video_confidence_parity PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_video_confidence_parity
+    COMMAND chromascope_integration_video_confidence_parity
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-7-confidence-parity")
+set_tests_properties(chromascope_integration_video_confidence_parity PROPERTIES
+    LABELS "integration;video;videoio;model;dnn;postprocessing;annotation;security;regression" TIMEOUT 90)

@@ -2,6 +2,7 @@
 
 #include "chromascope/RecordedVideoAnalysis.hpp"
 #include "chromascope/VideoPerformance.hpp"
+#include "chromascope/VideoConfidenceDiagnostics.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -29,6 +30,7 @@ struct AnnotatedVideoExportSummary {
     std::uint64_t accepted_detections = 0;
     double output_fps = 0.0;
     VideoPerformanceMetrics performance;
+    VideoConfidenceDiagnostics confidence; // included only after a frame is written
 };
 
 // The supplied destination must not exist, must be .avi and must have a

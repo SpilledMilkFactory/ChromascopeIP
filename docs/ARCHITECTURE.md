@@ -250,3 +250,17 @@ separately per repaint. The AVI export worker sends status-mutex-protected
 timing snapshots for all four stages. Timings do not include model loading,
 GPU execution, encoder lifecycle or final filesystem publication.
 See `docs/M6_6_VIDEO_PERFORMANCE.md`.
+
+## M6.7 recorded-video M5.8 policy presentation
+
+No new detector or model was added. `RecordedVideoObjectDetector`, `AsyncRecordedVideoDetection`,
+streaming JSONL, and `AnnotatedVideoExport` retain the same M5.8 postprocessor.
+The GUI now calls the same `object_confidence_label` formatter as the AVI/still
+annotation bridge and shows per-frame `DnnPostprocessSummary` only for an exactly
+matched cached video frame. A fixed-size `VideoConfidenceDiagnostics` accumulator
+maintains processed-frame weak evidence for asynchronous GUI progress,
+successfully emitted JSONL analysis frames, and successful AVI writes. Cancellation or a new analysis generation resets it;
+cache eviction does not change previously recorded cumulative counts.
+`uncertainty_floor` influences weak candidate diagnostics only and never fabricates
+an unknown class, a box, or a second-best prediction. No audio, video timing,
+codec, or NanoDet model behavior changes. See `docs/M6_7_VIDEO_CONFIDENCE.md`.

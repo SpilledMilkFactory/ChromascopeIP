@@ -2,6 +2,7 @@
 
 #include "chromascope/RecordedVideoObjectDetection.hpp"
 #include "chromascope/VideoPerformance.hpp"
+#include "chromascope/VideoConfidenceDiagnostics.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -32,6 +33,7 @@ struct VideoDetectionProgress {
     std::size_t cached_frames = 0;
     std::string message = "No video detection job.";
     VideoPerformanceMetrics performance; // decode + inference only; no encoding
+    VideoConfidenceDiagnostics confidence; // accepted current-generation frames only
 };
 
 // A test seam: production constructs a SHA-256-verified CPU NanoDet network;

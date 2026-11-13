@@ -811,6 +811,8 @@ int run_analyze_video_command(Options options) {
         "\",\"decoded_frames\":" + std::to_string(summary.decoded_frames) +
         ",\"analyzed_frames\":" + std::to_string(summary.analyzed_frames) +
         ",\"accepted_detections\":" + std::to_string(summary.accepted_detections) +
+        ",\"weak_candidate_count\":" + std::to_string(summary.confidence.weak_candidates) +
+        ",\"uncertain_only_frames\":" + std::to_string(summary.confidence.uncertain_only_frames) +
         ",\"performance\":" + video_performance_json(summary.performance) + "}");
     return summary.reached_eof ? 0 : 2; // Explicitly report that the scan was truncated.
 }
@@ -836,6 +838,8 @@ int run_annotated_video_command(Options options) {
          .output_fps = options.output_fps, .show_labels = options.labels});
     std::cout << "Saved: " << options.output.string() << "\nFrames: " << summary.frames_written
               << "\nDetections: " << summary.accepted_detections
+              << "\nWeak candidates (not accepted): " << summary.confidence.weak_candidates
+              << "\nFrames with only weak candidates: " << summary.confidence.uncertain_only_frames
               << "\nCodec: MJPEG/AVI\nAudio: dropped (silent output)"
               << "\nTiming: constant-frame-rate " << summary.output_fps
               << " FPS (source VFR timing not preserved)\n"

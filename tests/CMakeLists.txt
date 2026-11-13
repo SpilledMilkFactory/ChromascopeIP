@@ -504,3 +504,23 @@ add_test(NAME chromascope_integration_async_recorded_detection
         "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-2-async-recorded")
 set_tests_properties(chromascope_integration_async_recorded_detection PROPERTIES
     LABELS "integration;async;video;model;dnn;gui-contract;negative;regression" TIMEOUT 60)
+
+# M6.3 (#40): bounded, sequential frame analysis with an immediate result sink.
+# Synthetic MJPEG media are created inside the CTest build tree; no ONNX weights.
+add_executable(chromascope_integration_recorded_video_analysis
+    integration/test_recorded_video_analysis.cpp)
+target_link_libraries(chromascope_integration_recorded_video_analysis PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_recorded_video_analysis)
+target_include_directories(chromascope_integration_recorded_video_analysis PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_recorded_video_analysis
+    COMMAND chromascope_integration_recorded_video_analysis
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-3-video-analysis")
+set_tests_properties(chromascope_integration_recorded_video_analysis PROPERTIES
+    LABELS "integration;video;model;dnn;cli;streaming;regression;negative" TIMEOUT 60)
+add_test(NAME chromascope_cli_video_jsonl_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-3-cli"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_jsonl.cmake")
+set_tests_properties(chromascope_cli_video_jsonl_contract PROPERTIES
+    LABELS "cli;video;model;streaming;security;negative;regression" TIMEOUT 60)

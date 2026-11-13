@@ -638,3 +638,28 @@ run **Analyze recording** using the pinned local NanoDet checkpoint, observe
 progress and matching overlays, test pause/seek/zoom/cancel, and confirm no
 stale boxes appear after opening a different video. See
 `docs/M6_2_ASYNC_VIDEO_GUI.md` for the cache and timing limitations.
+
+## M6.3 (#40) — Streaming video JSONL CLI acceptance
+
+Two headless tests bring the suite to **91 CTests** (25 Python quality tests
+unchanged). The recorded-video integration creates a deterministic MJPEG AVI in
+the build directory and tests ordering, frame steps, limit handling, per-frame
+identity, rejected malformed detector output, and sink error propagation without
+model weights. The separate CMake CLI test covers invalid argument combinations
+and safe failure without output artifacts.
+
+```sh
+ctest --test-dir build/presets/linux-release \
+  -R 'recorded_video_analysis|cli_video_jsonl_contract' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Then run the existing clang-tidy, CI/provenance and 25 Python tests. Manually
+run `--analyze-video` on a short local recording with pinned NanoDet weights;
+verify newline JSON parsing, original frame identity, timestamp provenance,
+per-class confidence, EOF summary and stdout-only JSONL mode. The two sample
+movies are developer-local, not Git-tracked fixtures. See `docs/M6_3_VIDEO_JSONL.md`.

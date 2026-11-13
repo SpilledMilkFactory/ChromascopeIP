@@ -578,3 +578,17 @@ results remain cached; earlier frames can have no overlay after eviction.
 The model must be installed locally and match the pinned SHA-256; video/person
 tracking and accuracy tuning are not introduced here. See
 [`docs/M6_2_ASYNC_VIDEO_GUI.md`](docs/M6_2_ASYNC_VIDEO_GUI.md).
+
+### M6.3 — Sequential CLI recorded-video analysis and JSONL streaming
+
+Use `chromascope-cli --analyze-video --input VIDEO --profile object --model
+models/object_detection_nanodet_2022nov.onnx --jsonl results.jsonl` to run
+one verified CPU NanoDet network across a recording. The CLI emits streaming,
+newline-delimited start, per-frame and end records; each detection retains its
+original frame index, media timestamp/provenance and M5.8 confidence policy.
+`--frame-step N` samples one in N decoded frames; `--max-video-frames N` limits
+decoded work to at most 100000 frames. An incomplete cap returns status 2 and
+`complete:false`; an interrupted stream lacks a successful end record.
+There is no in-memory video-result cache or annotated-video export in this CLI
+operation. The existing single-frame and GUI commands are unchanged. See
+[`docs/M6_3_VIDEO_JSONL.md`](docs/M6_3_VIDEO_JSONL.md).

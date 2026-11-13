@@ -465,3 +465,26 @@ add_test(NAME chromascope_cli_object_confidence_contract COMMAND "${CMAKE_COMMAN
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_object_confidence.cmake")
 set_tests_properties(chromascope_cli_object_confidence_contract PROPERTIES
     LABELS "cli;model;dnn;postprocessing;negative;regression" TIMEOUT 90)
+
+# M6.1 (#38): identical still/video NanoDet postprocessing, owned per-frame
+# identity/timing, and explicit single-frame CLI command (no model weights).
+chromascope_add_cpp_test(chromascope_unit_recorded_object_policy
+    unit/test_recorded_object_policy.cpp
+    "unit;model;dnn;video;postprocessing;negative;regression" 40)
+add_executable(chromascope_integration_recorded_object_frames
+    integration/test_recorded_object_frames.cpp)
+target_link_libraries(chromascope_integration_recorded_object_frames PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_recorded_object_frames)
+target_include_directories(chromascope_integration_recorded_object_frames PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_recorded_object_frames
+    COMMAND chromascope_integration_recorded_object_frames
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-1-recorded-objects")
+set_tests_properties(chromascope_integration_recorded_object_frames PROPERTIES
+    LABELS "integration;model;dnn;video;fixtures;timing;postprocessing;regression" TIMEOUT 60)
+add_test(NAME chromascope_cli_video_object_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-1-cli"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_object.cmake")
+set_tests_properties(chromascope_cli_video_object_contract PROPERTIES
+    LABELS "cli;video;model;dnn;negative;security;regression" TIMEOUT 60)

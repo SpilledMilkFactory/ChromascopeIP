@@ -591,3 +591,25 @@ For the optional locally installed, pinned ONNX model, manually confirm
 summary, confidence-bearing annotated labels, and zero accepted predictions
 for the historic weak-kite Skittles example at the conservative default.
 The sample images remain subject to their existing provenance policy.
+
+## M6.1 — Recorded-video object-detection acceptance (#38)
+
+Three new independent, headless CTests (expected total **87**) validate shared
+still/video NanoDet processing, video frame indices and presentation timestamps,
+synthetic MJPEG frame decoding, M5.8 confidence filtering, and CLI rejection
+paths. No model download is needed for the registered tests.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'recorded_object_policy|recorded_object_frames|cli_video_object_contract' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Manually test `chromascope-cli --input /path/to/video.avi --detect-video-frame 0
+--profile object --model models/object_detection_nanodet_2022nov.onnx --json -`
+with the locally verified checkpoint and a recorded clip. See
+`docs/M6_1_RECORDED_OBJECT_DETECTION.md` for output safety, timestamp policy,
+and the explicitly deferred GUI/video scheduling scope.

@@ -111,6 +111,12 @@ rejected(profile_mix "cannot use still-image" --input "${_movie}" --video-probe
     --profile skittles)
 rejected(profile_option_mix "cannot use still-image" --input "${_movie}" --video-probe
     --set kernel_size=5)
+# M6.1 preserves the M4.5 still-image error contract while rejecting the new
+# object-only options for legacy video probe/extraction operations.
+rejected(extract_profile_mix "cannot use still-image" --input "${_movie}"
+    --extract-frame 0 --profile skittles --output "${_missing}")
+rejected(object_profile_mix "object-profile options" --input "${_movie}"
+    --video-probe --profile object --model "${_dest}/absent.onnx")
 rejected(probe_output "does not accept --output" --input "${_movie}" --video-probe
     --output "${_missing}")
 set(_input_hardlink "${_dest}/video-hardlink.png")

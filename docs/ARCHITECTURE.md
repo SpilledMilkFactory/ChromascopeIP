@@ -176,3 +176,14 @@ header boundary. Model-specific normalization, NanoDet outputs to
 integration layers, not implicit behavior of the adapter. Model weights are
 never automatically downloaded or committed; M5.1 SHA-256 verification remains
 the caller's trust prerequisite.
+
+### M6.1 recorded-video inference boundary
+
+`VideoSource` owns recorded-video decoding and frame time/index identity.
+`RecordedVideoObjectDetector` owns a SHA-256-verified NanoDet CPU network; it
+consumes a caller-owned `VideoFramePacket` and invokes the same
+`ObjectFrameInference` pipeline used by still-image CLI detection. Output is an
+owned `DetectionResult` with source-frame coordinates plus the original video
+frame index and timestamp provenance. Decode, preprocessing and model inference
+are synchronous in this milestone and MUST be scheduled off the GUI thread when
+continuous video analysis is added later. See `docs/M6_1_RECORDED_OBJECT_DETECTION.md`.

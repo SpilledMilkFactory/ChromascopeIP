@@ -56,6 +56,8 @@ add_library(chromascope_core STATIC
     src/core/NanoDetDecoder.cpp
     src/core/DnnModelSha256.cpp
     src/core/DnnGuiSession.cpp
+    src/core/ObjectFrameInference.cpp
+    src/core/RecordedVideoObjectDetection.cpp
 )
 find_package(Threads REQUIRED)
 add_library(ChromascopeIP::Core ALIAS chromascope_core)

@@ -592,3 +592,16 @@ decoded work to at most 100000 frames. An incomplete cap returns status 2 and
 There is no in-memory video-result cache or annotated-video export in this CLI
 operation. The existing single-frame and GUI commands are unchanged. See
 [`docs/M6_3_VIDEO_JSONL.md`](docs/M6_3_VIDEO_JSONL.md).
+
+### M6.4 (#41) — Silent annotated-video export (pending native acceptance)
+
+Recordings can be exported through the GUI's **Export annotated AVI** control
+or via `chromascope-cli --export-annotated-video`. Export deliberately supports
+**MJPEG/AVI only**, with **source audio discarded**. The CLI requires explicit
+`--video-codec mjpeg --audio-policy drop` and `--output FILE.avi`; GUI export
+requires an audio-drop acknowledgement. Output is constant frame rate (CFR),
+not source VFR timestamps. For a video with unavailable nominal FPS, specify
+`--output-fps 25` or enable the GUI override. Detection and video encoding run
+off the GUI thread; export uses a private temporary AVI and publishes only
+on successful EOF. No pre-existing file is overwritten. See
+[the M6.4 video export contract](docs/M6_4_ANNOTATED_VIDEO_EXPORT.md).

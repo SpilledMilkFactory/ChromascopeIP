@@ -210,3 +210,16 @@ of the M6.2 GUI cache/worker. A decoded-frame cap limits untrusted recordings;
 frame-step selection preserves source indexes and media timestamp provenance.
 The end marker explicitly distinguishes true decoder EOF from a cap; errors
 produce nonzero exit status without a success marker. See `docs/M6_3_VIDEO_JSONL.md`.
+
+## M6.4 video-only export
+
+`export_annotated_video` reads `VideoSource` sequentially, asks the shared
+`RecordedFrameDetector` to analyze each owned decoded frame, verifies the
+result's frame index, dimensions and timestamp provenance, and uses the same
+annotation renderer as still-image object exports. `cv::VideoWriter` then
+encodes each annotated frame as MJPEG/AVI, at a declared constant FPS. Audio
+is never accessed or remultiplexed. A private staging directory plus
+no-overwrite publish separates completed videos from interrupted runs. The GUI
+uses a cooperative `std::jthread` with progress and cancellation; the CLI
+uses the synchronous path. No tracking, audio preservation, H.264, MP4,
+VFR retiming, video/audio synchronization, or frame sampling are claimed.

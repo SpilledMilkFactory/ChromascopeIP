@@ -879,3 +879,25 @@ behavior changes are included in this milestone.
 all 91 CTests in Release/CLI-only/ASan-UBSan, static analysis, 25 Python quality
 tests, policy/provenance, real-model stdout/file JSONL verification, existing
 GUI/video/Skittles regressions, and all six hosted Linux/Windows CI checks.
+
+## M6.3 accepted / M6.4 (#41) pending — November 13, 2026
+
+M6.3 was accepted after **91/91 CTests** passed in GUI Release, CLI-only
+Release, and ASan/UBSan, 25 Python quality tests passed, and all six GitHub
+Actions jobs succeeded. The user verified full 270- and 330-frame recordings
+and JSONL frame-step outputs (including expected exit code 2 on hard limits).
+M6.3 was merged before starting M6.4.
+
+M6.4 introduces explicit MJPEG/AVI-only annotated exports and required
+source-audio-drop acknowledgment. One frame is decoded, detected, annotated,
+and encoded at a time; CFR output cannot preserve original VFR timing. An
+atomic no-overwrite publish occurs only after confirmed EOF and writer closure.
+A GUI jthread provides progress and cancellation, but OpenCV `forward()`
+remains uninterruptible until return. New synthetic and CLI-negative CTests
+bring the **expected test total to 93**; Python quality remains 25. No model
+weights or user-supplied video files are committed in this milestone.
+
+**M6.4 is pending native acceptance.** Run OpenCV 5.1.0 GUI Release,
+CLI-only Release, ASan/UBSan (93/93), clang-tidy, provenance/CI policy,
+25 Python quality checks, real-model silent AVI creation and replay, GUI
+cancellation/output cleanup, and all six hosted CI jobs before merging #41.

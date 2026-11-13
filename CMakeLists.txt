@@ -59,6 +59,7 @@ add_library(chromascope_core STATIC
     src/core/ObjectFrameInference.cpp
     src/core/RecordedVideoObjectDetection.cpp
     src/core/RecordedVideoAnalysis.cpp
+    src/core/AnnotatedVideoExport.cpp
     src/core/AsyncRecordedVideoDetection.cpp
 )
 find_package(Threads REQUIRED)

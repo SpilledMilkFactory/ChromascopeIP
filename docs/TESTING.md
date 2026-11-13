@@ -663,3 +663,28 @@ run `--analyze-video` on a short local recording with pinned NanoDet weights;
 verify newline JSON parsing, original frame identity, timestamp provenance,
 per-class confidence, EOF summary and stdout-only JSONL mode. The two sample
 movies are developer-local, not Git-tracked fixtures. See `docs/M6_3_VIDEO_JSONL.md`.
+
+## M6.4 (#41) — Annotated-video export and audio/codec safety
+
+The expected CTest count increases from **91 to 93**. Run the two new tests:
+
+```bash
+ctest --test-dir build/presets/linux-release -R 'annotated_video_export' --output-on-failure
+```
+
+`chromascope_integration_annotated_video_export` generates a six-frame
+MJPEG/AVI, applies deterministic synthetic NanoDet heads, exports an annotated
+AVI, and decodes the result to verify frame index/count and dimensions. It
+checks invalid codec/container output, existing destinations, invalid FPS,
+frame limits, cancellation, detector failures, and that none publish partial
+videos. `chromascope_cli_annotated_video_export_contract` runs without an ONNX
+weight and checks explicit codec/audio flags, conflicting commands, invalid
+FPS, and unsafe output conditions. Execute the full Release/CLI/Sanitizer
+suites, clang-tidy, Python quality tests and provenance checks as usual.
+
+For a real video, run `--export-annotated-video --input samples/FrenchHorn.mp4
+--profile object --model models/object_detection_nanodet_2022nov.onnx
+--output-dir build/m6-4-export --output annotated.avi --video-codec mjpeg
+--audio-policy drop`, inspect the output visually and verify that it has no
+audio stream. Note that MJPEG is lossy and output FPS is constant even if the
+source is VFR. Do not bundle third-party recordings or checkpoint weights.

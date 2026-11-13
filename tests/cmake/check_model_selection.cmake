@@ -72,8 +72,11 @@ if(EXISTS "${_git_dir}")
     if(NOT _git_executable)
         message(FATAL_ERROR "M5.1 policy cannot verify Git-tracked model files: git missing")
     endif()
+    # Debian containers can run as root against a checkout owned by the host.
+    # Trust this exact checkout for this command only, not every directory.
     execute_process(
-        COMMAND "${_git_executable}" -C "${CHROMASCOPE_SOURCE_ROOT}" ls-files --cached -- models
+        COMMAND "${_git_executable}" -c "safe.directory=${CHROMASCOPE_SOURCE_ROOT}"
+            -C "${CHROMASCOPE_SOURCE_ROOT}" ls-files --cached -- models
         RESULT_VARIABLE _git_result OUTPUT_VARIABLE _tracked_files ERROR_VARIABLE _git_error)
     if(NOT _git_result EQUAL 0)
         message(FATAL_ERROR "M5.1 cannot inspect Git-tracked model files: ${_git_error}")
@@ -92,7 +95,8 @@ foreach(_weight IN LISTS _weights)
         message(FATAL_ERROR "M5.1 unapproved local model artifact: ${_weight}")
     endif()
     execute_process(
-        COMMAND "${_git_executable}" -C "${CHROMASCOPE_SOURCE_ROOT}" check-ignore --quiet --
+        COMMAND "${_git_executable}" -c "safe.directory=${CHROMASCOPE_SOURCE_ROOT}"
+            -C "${CHROMASCOPE_SOURCE_ROOT}" check-ignore --quiet --
             models/object_detection_nanodet_2022nov.onnx
         RESULT_VARIABLE _ignored_result)
     if(NOT _ignored_result EQUAL 0)

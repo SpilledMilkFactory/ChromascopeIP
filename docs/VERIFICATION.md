@@ -736,3 +736,24 @@ corrected to distinguish untracked, SHA-256-verified developer model files
 from Git-tracked or source-archived weights. Model binaries are still excluded
 from commits and release artifacts. The full 79-test suite and six hosted
 GitHub Actions checks remain outstanding for the corrected revision.
+
+
+### M5.6 — Native CLI output ordering and Debian Git ownership correction
+
+The user reported all 79 CTests and 20 Python quality tests passing locally,
+while the verified NanoDet CLI failed before export with
+`Unexpected NanoDet score/distribution tensor shape`. The M5.5 GUI and actual
+model showed that OpenCV 5.1.0 exposes three score tensors followed by three
+distribution tensors; the original decoder wrongly expected alternating pairs.
+The corrected decoder identifies heads by validated anchor and channel counts
+and tests grouped and interleaved ordering, malformed or duplicated heads, and
+stride-64 optional heads. Additionally, Debian 12/13 CI CTest #69 failed
+with `fatal: detected dubious ownership`, because the model policy invoked Git
+inside a checkout owned by a different UID. CMake and Python model-policy Git
+queries now use command-scoped trust for the precise checkout path, retaining
+strict weight tracking, ignore, and checksum checks.
+
+Final verification remains pending: native actual-model CLI JSON/image exports,
+79/79 tests in all local configurations, 21/21 Python quality tests, and all
+six hosted CI checks on the final PR revision. No pretrained weights or
+new dependencies are part of this correction.

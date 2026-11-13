@@ -51,15 +51,44 @@ std::vector<DnnBoxCandidate> decode_nanodet_outputs(
     if (outputs.size() != 6 && outputs.size() != 8)
         throw std::invalid_argument("NanoDet requires 3 or 4 score/box tensor pairs");
 
-    // Validate every tensor before generating any candidates.
-    for (std::size_t level = 0; level < outputs.size() / 2; ++level) {
+    // OpenCV 5.1.0 can return heads grouped by type (all scores, then all
+    // distributions). Other graph engines may interleave score/box pairs.
+    // Match the exact model's tensors by stride-dependent anchor count and
+    // channel count, not by the order returned by the DNN backend.
+    const auto levels = outputs.size() / 2;
+    std::array<const DnnTensor*, kStrides.size()> scores{};
+    std::array<const DnnTensor*, kStrides.size()> distributions{};
+    for (const auto& tensor : outputs) {
+        if (tensor.shape.size() != 3 || tensor.shape[0] != 1)
+            throw std::invalid_argument("Unexpected NanoDet score/distribution tensor shape");
+        const int channels = tensor.shape[2];
+        if (channels != kNanoDetClassCount && channels != kRegChannels)
+            throw std::invalid_argument("Unexpected NanoDet score/distribution tensor shape");
+        bool matched = false;
+        for (std::size_t level = 0; level < levels; ++level) {
+            const int cells = kInputSize / kStrides[level];
+            const int anchors = cells * cells;
+            if (tensor.shape[1] != anchors) continue;
+            check_tensor(tensor, anchors, channels);
+            auto& slot = channels == kNanoDetClassCount
+                             ? scores[level] : distributions[level];
+            if (slot != nullptr)
+                throw std::invalid_argument("Duplicate NanoDet tensor for pyramid level");
+            slot = &tensor;
+            matched = true;
+            break;
+        }
+        if (!matched)
+            throw std::invalid_argument("Unexpected NanoDet score/distribution tensor shape");
+    }
+    for (std::size_t level = 0; level < levels; ++level) {
+        if (scores[level] == nullptr || distributions[level] == nullptr)
+            throw std::invalid_argument("Missing NanoDet score/distribution tensor pair");
         const int cells = kInputSize / kStrides[level];
         const int anchors = cells * cells;
-        check_tensor(outputs[level * 2], anchors, kNanoDetClassCount);
-        check_tensor(outputs[level * 2 + 1], anchors, kRegChannels);
         for (int idx = 0; idx < anchors; ++idx) {
             for (int cls = 0; cls < kNanoDetClassCount; ++cls) {
-                const float score = outputs[level * 2].values[
+                const float score = scores[level]->values[
                     static_cast<std::size_t>(idx) * kNanoDetClassCount +
                     static_cast<std::size_t>(cls)];
                 if (score < 0.0F || score > 1.0F)
@@ -70,24 +99,24 @@ std::vector<DnnBoxCandidate> decode_nanodet_outputs(
 
     std::vector<DnnBoxCandidate> candidates;
     candidates.reserve(3590);
-    for (std::size_t level = 0; level < outputs.size() / 2; ++level) {
+    for (std::size_t level = 0; level < levels; ++level) {
         const int stride = kStrides[level];
         const int cells = kInputSize / stride;
-        const auto& scores = outputs[level * 2].values;
-        const auto& distributions = outputs[level * 2 + 1].values;
+        const auto& level_scores = scores[level]->values;
+        const auto& level_distributions = distributions[level]->values;
         for (int y = 0; y < cells; ++y) {
             for (int x = 0; x < cells; ++x) {
                 const std::size_t idx = static_cast<std::size_t>(y) *
                                         static_cast<std::size_t>(cells) +
                                         static_cast<std::size_t>(x);
-                const float* cls_scores = scores.data() + idx * kNanoDetClassCount;
+                const float* cls_scores = level_scores.data() + idx * kNanoDetClassCount;
                 int best_class = 0;
                 for (int cls = 1; cls < kNanoDetClassCount; ++cls)
                     if (cls_scores[cls] > cls_scores[best_class]) best_class = cls;
                 const double confidence = cls_scores[best_class];
                 if (confidence < confidence_threshold) continue;
 
-                const float* logits = distributions.data() + idx * kRegChannels;
+                const float* logits = level_distributions.data() + idx * kRegChannels;
                 std::array<double, kSides> distances{};
                 for (int side = 0; side < kSides; ++side)
                     distances[static_cast<std::size_t>(side)] =

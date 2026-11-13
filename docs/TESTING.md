@@ -531,3 +531,17 @@ python3 scripts/check_model_selection.py --artifact models/object_detection_nano
 ctest --test-dir build/presets/linux-release -R chromascope_model_selection_policy --output-on-failure
 python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
 ```
+
+
+### M5.6 native NanoDet/CI correction verification
+
+The actual pinned OpenCV 5.1.0 model enumerates all 80-class score heads,
+then all 32-value box heads. The NanoDet decoder now matches heads by their
+stride/shape (also accepting interleaved heads) before postprocessing.
+Verify `chromascope_unit_nanodet_decoder` and execute the full CLI commands
+from `docs/M5_6_CLI_OBJECT.md` with the local checksum-verified model; both
+JSON stdout and annotated image/file export must succeed. In Debian containers,
+CTest #69 uses an exact-path, command-scoped Git `safe.directory` setting
+for the checkout to avoid the root/host ownership mismatch without allowing
+untracked or unverified model binaries into release artifacts. Re-run all
+79 CTests and the 21-test Python quality suite.

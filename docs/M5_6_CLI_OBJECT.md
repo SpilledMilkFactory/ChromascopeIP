@@ -11,7 +11,9 @@ CLI. No model is automatically trusted based only on a filename.
 
 The M5.6 decoder accepts exactly the observed [1,N,80] class-score and
 [1,N,32] distribution-focal-loss output pairs, with strides 8,16,32
-(and optionally 64). Each pyramid anchor contributes its highest-scoring
+(and optionally 64). Heads are matched by validated shape and stride, not
+OpenCV output enumeration order; the pinned 5.1.0 model reports three score
+heads followed by three box heads, while interleaved output also works. Each pyramid anchor contributes its highest-scoring
 class (ties choose the lower class ID), and the eight-value softmax projection
 for each of the four distances uses `reg_max=7`. Anchors follow OpenCV Zoo's
 `(x*stride + (stride-1)/2, y*stride + (stride-1)/2)` convention.
@@ -106,3 +108,23 @@ validate annotation/JSON consistency and classical GUI/video regressions.
 All six GitHub Actions must pass on the final commit. The successful model
 inference path is manually verified with the pinned ONNX, which is deliberately
 not distributed as a test fixture in the repository.
+
+## M5.6 native acceptance corrections
+
+The real OpenCV 5.1.0 model exposes six outputs in grouped order: `[1,2704,80]`,
+`[1,676,80]`, `[1,169,80]`, `[1,2704,32]`, `[1,676,32]`,
+`[1,169,32]`. The original M5.6 decoder assumed alternating score and
+distribution tensors and rejected valid model inference before exporting.
+OpenCV 4.13 can instead enumerate the same model outputs as alternating
+score/distribution heads. The correction matches both orders by shape, rejects
+duplicates and missing heads, and retains full validation and filtering.
+
+Debian 12/13 CTest #69 failed because a root-runner could not inspect a
+workspace owned by another user (`fatal: detected dubious ownership`).
+The model policy now passes Git a command-local `safe.directory` value for
+the exact source checkout, preserving tracked-weight detection and
+no-bundling restrictions without disabling the safety check globally.
+
+Acceptance requires real native `--profile object` inference and JSON/image
+exports, plus all 79 CTests, 21 Python quality tests, and the six hosted CI
+jobs. The actual model stays ignored and is never shipped in source control.

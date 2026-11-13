@@ -74,7 +74,8 @@ def validate_local_weights(repo_root, expected_sha256=EXPECTED_SHA256):
 
     def git(*args):
         try:
-            return subprocess.run(["git", "-C", str(root), *args],
+            return subprocess.run(["git", "-c", f"safe.directory={root.resolve()}",
+                                   "-C", str(root), *args],
                                   capture_output=True, text=True, check=False)
         except OSError as exc:
             errors.append(f"cannot verify Git model policy: {exc}")

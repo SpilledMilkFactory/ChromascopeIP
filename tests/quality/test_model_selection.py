@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/check_model_selection.py"
@@ -43,6 +44,24 @@ class ModelSelectionPolicyTests(unittest.TestCase):
             self.assertIsNotNone(model.verify_artifact(path))
             path.write_bytes(b"not the approved ONNX checkpoint")
             self.assertIn("SHA-256 mismatch", model.verify_artifact(path))
+
+    def test_git_queries_trust_only_explicit_repository_path(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".git").mkdir()
+            (root / "models").mkdir()
+            calls = []
+
+            def fake_run(command, **kwargs):
+                calls.append(command)
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+            with patch.object(model.subprocess, "run", side_effect=fake_run):
+                self.assertEqual([], model.validate_local_weights(root))
+            self.assertEqual(1, len(calls))
+            self.assertEqual(
+                ["git", "-c", f"safe.directory={root.resolve()}", "-C", str(root),
+                 "ls-files", "--cached", "--", "models"], calls[0])
 
     @unittest.skipUnless(shutil.which("git"), "requires Git to check repository index")
     def test_ignored_pinned_local_model_allowed(self):

@@ -237,3 +237,16 @@ exact timestamps/provenance, weak-candidate gating, source-specific overlay
 invalidation, frame-step/EOF distinction, frame-specific encoded annotation
 pixels, CFR FPS override, and no published artifacts on failed exports.
 See `docs/M6_5_VIDEO_REGRESSIONS.md`.
+
+## M6.6 stage-level video timing
+
+`VideoPerformanceMetrics` records fixed-size per-stage totals, means and sample
+counts using steady wall time without storing per-frame histories. Streaming
+analysis measures decoder and detector calls, with per-selected-frame timing
+in JSONL; export independently times decoding, inference, annotation raster
+and `VideoWriter::write`. GUI analysis exposes only successfully published
+generation-specific frame timings and records GUI draw-list CPU overlay costs
+separately per repaint. The AVI export worker sends status-mutex-protected
+timing snapshots for all four stages. Timings do not include model loading,
+GPU execution, encoder lifecycle or final filesystem publication.
+See `docs/M6_6_VIDEO_PERFORMANCE.md`.

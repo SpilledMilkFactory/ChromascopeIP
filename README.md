@@ -617,3 +617,17 @@ synthetic NanoDet tensors or owned detections; they do **not** bundle ONNX
 weights, outside footage, or media copied from the user's workspace. The
 expected suite increases to **96 CTests** (Python quality remains 25). See
 [`docs/M6_5_VIDEO_REGRESSIONS.md`](docs/M6_5_VIDEO_REGRESSIONS.md).
+
+### M6.6 (#43) — Independent video-stage performance measurements
+
+Recorded-video analysis measures CPU wall-clock **decode** and **inference**
+separately; JSONL frame records include additive `timing_ms`, and the end
+record adds bounded aggregate `performance` counters. Silent MJPEG/AVI export
+measures **decode, inference, overlay construction/rasterization, and encode**
+separately. The GUI shows background-analysis timing, CPU overlay draw-list
+submission timing (per repaint, not per unique frame), and AVI export timing.
+Unmeasured stages are explicitly absent/null, not fabricated zero-cost work.
+Model loading, output publication, GPU execution and source presentation
+timestamps are not included in these measurements. Two additional headless
+CTests raise the expected suite to **98** (Python quality stays at 25).
+See [`docs/M6_6_VIDEO_PERFORMANCE.md`](docs/M6_6_VIDEO_PERFORMANCE.md).

@@ -52,7 +52,7 @@ std::uint64_t AsyncRecordedVideoDetection::start(
     pending_ = Job{generation_, video, model, std::move(options), backend};
     results_.clear();
     progress_ = {VideoDetectionStage::Queued, generation_, 0, std::nullopt, 0,
-                 "Video detection queued; verifying model on background worker..."};
+                 "Video detection queued; verifying model on background worker...", {}};
     condition_.notify_one();
     return generation_;
 }
@@ -63,7 +63,7 @@ void AsyncRecordedVideoDetection::cancel() noexcept {
     pending_.reset();
     results_.clear();
     progress_ = {VideoDetectionStage::Canceled, generation_, 0, std::nullopt, 0,
-                 "Video detection canceled; an in-flight frame may still finish privately."};
+                 "Video detection canceled; an in-flight frame may still finish privately.", {}};
     condition_.notify_one();
 }
 
@@ -121,18 +121,25 @@ void AsyncRecordedVideoDetection::process(const Job& job, std::stop_token token)
         for (std::uint64_t frame_count = 0; current(job.generation, token); ++frame_count) {
             if (frame_count >= kMaxProcessedFrames)
                 throw std::runtime_error("Video detection exceeded the 100000-frame safety limit");
+            const auto decode_start = std::chrono::steady_clock::now();
             auto read = source.read_next();
+            const auto decode_elapsed = std::chrono::steady_clock::now() - decode_start;
             if (!current(job.generation, token)) return;
             if (read.status == VideoReadStatus::EndOfStream) break;
             if (!read.frame)
                 throw std::runtime_error("Decoder returned an empty frame");
+            const auto inference_start = std::chrono::steady_clock::now();
             auto output = detector(*read.frame);
+            const auto inference_elapsed = std::chrono::steady_clock::now() - inference_start;
             if (!same_frame(output, *read.frame))
                 throw std::runtime_error("Detector returned a mismatched video frame identity");
             auto owned = std::make_shared<const RecordedVideoObjectDetection>(std::move(output));
             {
                 std::lock_guard lock(mutex_);
                 if (job.generation != generation_) return;
+                // Only publish timings for committed, current-generation frames.
+                progress_.performance.record(VideoTimingStage::Decode, decode_elapsed);
+                progress_.performance.record(VideoTimingStage::Inference, inference_elapsed);
                 results_[owned->frame_index] = std::move(owned);
                 while (results_.size() > kMaxCachedFrames) results_.erase(results_.begin());
                 progress_.processed_frames = frame_count + 1;

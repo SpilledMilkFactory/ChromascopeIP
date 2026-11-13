@@ -581,3 +581,19 @@ add_test(NAME chromascope_regression_recorded_video_export_pixels
         "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-5-export-pixels")
 set_tests_properties(chromascope_regression_recorded_video_export_pixels PROPERTIES
     LABELS "regression;integration;video;videoio;export;annotation;security;negative" TIMEOUT 90)
+
+# M6.6 (#43): stage-level wall-clock measurements across streaming analysis
+# and annotated-video export. Synthetic AVI only, no pretrained ONNX weights.
+chromascope_add_cpp_test(chromascope_unit_video_performance
+    unit/test_video_performance.cpp
+    "unit;core;video;timing;performance;regression;negative" 20)
+add_executable(chromascope_integration_video_stage_performance
+    integration/test_video_stage_performance.cpp)
+target_link_libraries(chromascope_integration_video_stage_performance PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_video_stage_performance)
+target_include_directories(chromascope_integration_video_stage_performance PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_video_stage_performance
+    COMMAND chromascope_integration_video_stage_performance
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-6-stage-performance")
+set_tests_properties(chromascope_integration_video_stage_performance PROPERTIES
+    LABELS "integration;regression;video;videoio;timing;performance;export;streaming" TIMEOUT 90)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "chromascope/RecordedVideoAnalysis.hpp"
+#include "chromascope/VideoPerformance.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -18,12 +19,16 @@ struct AnnotatedVideoExportOptions {
     bool show_labels = true;
     std::function<bool()> canceled{}; // Checked between decoded frames and before publish.
     std::function<void(std::uint64_t)> progress{}; // After a frame is handed to the writer.
+    // Optional bounded-size snapshot; invoked after each successfully written
+    // frame. All callbacks run on the calling/export thread.
+    std::function<void(const VideoPerformanceMetrics&)> timing_progress{};
 };
 
 struct AnnotatedVideoExportSummary {
     std::uint64_t frames_written = 0;
     std::uint64_t accepted_detections = 0;
     double output_fps = 0.0;
+    VideoPerformanceMetrics performance;
 };
 
 // The supplied destination must not exist, must be .avi and must have a

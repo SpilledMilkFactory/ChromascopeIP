@@ -725,3 +725,26 @@ After the tests, run clang-tidy, repository policy/provenance checks and the
 ChromascopeIP, and optionally inspect its audio/codec with `ffprobe` (not a
 portable mandatory CI dependency). All six GitHub Actions checks must pass
 before accepting issue #42. See `docs/M6_5_VIDEO_REGRESSIONS.md`.
+
+## M6.6 (#43) — Stage-level recorded-video performance tests
+
+Two offline CTests raise the expected suite to **98**; Python quality remains
+**25**. No ONNX weights or sample media are committed:
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'unit_video_performance|integration_video_stage_performance' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+The unit test checks counters and invalid durations. The synthetic MJPEG
+integration test verifies 6 decoded versus 3 inferred frames under
+`--frame-step 2`, and then 6 samples for each of the four export stages.
+No timing thresholds are imposed: absolute durations depend on OS and host.
+Manually inspect the JSONL frame/end timing fields, GUI mean decode/inference
+and overlay submission, and successful AVI export timing. See
+`docs/M6_6_VIDEO_PERFORMANCE.md`.

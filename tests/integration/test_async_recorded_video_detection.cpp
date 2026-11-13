@@ -82,6 +82,11 @@ void run(const std::filesystem::path& directory) {
     const auto status = job.snapshot();
     check(status.processed_frames == 8, "wrong processed count");
     check(status.cached_frames == 8, "wrong cached frame count");
+    check(status.performance.decode.samples == 8 &&
+          status.performance.inference.samples == 8 &&
+          !status.performance.overlay.measured() &&
+          !status.performance.encode.measured(),
+          "GUI analysis timing must count only committed decode/inference frames");
     check(status.reported_total_frames && *status.reported_total_frames == 8,
           "expected stream total missing");
     auto source = VideoSource::open(movie.file, VideoBackend::OpenCVMJPEG);
@@ -115,6 +120,9 @@ void run(const std::filesystem::path& directory) {
     job.cancel();
     check(job.snapshot().stage == VideoDetectionStage::Canceled,
           "cancel did not update progress immediately");
+    check(!job.snapshot().performance.decode.measured() &&
+          !job.snapshot().performance.inference.measured(),
+          "Cancellation retained timing from an earlier generation");
     check(!job.overlay_for(*zero.frame), "canceled overlay remained visible");
     hold = false;
     std::this_thread::sleep_for(50ms);
@@ -146,6 +154,9 @@ void run(const std::filesystem::path& directory) {
     check(long_status.processed_frames == 268, "long video did not finish");
     check(long_status.cached_frames == AsyncRecordedVideoDetection::kMaxCachedFrames,
           "long video exceeded its bounded result cache");
+    check(long_status.performance.decode.samples == 268 &&
+          long_status.performance.inference.samples == 268,
+          "Stage timing counts must survive cache eviction without accumulating frames");
     check(!job.overlay_for(*zero.frame), "old result survived cache/source replacement");
     auto last_source = VideoSource::open(long_movie.file, VideoBackend::OpenCVMJPEG);
     VideoReadResult last{};

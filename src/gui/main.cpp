@@ -10,6 +10,7 @@
 #include "chromascope/ImageViewport.hpp"
 #include "chromascope/VideoPlayer.hpp"
 #include "chromascope/DnnGuiSession.hpp"
+#include "chromascope/DnnPostprocessing.hpp"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -111,6 +112,9 @@ struct App {
     int detector_profile = 0; // 0 = disabled; 1 = NanoDet raw CPU diagnostics
     chromascope::DnnGuiSession detector_session;
     chromascope::DnnGuiOptions detector_options;
+    // These remain preview settings until a decoded-object GUI path exists.
+    int detector_selected_class = 0;
+    std::array<std::optional<float>, chromascope::kNanoDetClassCount> detector_class_overrides{};
     bool picker_video = false;
     bool picker_model = false;
     Texture original_texture, processed_texture;
@@ -506,7 +510,7 @@ struct App {
 
     void draw_detector_controls() {
         ImGui::Separator();
-        ImGui::TextUnformatted("OBJECT DETECTION (M5.5)");
+        ImGui::TextUnformatted("OBJECT DETECTION (M5.8 confidence controls)");
         if (ImGui::Combo("Detector profile", &detector_profile,
                          "Disabled (classical profiles)\0NanoDet COCO-80 / CPU\0")) {
             detector_session.unload();
@@ -534,6 +538,13 @@ struct App {
         ImGui::TextWrapped("Model status: %s", state.message.empty()
                            ? "Not loaded / unverified" : state.message.c_str());
         ImGui::TextDisabled("Only the M5.1 pinned SHA-256 is trusted. CPU backend only.");
+        ImGui::TextWrapped("Only COCO-80 classes are supported. Unfamiliar objects can be "
+                           "misidentified; confidence is not calibrated probability.");
+        if (ImGui::CollapsingHeader("Supported NanoDet classes (80)")) {
+            for (int id = 0; id < chromascope::kNanoDetClassCount; ++id)
+                ImGui::Text("%02d  %s", id,
+                            std::string(chromascope::nanodet_class_label(id)).c_str());
+        }
         float confidence = static_cast<float>(detector_options.confidence_threshold);
         if (ImGui::SliderFloat("Confidence cutoff", &confidence, 0.0f, 1.0f, "%.2f"))
             detector_options.confidence_threshold = confidence;
@@ -541,7 +552,27 @@ struct App {
         if (ImGui::SliderFloat("NMS IoU cutoff", &iou, 0.0f, 1.0f, "%.2f"))
             detector_options.nms_iou_threshold = iou;
         ImGui::SliderInt("Max detections", &detector_options.max_detections, 1, 512);
-        ImGui::TextDisabled("Postprocessing settings apply after tensor decoding is added.");
+        if (ImGui::CollapsingHeader("Per-class threshold preview (CLI supports overrides)")) {
+            ImGui::SliderInt("COCO class ID", &detector_selected_class, 0,
+                             chromascope::kNanoDetClassCount - 1);
+            ImGui::Text("Class: %s", std::string(chromascope::nanodet_class_label(
+                detector_selected_class)).c_str());
+            auto& override_score = detector_class_overrides[
+                static_cast<std::size_t>(detector_selected_class)];
+            bool enabled = override_score.has_value();
+            if (ImGui::Checkbox("Preview override", &enabled)) {
+                if (enabled) override_score = 0.75F;
+                else override_score.reset();
+            }
+            if (override_score.has_value()) {
+                float score = *override_score;
+                if (ImGui::SliderFloat("Class confidence", &score,
+                                       0.0F, 1.0F, "%.2f")) override_score = score;
+            }
+            ImGui::TextDisabled("Preview only; use CLI --class-threshold CLASS=N to apply.");
+        }
+        ImGui::TextDisabled("These settings are preview-only for raw GUI inference.");
+        ImGui::TextDisabled("CLI --profile object performs decoded filtering and exports.");
         const bool ready = detector_session.ready_for(detector_model_path.data());
         ImGui::BeginDisabled(!ready || !input_frame || busy);
         if (ImGui::Button("Run raw CPU inference", ImVec2(-1, 0))) {

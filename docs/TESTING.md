@@ -568,3 +568,26 @@ image and tensor rejection before evaluating accuracy policy in M5.8.
 Expected **82 CTests**, **25 Python quality tests**; repeat native CLI Release,
 ASan/UBSan, clang-tidy and all six hosted GitHub Actions jobs. Refer to
 [`M5_7_MODEL_SECURITY.md`](M5_7_MODEL_SECURITY.md).
+
+## M5.8 — Conservative confidence and uncertainty policy
+
+The new headless CTests are `chromascope_unit_dnn_confidence_policy` and
+`chromascope_cli_object_confidence_contract`. Expected total is **84 CTests**
+(previously 82). No model binaries or network access are required for CI.
+
+```sh
+ctest --test-dir build/presets/linux-release \
+  -R 'dnn_confidence_policy|cli_object_confidence_contract' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Also run the existing clang-tidy/policy/provenance/Python quality gates.
+For the optional locally installed, pinned ONNX model, manually confirm
+`--list-object-classes`, class-specific cutoffs, a JSON schema-v1 uncertainty
+summary, confidence-bearing annotated labels, and zero accepted predictions
+for the historic weak-kite Skittles example at the conservative default.
+The sample images remain subject to their existing provenance policy.

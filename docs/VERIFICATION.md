@@ -779,3 +779,25 @@ OpenCV 5.1.0 Release GUI, CLI-only Release, ASan/UBSan, clang-tidy, policy,
 fixture provenance, manual GUI/CLI regressions, and all six GitHub Actions
 checks. Model accuracy, calibration, class-aware confidence policy, and
 out-of-vocabulary abstention are deliberately deferred to M5.8 before M6.
+
+## M5.7 accepted / M5.8 proposed — November 13, 2026
+
+The user confirmed **82/82 CTests passed** in GUI Release, CLI-only Release,
+and ASan/UBSan, with M5.7 model provenance/fixture checks, all applicable
+static/Python checks, manual GUI/CLI regression, and all six hosted GitHub
+Actions checks. PR #37 was merged. M5.7 is the accepted M5.8 baseline.
+
+M5.8 adds a conservative default COCO confidence cutoff of 0.50, explicit
+COCO-80 class enumeration, per-class acceptance thresholds, score-bearing
+object annotations, and an abstention/uncertainty summary that never invents
+an unknown object category. The synthetic policy regressions use the two
+weak `kite` candidate scores observed in the user's Skittles photo without
+requiring or committing the pretrained ONNX weights. Added `uncertainty` and
+`class_thresholds` JSON fields preserve existing version-1 keys. Accuracy is
+**not** calibrated and is not qualified by these tests.
+
+Expected new suite: **84 CTests** (+2); the existing Python quality test
+count remains **25**. Require native OpenCV 5.1.0 GUI and CLI Release,
+ASan/UBSan, clang-tidy, policy/provenance, manual CLI/GUI regression,
+real-model sample inspection, and all six hosted CI checks before acceptance.
+M6 should reuse this confidence policy before frame-wise detection/tracking.

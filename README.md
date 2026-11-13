@@ -542,6 +542,16 @@ truncated, duplicate and invalid output tensors. The expected full suite is
 [`docs/M5_7_MODEL_SECURITY.md`](docs/M5_7_MODEL_SECURITY.md). These checks do not
 qualify detection accuracy or turn ONNX parsing into a security sandbox.
 
-**M5.8 (planned before recorded-video detection):** conservative confidence
-defaults, visible confidence labels, explicit supported classes, per-class
-thresholds and uncertainty/abstention behavior will be addressed separately.
+### M5.8 — Conservative COCO detection confidence and uncertainty
+
+The `object` CLI profile now defaults to a **0.50** confidence cutoff to reduce
+weak false positives. All 80 supported labels can be listed using
+`chromascope-cli --list-object-classes`. Individual classes can use stricter or
+more permissive thresholds, e.g. `--class-threshold kite=0.75` or
+`--class-threshold 'sports ball=0.60'`. `--uncertain-floor 0.35` retains
+candidate-only diagnostic counts rather than assigning fabricated unknown
+classes. Annotated object-detection images include score percentages; object
+JSON v1 retains existing fields and adds `uncertainty` and `class_thresholds`.
+The GUI still runs raw inference (not object overlays). See
+[`docs/M5_8_DETECTION_RELIABILITY.md`](docs/M5_8_DETECTION_RELIABILITY.md)
+for the boundaries and accuracy caveats before M6 recorded-video detection.

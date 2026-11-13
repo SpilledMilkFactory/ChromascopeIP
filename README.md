@@ -529,3 +529,19 @@ or downloaded by the CLI**. This does not change the M5.5 GUI's raw-only
 inference diagnostic. Two new headless CTests bring the expected suite to
 **79**. See [`docs/M5_6_CLI_OBJECT.md`](docs/M5_6_CLI_OBJECT.md) for exact
 options, JSON fields, safety contracts, and native acceptance requirements.
+
+### M5.7 — Pinned model provenance, adversarial fixtures and security checks
+
+M5.7 records a second, independently checked NanoDet provenance/compute contract,
+including the M5.1 pinned SHA-256, license attribution, exact tensor interface
+and bounded CPU execution policy. Five original, generated fixture files test
+valid preprocessing and rejection of malformed/oversized media; no model weights
+or third-party images are added. Additional decoder regressions reject nonfinite,
+truncated, duplicate and invalid output tensors. The expected full suite is
+**82 CTests** and **25 Python quality tests**. See
+[`docs/M5_7_MODEL_SECURITY.md`](docs/M5_7_MODEL_SECURITY.md). These checks do not
+qualify detection accuracy or turn ONNX parsing into a security sandbox.
+
+**M5.8 (planned before recorded-video detection):** conservative confidence
+defaults, visible confidence labels, explicit supported classes, per-class
+thresholds and uncertainty/abstention behavior will be addressed separately.

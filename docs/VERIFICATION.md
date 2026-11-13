@@ -757,3 +757,25 @@ Final verification remains pending: native actual-model CLI JSON/image exports,
 79/79 tests in all local configurations, 21/21 Python quality tests, and all
 six hosted CI checks on the final PR revision. No pretrained weights or
 new dependencies are part of this correction.
+
+## M5.7 (#37) — Model provenance and adversarial object fixtures (pending native acceptance)
+
+The user confirmed M5.6 real-model JSON/image exports, **79/79 CTests** in
+native configurations, all applicable Python quality and static checks, and
+all **six** hosted Linux/Windows checks; the correction for NanoDet tensor
+ordering and Debian Git trust was merged. M5.6 is the accepted M5.7 baseline.
+The Skittles image's weak `kite` predictions are out-of-vocabulary model errors,
+not proof that the software incorrectly decoded the selected checkpoint.
+
+M5.7 adds an independently checked artifact provenance record; five original
+SHA-256-pinned media fixtures with reproducible generator; adversarial image
+and tensor rejection; a pre-forward layer-count cap; and offline policy tests.
+No model binary, media rights change, GUI inference-control change, or new
+third-party dependency is introduced. The acceptance target is **82 CTests**
+(previously 79) and **25 Python quality tests** (previously 21).
+
+**Preliminary non-native verification is not acceptance:** require native
+OpenCV 5.1.0 Release GUI, CLI-only Release, ASan/UBSan, clang-tidy, policy,
+fixture provenance, manual GUI/CLI regressions, and all six GitHub Actions
+checks. Model accuracy, calibration, class-aware confidence policy, and
+out-of-vocabulary abstention are deliberately deferred to M5.8 before M6.

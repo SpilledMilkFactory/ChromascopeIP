@@ -432,3 +432,23 @@ add_test(NAME chromascope_cli_object_error_paths COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_object.cmake")
 set_tests_properties(chromascope_cli_object_error_paths PROPERTIES
     LABELS "cli;integration;model;dnn;security;negative;regression" TIMEOUT 90)
+
+# M5.7 (#37): pinned model provenance, original synthetic image/error fixtures,
+# and bounded adversarial decoder behavior. No pretrained weights needed.
+add_test(NAME chromascope_model_object_fixture_provenance COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_SOURCE_ROOT=${PROJECT_SOURCE_DIR}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_object_fixtures.cmake")
+set_tests_properties(chromascope_model_object_fixture_provenance PROPERTIES
+    LABELS "model;fixtures;security;provenance;regression" TIMEOUT 20)
+chromascope_add_cpp_test(chromascope_unit_object_adversarial
+    unit/test_object_adversarial.cpp
+    "unit;core;model;dnn;security;negative;regression" 40)
+add_executable(chromascope_integration_object_fixtures
+    integration/test_object_fixtures.cpp)
+target_link_libraries(chromascope_integration_object_fixtures PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_object_fixtures)
+add_test(NAME chromascope_integration_object_fixtures
+    COMMAND chromascope_integration_object_fixtures
+        "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/object_detection")
+set_tests_properties(chromascope_integration_object_fixtures PROPERTIES
+    LABELS "integration;model;fixtures;security;negative;regression" TIMEOUT 45)

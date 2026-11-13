@@ -545,3 +545,26 @@ CTest #69 uses an exact-path, command-scoped Git `safe.directory` setting
 for the checkout to avoid the root/host ownership mismatch without allowing
 untracked or unverified model binaries into release artifacts. Re-run all
 79 CTests and the 21-test Python quality suite.
+
+## M5.7 (#37) — Model provenance, adversarial constraints and original fixtures
+
+Run all checks without model weights, network access, or any historical-image
+modification:
+
+```bash
+python3 scripts/check_object_provenance.py
+cmake -DCHROMASCOPE_SOURCE_ROOT="$PWD" -P tests/cmake/check_object_fixtures.cmake
+ctest --test-dir build/presets/linux-release \
+  -R 'model_object_fixture_provenance|unit_object_adversarial|integration_object_fixtures' \
+  --output-on-failure
+ctest --preset linux-release --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+The fixture generator can reproduce exactly five fixture files in any temporary
+output directory. Synthetic shapes are not trained COCO class examples; do not
+accept or reject the neural network on their inferred labels. Check malformed
+image and tensor rejection before evaluating accuracy policy in M5.8.
+Expected **82 CTests**, **25 Python quality tests**; repeat native CLI Release,
+ASan/UBSan, clang-tidy and all six hosted GitHub Actions jobs. Refer to
+[`M5_7_MODEL_SECURITY.md`](M5_7_MODEL_SECURITY.md).

@@ -62,6 +62,7 @@ RecordedVideoAnalysisSummary analyze_recorded_video(
             options.timing(expected, {to_ns(decode_elapsed), to_ns(inference_elapsed), 0, 0});
         }
         emit(detected);
+        summary.confidence.record(detected.inference.summary);
         ++summary.analyzed_frames;
         summary.accepted_detections += detected.inference.detections.objects().size();
     }

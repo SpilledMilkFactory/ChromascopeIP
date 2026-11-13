@@ -117,6 +117,7 @@ struct App {
     bool video_export_audio_ack = false;
     bool video_export_override_fps = false;
     float video_export_fps = 25.0F;
+    float video_uncertainty_floor = 0.35F; // M5.8 diagnostic floor, not an unknown class
     std::atomic<bool> video_export_busy{false};
     std::atomic<std::uint64_t> video_export_count{0};
     std::mutex video_export_status_mutex;
@@ -375,8 +376,9 @@ struct App {
                 const ImVec2 b{a.x + static_cast<float>(box->width) * scale_x,
                                a.y + static_cast<float>(box->height) * scale_y};
                 draw->AddRect(a, b, IM_COL32(80, 220, 175, 255), 0.0f, 0, 2.0f);
+                const auto caption = chromascope::object_confidence_label(object);
                 draw->AddText(ImVec2(a.x, a.y - 16.0f), IM_COL32(100, 255, 200, 255),
-                              object.label.c_str());
+                              caption.c_str());
             }
             // Measures ImGui draw-list CPU submission, not GPU execution.
             video_overlay_draw_perf.add_ns(static_cast<std::uint64_t>(
@@ -667,6 +669,7 @@ struct App {
             policy.confidence_threshold = detector_options.confidence_threshold;
             policy.nms_iou_threshold = detector_options.nms_iou_threshold;
             policy.max_detections = static_cast<std::size_t>(detector_options.max_detections);
+            policy.uncertainty_floor = static_cast<double>(video_uncertainty_floor);
             for (int i = 0; i < chromascope::kNanoDetClassCount; ++i) {
                 if (const auto value = detector_class_overrides[static_cast<std::size_t>(i)])
                     policy.class_thresholds.push_back({i, *value});
@@ -693,6 +696,7 @@ struct App {
             policy.confidence_threshold = detector_options.confidence_threshold;
             policy.nms_iou_threshold = detector_options.nms_iou_threshold;
             policy.max_detections = static_cast<std::size_t>(detector_options.max_detections);
+            policy.uncertainty_floor = static_cast<double>(video_uncertainty_floor);
             for (int i = 0; i < chromascope::kNanoDetClassCount; ++i)
                 if (const auto value = detector_class_overrides[static_cast<std::size_t>(i)])
                     policy.class_thresholds.push_back({i, *value});
@@ -732,7 +736,11 @@ struct App {
                                 video_export_perf = perf;
                             }});
                     message = "Saved silent MJPEG/AVI: " + destination.string() +
-                              " (" + std::to_string(summary.frames_written) + " frames)";
+                              " (" + std::to_string(summary.frames_written) + " frames, " +
+                              std::to_string(summary.confidence.weak_candidates) +
+                              " weak candidates, " +
+                              std::to_string(summary.confidence.uncertain_only_frames) +
+                              " uncertain-only frames)";
                 } catch (const std::exception& e) {
                     message = std::string("Video export not completed: ") + e.what();
                 }
@@ -844,7 +852,15 @@ struct App {
         }
         ImGui::EndDisabled();
         ImGui::Separator();
-        ImGui::TextUnformatted("RECORDED-VIDEO OBJECT DETECTION (M6.2)");
+        ImGui::TextUnformatted("RECORDED-VIDEO OBJECT DETECTION (M6.7)");
+        ImGui::TextWrapped("NanoDet COCO-80 CPU (416 x 416). Model weights are not bundled. "
+                           "Only the 80 listed classes can be named. Unsupported objects "
+                           "may be missed or misidentified; scores are not calibrated probabilities.");
+        if (ImGui::CollapsingHeader("Video supported COCO classes (80)")) {
+            for (int id = 0; id < chromascope::kNanoDetClassCount; ++id)
+                ImGui::Text("%02d  %s", id,
+                    std::string(chromascope::nanodet_class_label(id)).c_str());
+        }
         ImGui::InputText("ONNX model", detector_model_path.data(),
                          detector_model_path.size());
         if (ImGui::IsItemEdited()) {
@@ -860,6 +876,9 @@ struct App {
         if (ImGui::SliderFloat("Video NMS IoU", &iou, 0.0f, 1.0f, "%.2f"))
             detector_options.nms_iou_threshold = iou;
         ImGui::SliderInt("Video max boxes", &detector_options.max_detections, 1, 512);
+        ImGui::SliderFloat("Video weak-candidate floor", &video_uncertainty_floor,
+                           0.0F, 1.0F, "%.2f");
+        ImGui::TextDisabled("Diagnostic only: weak scores do not become boxes or an unknown class.");
         if (ImGui::CollapsingHeader("Video per-class confidence")) {
             ImGui::SliderInt("Video class ID", &detector_selected_class, 0,
                              chromascope::kNanoDetClassCount - 1);
@@ -877,8 +896,12 @@ struct App {
                 if (ImGui::SliderFloat("Video class confidence", &value, 0.0F, 1.0F, "%.2f"))
                     threshold = value;
             }
-            ImGui::TextDisabled("Changes apply when you next start analysis.");
+            ImGui::TextDisabled("Changes apply to the next analysis or AVI export.");
         }
+        std::size_t active_overrides = 0;
+        for (const auto& item : detector_class_overrides)
+            if (item) ++active_overrides;
+        ImGui::TextDisabled("%zu per-class override(s) configured (next run).", active_overrides);
         ImGui::Checkbox("Show matched-frame overlays", &video_show_detections);
         ImGui::BeginDisabled(!has_source);
         if (ImGui::Button("Analyze recording", ImVec2(-1, 0))) start_video_detection();
@@ -900,6 +923,14 @@ struct App {
                 static_cast<unsigned long long>(progress.processed_frames));
         }
         ImGui::TextWrapped("%s", progress.message.c_str());
+        if (progress.confidence.observed_frames != 0) {
+            ImGui::Text("Weak candidates: %llu across %llu processed frames",
+                static_cast<unsigned long long>(progress.confidence.weak_candidates),
+                static_cast<unsigned long long>(progress.confidence.observed_frames));
+            ImGui::Text("Frames with weak predictions but no accepted boxes: %llu",
+                static_cast<unsigned long long>(progress.confidence.uncertain_only_frames));
+            ImGui::TextDisabled("These are candidate/frame counts, not tracked unknown objects.");
+        }
         ImGui::TextDisabled("Recent detection cache: %zu / %zu frames",
             progress.cached_frames, chromascope::AsyncRecordedVideoDetection::kMaxCachedFrames);
         if (progress.performance.decode.measured() && progress.performance.inference.measured()) {
@@ -965,9 +996,14 @@ struct App {
             if (video_show_detections && current)
                 matched = video_detection.overlay_for(*current);
             if (matched) {
-                ImGui::Text("Matched frame %llu: %zu objects (%.1f ms)",
+                ImGui::Text("Matched frame %llu: %zu accepted objects (%.1f ms)",
                     static_cast<unsigned long long>(matched->frame_index),
                     matched->inference.detections.objects().size(), matched->elapsed_ms);
+                ImGui::Text("Confidence status: %s | weak candidates: %zu",
+                    std::string(matched->inference.summary.status()).c_str(),
+                    matched->inference.summary.weak_candidates);
+                if (matched->inference.summary.status() == "uncertain")
+                    ImGui::TextDisabled("Weak predictions rejected; no confirmed unknown object.");
             } else {
                 ImGui::TextDisabled("No cached detection for the current frame.");
             }

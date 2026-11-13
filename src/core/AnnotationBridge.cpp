@@ -19,15 +19,19 @@ AnnotationLayer make_annotation_layer(const DetectionResult& detections) {
     return {detections.width(), detections.height(), std::move(annotations)};
 }
 
+std::string object_confidence_label(const GeneralDetection& detection) {
+    const auto percentage = static_cast<int>(std::lround(detection.score * 100.0));
+    return detection.label + " (" + std::to_string(percentage) + "%)";
+}
+
 AnnotationLayer make_object_confidence_annotations(const DetectionResult& detections) {
     if (detections.processor_id() != "nanodet-coco80")
         throw std::invalid_argument("Confidence annotations require NanoDet detections");
     std::vector<Annotation> annotations;
     annotations.reserve(detections.objects().size());
     for (const auto& object : detections.objects()) {
-        const auto percentage = static_cast<int>(std::lround(object.score * 100.0));
         annotations.push_back({object.geometry, {45, 205, 235},
-                               object.label + " (" + std::to_string(percentage) + "%)"});
+                               object_confidence_label(object)});
     }
     return {detections.width(), detections.height(), std::move(annotations)};
 }

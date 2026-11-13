@@ -3,6 +3,7 @@
 #include "chromascope/RecordedVideoObjectDetection.hpp"
 #include "chromascope/VideoSource.hpp"
 #include "chromascope/VideoPerformance.hpp"
+#include "chromascope/VideoConfidenceDiagnostics.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -28,6 +29,7 @@ struct RecordedVideoAnalysisSummary {
     // is not represented as EOF even if it coincides with the final frame.
     bool reached_eof = false;
     VideoPerformanceMetrics performance; // completed frame work only
+    VideoConfidenceDiagnostics confidence; // emitted selected frames, not skipped frames
 };
 
 using RecordedFrameDetector = std::function<RecordedVideoObjectDetection(const VideoFramePacket&)>;

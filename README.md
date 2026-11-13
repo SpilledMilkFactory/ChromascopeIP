@@ -631,3 +631,19 @@ Model loading, output publication, GPU execution and source presentation
 timestamps are not included in these measurements. Two additional headless
 CTests raise the expected suite to **98** (Python quality stays at 25).
 See [`docs/M6_6_VIDEO_PERFORMANCE.md`](docs/M6_6_VIDEO_PERFORMANCE.md).
+
+### M6.7 — Video confidence and uncertainty presentation parity
+
+The recorded-video GUI now displays the **same score percentages** used in
+M5.8 still-image annotations and M6.4 encoded AVI labels. It lists all 80
+supported COCO categories, shows configured per-class overrides, and lets users
+adjust a **diagnostic-only** weak-candidate floor (0.35 by default). The
+matched-frame preview reports accepted/uncertain/no-detection status; analysis
+progress reports cumulative weak candidates and uncertain-only frames, without
+retaining additional full-recording frame history. GUI and CLI AVI summaries
+also report these diagnostics; streaming JSONL end records include additive
+whole-stream uncertainty totals. The shared 0.50 default confidence cutoff and
+all original M5.8 model postprocessing remain unchanged: a weak model score
+is **not** proof of an identifiable unknown object. Two new offline CTests
+raise the expected suite to **100**; Python quality remains at **25**.
+See [`docs/M6_7_VIDEO_CONFIDENCE.md`](docs/M6_7_VIDEO_CONFIDENCE.md).

@@ -153,6 +153,7 @@ AnnotatedVideoExportSummary export_annotated_video(
         summary.performance.record(VideoTimingStage::Encode,
             std::chrono::steady_clock::now() - encode_start);
         ++summary.frames_written;
+        summary.confidence.record(detected.inference.summary);
         if (options.progress) options.progress(summary.frames_written);
         if (options.timing_progress) options.timing_progress(summary.performance);
         summary.accepted_detections += detected.inference.detections.objects().size();

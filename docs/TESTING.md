@@ -748,3 +748,33 @@ No timing thresholds are imposed: absolute durations depend on OS and host.
 Manually inspect the JSONL frame/end timing fields, GUI mean decode/inference
 and overlay submission, and successful AVI export timing. See
 `docs/M6_6_VIDEO_PERFORMANCE.md`.
+
+## M6.7 — Recorded-video confidence/uncertainty parity
+
+Two model-free tests bring the suite from **98** to **100 CTests**, with all
+25 Python quality tests unchanged:
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'unit_video_confidence_presentation|integration_video_confidence_parity' \
+  --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+The unit test checks exact shared confidence captions, supported class maps,
+strict processor type, and diagnostic counting/overflow. The integration test
+creates a six-frame MJPEG in a CTest build directory, supplies synthetic
+NanoDet head outputs without ONNX weights, exercises the real postprocessor,
+background analysis and encoded AVI path, and verifies that per-class cutoffs,
+weak-only frame counts and cancellation resets agree. The floor test verifies
+changing weak-candidate visibility without altering accepted boxes.
+
+Manually compare GUI preview captions to encoded AVI labels, verify visible
+COCO-80 reference and override count, inspect a frame with weak-only evidence,
+seek/replace videos, and check GUI/CLI AVI cumulative weak diagnostics. Check
+still-image behavior, JSONL, video timing, and all six hosted CI checks.
+See `docs/M6_7_VIDEO_CONFIDENCE.md` for semantics and caveats.

@@ -395,3 +395,28 @@ chromascope_add_cpp_test(chromascope_unit_dnn_postprocess_policy
 chromascope_add_cpp_test(chromascope_integration_dnn_postprocess_result
     integration/test_dnn_postprocess_result.cpp
     "integration;core;model;dnn;postprocessing;regression;negative" 40)
+
+# M5.5 (#35): model integrity, GUI inference-state lifecycle and raw CPU
+# inference controls. No pretrained model weights or GUI context are needed.
+add_executable(chromascope_unit_dnn_gui_policy unit/test_dnn_gui_policy.cpp)
+target_link_libraries(chromascope_unit_dnn_gui_policy PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_unit_dnn_gui_policy)
+target_include_directories(chromascope_unit_dnn_gui_policy PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_unit_dnn_gui_policy
+    COMMAND chromascope_unit_dnn_gui_policy
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m5-5-hash-vectors")
+set_tests_properties(chromascope_unit_dnn_gui_policy PROPERTIES
+    LABELS "unit;gui-contract;model;dnn;security;negative;regression" TIMEOUT 30)
+add_executable(chromascope_integration_dnn_gui_session
+    integration/test_dnn_gui_session.cpp)
+target_link_libraries(chromascope_integration_dnn_gui_session PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_dnn_gui_session)
+target_include_directories(chromascope_integration_dnn_gui_session PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_dnn_gui_session
+    COMMAND chromascope_integration_dnn_gui_session
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m5-5-gui-session")
+set_tests_properties(chromascope_integration_dnn_gui_session PROPERTIES
+    LABELS "integration;gui-contract;model;dnn;cpu;security;regression;negative"
+    TIMEOUT 90)

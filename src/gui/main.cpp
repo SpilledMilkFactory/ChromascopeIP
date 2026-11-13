@@ -9,6 +9,7 @@
 #include "chromascope/ImageFrameCV.hpp"
 #include "chromascope/ImageViewport.hpp"
 #include "chromascope/VideoPlayer.hpp"
+#include "chromascope/DnnGuiSession.hpp"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -85,6 +86,7 @@ struct App {
     std::array<char, 4096> path{};
     std::array<char, 4096> export_path{};
     std::array<char, 4096> video_path{};
+    std::array<char, 4096> detector_model_path{};
     std::array<char, 4096> browser_directory{};
     chromascope::Settings settings;
     chromascope::ProcessorRegistry processors = chromascope::make_builtin_registry();
@@ -106,7 +108,11 @@ struct App {
     std::uint64_t video_seek_target = 0;
     bool video_scrubbing = false;
     int workspace_mode = 0; // 0 = still image; 1 = recorded video
+    int detector_profile = 0; // 0 = disabled; 1 = NanoDet raw CPU diagnostics
+    chromascope::DnnGuiSession detector_session;
+    chromascope::DnnGuiOptions detector_options;
     bool picker_video = false;
+    bool picker_model = false;
     Texture original_texture, processed_texture;
     Texture source_overlay_texture, processed_overlay_texture;
     chromascope::AnnotationViewOptions overlay_options;
@@ -135,6 +141,8 @@ struct App {
         std::snprintf(path.data(), path.size(), "%s", "samples/skittles/s1.jpg");
         std::snprintf(export_path.data(), export_path.size(), "%s", "annotated.jpg");
         std::snprintf(video_path.data(), video_path.size(), "%s", "recording.avi");
+        std::snprintf(detector_model_path.data(), detector_model_path.size(), "%s",
+                      "models/object_detection_nanodet_2022nov.onnx");
         std::snprintf(browser_directory.data(), browser_directory.size(), "%s", ".");
     }
 
@@ -348,6 +356,7 @@ struct App {
             input = std::move(loaded);
             input_frame = std::make_shared<const chromascope::ImageFrame>(
                 std::move(owned_frame));
+            if (detector_profile != 0) detector_session.unload();
             input_width = input.cols;
             input_height = input.rows;
             std::snprintf(path.data(), path.size(), "%s", file.string().c_str());
@@ -408,9 +417,11 @@ struct App {
 
     std::string video_status;
 
-    void open_file_picker(bool for_video = false) {
+    void open_file_picker(bool for_video = false, bool for_model = false) {
         picker_video = for_video;
-        const std::filesystem::path selected(for_video ? video_path.data() : path.data());
+        picker_model = for_model;
+        const std::filesystem::path selected(for_model ? detector_model_path.data() :
+            (for_video ? video_path.data() : path.data()));
         const auto dir = selected.has_parent_path() ? selected.parent_path()
                                                     : std::filesystem::path(".");
         std::snprintf(browser_directory.data(), browser_directory.size(), "%s",
@@ -422,9 +433,9 @@ struct App {
         ImGui::SetNextWindowSize(ImVec2(740, 560), ImGuiCond_Appearing);
         if (!ImGui::BeginPopupModal("Select media", nullptr,
                                    ImGuiWindowFlags_NoSavedSettings)) return;
-        ImGui::TextUnformatted(picker_video
-            ? "Choose a recorded video (AVI, MP4, MOV, MKV, WEBM, MPEG, WMV)"
-            : "Choose a photograph (JPG, PNG, BMP, TIFF, WEBP)");
+        ImGui::TextUnformatted(picker_model ? "Choose a local ONNX model (.onnx)" :
+            (picker_video ? "Choose a recorded video (AVI, MP4, MOV, MKV, WEBM, MPEG, WMV)"
+                          : "Choose a photograph (JPG, PNG, BMP, TIFF, WEBP)"));
         ImGui::InputText("Directory", browser_directory.data(), browser_directory.size());
         ImGui::SameLine();
         if (ImGui::Button("Up")) {
@@ -465,17 +476,22 @@ struct App {
                         extension == ".mov" || extension == ".mkv" || extension == ".webm" ||
                         extension == ".m4v" || extension == ".mpg" || extension == ".mpeg" ||
                         extension == ".wmv";
-                    if (picker_video ? !valid_video : !valid_image) continue;
+                    if (picker_model ? extension != ".onnx" :
+                        (picker_video ? !valid_video : !valid_image)) continue;
                 }
                 const std::string label = (is_dir ? "[Folder] " :
-                    (picker_video ? "[Video] " : "[Image] ")) + filename;
+                    (picker_model ? "[ONNX] " : (picker_video ? "[Video] " : "[Image] "))) + filename;
                 if (ImGui::Selectable(label.c_str())) {
                     if (is_dir) {
                         const std::string next = entry.path().string();
                         std::snprintf(browser_directory.data(), browser_directory.size(),
                                       "%s", next.c_str());
                     } else {
-                        if (picker_video) open_video(entry.path());
+                        if (picker_model) {
+                            detector_session.unload();
+                            std::snprintf(detector_model_path.data(), detector_model_path.size(),
+                                          "%s", entry.path().string().c_str());
+                        } else if (picker_video) open_video(entry.path());
                         else load(entry.path());
                         ImGui::CloseCurrentPopup();
                     }
@@ -486,6 +502,74 @@ struct App {
         }
         if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
+    }
+
+    void draw_detector_controls() {
+        ImGui::Separator();
+        ImGui::TextUnformatted("OBJECT DETECTION (M5.5)");
+        if (ImGui::Combo("Detector profile", &detector_profile,
+                         "Disabled (classical profiles)\0NanoDet COCO-80 / CPU\0")) {
+            detector_session.unload();
+        }
+        if (detector_profile == 0) {
+            ImGui::TextDisabled("Classical image processing is unchanged.");
+            return;
+        }
+        ImGui::TextWrapped("NanoDet-Plus-M 1.5x, 416 x 416, 80 classes. "
+                           "ONNX weights are not bundled.");
+        if (ImGui::InputText("ONNX path", detector_model_path.data(),
+                             detector_model_path.size())) {
+            // Editing a path invalidates the prior verified identity immediately.
+            detector_session.unload();
+        }
+        if (ImGui::Button("Browse ONNX...", ImVec2(-1, 0)))
+            open_file_picker(false, true);
+        const auto state = detector_session.snapshot();
+        const bool busy = state.stage == chromascope::DnnGuiStage::Checking ||
+                          state.stage == chromascope::DnnGuiStage::Running;
+        if (ImGui::Button("Verify SHA-256 + load", ImVec2(-1, 0))) {
+            try { detector_session.load(detector_model_path.data()); }
+            catch (const std::exception& e) { status = std::string("Model load rejected: ") + e.what(); }
+        }
+        ImGui::TextWrapped("Model status: %s", state.message.empty()
+                           ? "Not loaded / unverified" : state.message.c_str());
+        ImGui::TextDisabled("Only the M5.1 pinned SHA-256 is trusted. CPU backend only.");
+        float confidence = static_cast<float>(detector_options.confidence_threshold);
+        if (ImGui::SliderFloat("Confidence cutoff", &confidence, 0.0f, 1.0f, "%.2f"))
+            detector_options.confidence_threshold = confidence;
+        float iou = static_cast<float>(detector_options.nms_iou_threshold);
+        if (ImGui::SliderFloat("NMS IoU cutoff", &iou, 0.0f, 1.0f, "%.2f"))
+            detector_options.nms_iou_threshold = iou;
+        ImGui::SliderInt("Max detections", &detector_options.max_detections, 1, 512);
+        ImGui::TextDisabled("Postprocessing settings apply after tensor decoding is added.");
+        const bool ready = detector_session.ready_for(detector_model_path.data());
+        ImGui::BeginDisabled(!ready || !input_frame || busy);
+        if (ImGui::Button("Run raw CPU inference", ImVec2(-1, 0))) {
+            try {
+                chromascope::validate_dnn_gui_options(detector_options);
+                detector_session.run(input_frame);
+            } catch (const std::exception& e) {
+                status = std::string("CPU inference rejected: ") + e.what();
+            }
+        }
+        ImGui::EndDisabled();
+        if (busy && ImGui::Button("Cancel inference / load", ImVec2(-1, 0)))
+            detector_session.cancel();
+        if (!busy && ImGui::Button("Unload model", ImVec2(-1, 0)))
+            detector_session.unload();
+        if (state.stage == chromascope::DnnGuiStage::Completed) {
+            ImGui::Text("Raw inference: %.1f ms", state.elapsed_ms);
+            for (std::size_t i = 0; i < state.output_shapes.size(); ++i) {
+                std::string shape;
+                for (int dim : state.output_shapes[i]) {
+                    if (!shape.empty()) shape += " x ";
+                    shape += std::to_string(dim);
+                }
+                ImGui::Text("Tensor %zu: [%s]", i + 1, shape.c_str());
+            }
+        }
+        ImGui::TextWrapped("Raw ONNX outputs only. No decoded object boxes, "
+                           "classification overlays or detector exports yet.");
     }
 
     void draw_video_ui() {
@@ -714,6 +798,8 @@ struct App {
                 ImGui::TextWrapped("Hue wraps across 179/0: both ends of the hue scale are selected.");
             ImGui::TextWrapped("Increase min_saturation or min_area to reduce noise.");
         }
+        draw_detector_controls();
+        ImGui::Separator();
         if (ImGui::Button("Re-run analysis", ImVec2(-1, 0))) analyze();
         if (pending_ticket != 0 && ImGui::Button("Cancel analysis", ImVec2(-1, 0))) {
             processing->cancel();

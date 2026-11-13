@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <mutex>
 #include <thread>
 #include <array>
@@ -120,6 +121,8 @@ struct App {
     std::atomic<std::uint64_t> video_export_count{0};
     std::mutex video_export_status_mutex;
     std::string video_export_status = "No video export started.";
+    chromascope::VideoPerformanceMetrics video_export_perf; // guarded by status mutex
+    chromascope::VideoStageStatistics video_overlay_draw_perf; // GUI-thread only
     Texture video_texture;
     chromascope::ImageViewport video_view;
     std::uint64_t video_seek_target = 0;
@@ -363,6 +366,7 @@ struct App {
                 static_cast<float>(texture.source_width);
             const float scale_y = (bottom_right.y - top_left.y) /
                 static_cast<float>(texture.source_height);
+            const auto overlay_start = std::chrono::steady_clock::now();
             for (const auto& object : video_detections->objects()) {
                 const auto* box = std::get_if<chromascope::BoxGeometry>(&object.geometry);
                 if (!box) continue;
@@ -374,6 +378,10 @@ struct App {
                 draw->AddText(ImVec2(a.x, a.y - 16.0f), IM_COL32(100, 255, 200, 255),
                               object.label.c_str());
             }
+            // Measures ImGui draw-list CPU submission, not GPU execution.
+            video_overlay_draw_perf.add_ns(static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - overlay_start).count()));
         }
         draw->PopClipRect();
         if (hovered) {
@@ -664,6 +672,7 @@ struct App {
                     policy.class_thresholds.push_back({i, *value});
             }
             (void)video_detection.start(video_opened_path, detector_model_path.data(), policy);
+            video_overlay_draw_perf = {};
             video_status.clear();
         } catch (const std::exception& e) {
             video_status = std::string("Video detection rejected: ") + e.what();
@@ -700,6 +709,7 @@ struct App {
             {
                 std::lock_guard lock(video_export_status_mutex);
                 video_export_status = "Encoding video on a background worker...";
+                video_export_perf = {};
             }
             video_export_worker = std::jthread(
                 [this, input_file, destination, model, policy, fps](std::stop_token stop) {
@@ -716,6 +726,10 @@ struct App {
                             .canceled = [&] { return stop.stop_requested(); },
                             .progress = [this](std::uint64_t count) {
                                 video_export_count.store(count);
+                            },
+                            .timing_progress = [this](const chromascope::VideoPerformanceMetrics& perf) {
+                                std::lock_guard lock(video_export_status_mutex);
+                                video_export_perf = perf;
                             }});
                     message = "Saved silent MJPEG/AVI: " + destination.string() +
                               " (" + std::to_string(summary.frames_written) + " frames)";
@@ -888,6 +902,17 @@ struct App {
         ImGui::TextWrapped("%s", progress.message.c_str());
         ImGui::TextDisabled("Recent detection cache: %zu / %zu frames",
             progress.cached_frames, chromascope::AsyncRecordedVideoDetection::kMaxCachedFrames);
+        if (progress.performance.decode.measured() && progress.performance.inference.measured()) {
+            ImGui::Text("Analysis: decode %.3f ms/frame | inference %.3f ms/frame",
+                progress.performance.decode.mean_ms(), progress.performance.inference.mean_ms());
+            ImGui::TextDisabled("Completed samples: %llu (decode), %llu (inference)",
+                static_cast<unsigned long long>(progress.performance.decode.samples),
+                static_cast<unsigned long long>(progress.performance.inference.samples));
+        }
+        if (video_overlay_draw_perf.measured())
+            ImGui::Text("GUI overlay submission: %.3f ms/draw (%llu repaint samples)",
+                video_overlay_draw_perf.mean_ms(),
+                static_cast<unsigned long long>(video_overlay_draw_perf.samples));
         ImGui::TextDisabled("Decoder and NanoDet run off-thread; cached overlays only.");
         ImGui::TextDisabled("Frames not yet processed or evicted show no overlay.");
         ImGui::Separator();
@@ -910,7 +935,18 @@ struct App {
         {
             std::lock_guard lock(video_export_status_mutex);
             ImGui::TextWrapped("%s", video_export_status.c_str());
+            const auto show_stage = [](const char* label, const chromascope::VideoStageStatistics& stats) {
+                if (stats.measured()) ImGui::Text("%s: %.3f ms/frame, %.1f ms total (%llu samples)",
+                    label, stats.mean_ms(), stats.total_ms(),
+                    static_cast<unsigned long long>(stats.samples));
+                else ImGui::TextDisabled("%s: not measured", label);
+            };
+            show_stage("AVI decode", video_export_perf.decode);
+            show_stage("AVI inference", video_export_perf.inference);
+            show_stage("AVI overlay", video_export_perf.overlay);
+            show_stage("AVI encode", video_export_perf.encode);
         }
+        ImGui::TextDisabled("CPU stage wall time; model loading, file closing/publishing and GPU time excluded.");
         ImGui::Separator();
         ImGui::TextWrapped("%s", video_player.status().c_str());
         if (!video_status.empty()) ImGui::TextWrapped("%s", video_status.c_str());

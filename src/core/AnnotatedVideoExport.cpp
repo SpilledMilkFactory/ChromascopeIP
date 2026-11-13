@@ -100,7 +100,9 @@ AnnotatedVideoExportSummary export_annotated_video(
         if (options.canceled && options.canceled())
             throw std::runtime_error("Video export canceled; no AVI published");
         const auto index = source.next_index();
+        const auto decode_start = std::chrono::steady_clock::now();
         const auto read = source.read_next();
+        const auto decode_elapsed = std::chrono::steady_clock::now() - decode_start;
         if (read.status == VideoReadStatus::EndOfStream) {
             if (read.frame) throw std::runtime_error("Video export EOF unexpectedly contained a frame");
             if (summary.frames_written == 0) throw std::runtime_error("Cannot export an empty recording");
@@ -117,6 +119,7 @@ AnnotatedVideoExportSummary export_annotated_video(
         }
         if (read.status != VideoReadStatus::Frame || !read.frame || read.frame->index != index)
             throw std::runtime_error("Video export decoder returned an invalid frame sequence");
+        summary.performance.record(VideoTimingStage::Decode, decode_elapsed);
         const auto& packet = *read.frame;
         if (packet.image.format() != PixelFormat::BGR8 ||
             packet.image.width() % 2 != 0 || packet.image.height() % 2 != 0)
@@ -131,17 +134,27 @@ AnnotatedVideoExportSummary export_annotated_video(
         } else if (packet.image.width() != original_width || packet.image.height() != original_height) {
             throw std::runtime_error("Video export cannot encode changing frame dimensions");
         }
+        const auto inference_start = std::chrono::steady_clock::now();
         const auto detected = detect(packet);
+        const auto inference_elapsed = std::chrono::steady_clock::now() - inference_start;
         verify_packet(packet, detected);
+        summary.performance.record(VideoTimingStage::Inference, inference_elapsed);
         if (options.canceled && options.canceled())
             throw std::runtime_error("Video export canceled; no AVI published");
+        const auto overlay_start = std::chrono::steady_clock::now();
         const auto annotated = render_annotations(
             to_cv_mat_copy(packet.image),
             make_object_confidence_annotations(detected.inference.detections),
             {.show_outlines = true, .show_labels = options.show_labels});
+        summary.performance.record(VideoTimingStage::Overlay,
+            std::chrono::steady_clock::now() - overlay_start);
+        const auto encode_start = std::chrono::steady_clock::now();
         writer.write(annotated);
+        summary.performance.record(VideoTimingStage::Encode,
+            std::chrono::steady_clock::now() - encode_start);
         ++summary.frames_written;
         if (options.progress) options.progress(summary.frames_written);
+        if (options.timing_progress) options.timing_progress(summary.performance);
         summary.accepted_detections += detected.inference.detections.objects().size();
     }
     // Reaching a configured limit is not EOF: discard staging data and fail,

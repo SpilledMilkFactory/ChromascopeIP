@@ -924,3 +924,27 @@ not require a local ONNX checkpoint or external video footage.
 96 in GUI Release, CLI-only Release and ASan/UBSan, clang-tidy, CI/provenance
 policy and Python tests, and manual recorded-video/AVI/JSONL regressions. All
 six hosted checks must succeed before merging #42.
+
+## M6.5 accepted / M6.6 (#43) pending — November 13, 2026
+
+M6.5 was accepted after the user confirmed **96/96 CTests** in GUI Release,
+CLI-only Release, and ASan/UBSan, 25 Python quality checks, manual GUI/CLI
+regressions, and all six hosted Debian/Ubuntu/Windows/quality checks. The PR
+for issue #42 was merged before M6.6 started.
+
+M6.6 adds independent CPU steady-clock stage timing: decode and inference
+in streaming recorded-video JSONL and GUI asynchronous inference; overlay
+construction/drawing and encoding in MJPEG/AVI export. The GUI reports
+per-repaint CPU overlay submission separately from exporter rasterization.
+One bounded fixed-size accumulator per operation and additive timing output
+preserve the existing media, frame identity, codec/audio, detection/JSONL
+completion, cancel and transactional export policies. Explicit sample counts
+prevent unknown stages from being mislabeled 0 ms. Model loading, GPU work,
+file publication and end-to-end process runtime remain unmeasured. Two
+synthetic, model-free CTests raise expected count **96 → 98**.
+
+**M6.6 pending native acceptance:** build with the pinned OpenCV 5.1.0
+DNN/videoio configuration, run 98/98 Release, CLI Release and ASan/UBSan
+CTests, clang-tidy, 25 Python quality tests and policy/provenance checks;
+manually verify JSONL timing, GUI timing display, and a complete silent AVI
+export; require all six hosted GitHub Actions checks before merging #43.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "chromascope/RecordedVideoObjectDetection.hpp"
+#include "chromascope/VideoPerformance.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -30,6 +31,7 @@ struct VideoDetectionProgress {
     std::optional<std::uint64_t> reported_total_frames;
     std::size_t cached_frames = 0;
     std::string message = "No video detection job.";
+    VideoPerformanceMetrics performance; // decode + inference only; no encoding
 };
 
 // A test seam: production constructs a SHA-256-verified CPU NanoDet network;

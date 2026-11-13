@@ -722,6 +722,37 @@ void write_jsonl_line(std::ostream& stream, const std::string& line) {
     if (!stream) throw std::runtime_error("Cannot write video JSONL output");
 }
 
+// Timings are stage-local CPU wall-clock measurements, not source media PTS.
+// Report counts explicitly; unmeasured stages are null rather than zero ms.
+std::string video_stage_json(const chromascope::VideoStageStatistics& stage) {
+    if (!stage.measured()) return "null";
+    std::ostringstream os;
+    os.imbue(std::locale::classic());
+    os << std::fixed << std::setprecision(6)
+       << "{\"samples\":" << stage.samples
+       << ",\"total_ms\":" << stage.total_ms()
+       << ",\"mean_ms\":" << stage.mean_ms()
+       << ",\"max_ms\":" << static_cast<double>(stage.max_ns) / 1'000'000.0 << '}';
+    return os.str();
+}
+
+std::string video_performance_json(const chromascope::VideoPerformanceMetrics& perf) {
+    return "{\"decode\":" + video_stage_json(perf.decode) +
+           ",\"inference\":" + video_stage_json(perf.inference) +
+           ",\"overlay\":" + video_stage_json(perf.overlay) +
+           ",\"encode\":" + video_stage_json(perf.encode) + '}';
+}
+
+std::string video_frame_timing_json(const chromascope::VideoFrameTiming& sample) {
+    // One selected frame; decode excludes skipped frames in this record.
+    std::ostringstream os;
+    os.imbue(std::locale::classic());
+    os << std::fixed << std::setprecision(6)
+       << "{\"decode_ms\":" << static_cast<double>(sample.decode_ns) / 1'000'000.0
+       << ",\"inference_ms\":" << static_cast<double>(sample.inference_ns) / 1'000'000.0 << '}';
+    return os.str();
+}
+
 int run_analyze_video_command(Options options) {
     // JSONL is the sole output for this operation. Resolve aliases against
     // both the input video and pinned model before decoding/writing anything.
@@ -752,15 +783,26 @@ int run_analyze_video_command(Options options) {
         "\",\"max_video_frames\":" + std::to_string(options.video_analysis.max_decoded_frames) +
         ",\"frame_step\":" + std::to_string(options.video_analysis.frame_step) + "}");
 
+    chromascope::VideoFrameTiming last_sample{};
+    std::optional<std::uint64_t> timed_frame;
+    options.video_analysis.timing = [&](std::uint64_t index,
+                                        const chromascope::VideoFrameTiming& sample) {
+        last_sample = sample;
+        timed_frame = index;
+    };
     const auto summary = chromascope::analyze_recorded_video(
         source,
         [&](const chromascope::VideoFramePacket& packet) { return detector.detect(packet); },
         [&](const chromascope::RecordedVideoObjectDetection& result) {
+            if (!timed_frame || *timed_frame != result.frame_index)
+                throw std::runtime_error("Video analysis missing matched timing sample");
             std::ostringstream single;
             write_object_json(single, options, result.inference.detections,
                               result.elapsed_ms, result.inference.summary, &result);
             write_jsonl_line(sink, "{\"type\":\"frame\",\"record\":" +
-                                   compact_json(single.str()) + "}");
+                                   compact_json(single.str()) +
+                                   ",\"timing_ms\":" + video_frame_timing_json(last_sample) + "}");
+            timed_frame.reset();
         }, options.video_analysis);
     write_jsonl_line(sink,
         "{\"type\":\"end\",\"complete\":" +
@@ -768,7 +810,8 @@ int run_analyze_video_command(Options options) {
         ",\"reason\":\"" + (summary.reached_eof ? "eof" : "frame_limit_reached") +
         "\",\"decoded_frames\":" + std::to_string(summary.decoded_frames) +
         ",\"analyzed_frames\":" + std::to_string(summary.analyzed_frames) +
-        ",\"accepted_detections\":" + std::to_string(summary.accepted_detections) + "}");
+        ",\"accepted_detections\":" + std::to_string(summary.accepted_detections) +
+        ",\"performance\":" + video_performance_json(summary.performance) + "}");
     return summary.reached_eof ? 0 : 2; // Explicitly report that the scan was truncated.
 }
 
@@ -795,7 +838,19 @@ int run_annotated_video_command(Options options) {
               << "\nDetections: " << summary.accepted_detections
               << "\nCodec: MJPEG/AVI\nAudio: dropped (silent output)"
               << "\nTiming: constant-frame-rate " << summary.output_fps
-              << " FPS (source VFR timing not preserved)\n";
+              << " FPS (source VFR timing not preserved)\n"
+              << "Stage timings (CPU wall-clock totals/means; no model loading, writer open/close or publication):\n";
+    const auto print_stage = [](const char* name, const chromascope::VideoStageStatistics& stats) {
+        std::cout << "  " << name << ": ";
+        if (!stats.measured()) std::cout << "not measured\n";
+        else std::cout << std::fixed << std::setprecision(3) << stats.total_ms()
+                       << " ms total, " << stats.mean_ms() << " ms/frame ("
+                       << stats.samples << " samples)\n";
+    };
+    print_stage("decode", summary.performance.decode);
+    print_stage("inference", summary.performance.inference);
+    print_stage("overlay", summary.performance.overlay);
+    print_stage("encode", summary.performance.encode);
     return 0;
 }
 

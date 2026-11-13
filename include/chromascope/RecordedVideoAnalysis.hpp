@@ -2,6 +2,7 @@
 
 #include "chromascope/RecordedVideoObjectDetection.hpp"
 #include "chromascope/VideoSource.hpp"
+#include "chromascope/VideoPerformance.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -13,6 +14,10 @@ namespace chromascope {
 struct RecordedVideoAnalysisOptions {
     std::uint64_t max_decoded_frames = 100000;
     std::uint32_t frame_step = 1;
+    // Called for selected frames after inference and validation, immediately
+    // before emitting their detection record. Decode includes skipped frames
+    // in aggregate statistics, not in the per-selected-frame callback.
+    std::function<void(std::uint64_t, const VideoFrameTiming&)> timing{};
 };
 
 struct RecordedVideoAnalysisSummary {
@@ -22,6 +27,7 @@ struct RecordedVideoAnalysisSummary {
     // True only when VideoSource explicitly returned EndOfStream. A cap hit
     // is not represented as EOF even if it coincides with the final frame.
     bool reached_eof = false;
+    VideoPerformanceMetrics performance; // completed frame work only
 };
 
 using RecordedFrameDetector = std::function<RecordedVideoObjectDetection(const VideoFramePacket&)>;

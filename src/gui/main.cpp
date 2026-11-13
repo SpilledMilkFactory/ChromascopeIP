@@ -10,6 +10,7 @@
 #include "chromascope/ImageViewport.hpp"
 #include "chromascope/VideoPlayer.hpp"
 #include "chromascope/AsyncRecordedVideoDetection.hpp"
+#include "chromascope/AnnotatedVideoExport.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
 
@@ -21,6 +22,9 @@
 #include <opencv2/imgproc.hpp>
 
 #include <algorithm>
+#include <atomic>
+#include <mutex>
+#include <thread>
 #include <array>
 #include <cctype>
 #include <cmath>
@@ -88,6 +92,7 @@ struct App {
     std::array<char, 4096> path{};
     std::array<char, 4096> export_path{};
     std::array<char, 4096> video_path{};
+    std::array<char, 4096> video_export_path{};
     std::array<char, 4096> detector_model_path{};
     std::array<char, 4096> browser_directory{};
     chromascope::Settings settings;
@@ -108,6 +113,13 @@ struct App {
     chromascope::AsyncRecordedVideoDetection video_detection;
     std::filesystem::path video_opened_path;
     bool video_show_detections = true;
+    bool video_export_audio_ack = false;
+    bool video_export_override_fps = false;
+    float video_export_fps = 25.0F;
+    std::atomic<bool> video_export_busy{false};
+    std::atomic<std::uint64_t> video_export_count{0};
+    std::mutex video_export_status_mutex;
+    std::string video_export_status = "No video export started.";
     Texture video_texture;
     chromascope::ImageViewport video_view;
     std::uint64_t video_seek_target = 0;
@@ -138,6 +150,9 @@ struct App {
     bool show_mask_preview = false;
     bool have_result = false;
     bool browse_requested = false;
+    // Last field: on App destruction jthread requests stop and joins before
+    // callback-accessed status, mutex, and atomics are destroyed.
+    std::jthread video_export_worker;
     int input_width = 0, input_height = 0;
 
     App() {
@@ -149,6 +164,7 @@ struct App {
         std::snprintf(path.data(), path.size(), "%s", "samples/skittles/s1.jpg");
         std::snprintf(export_path.data(), export_path.size(), "%s", "annotated.jpg");
         std::snprintf(video_path.data(), video_path.size(), "%s", "recording.avi");
+        std::snprintf(video_export_path.data(), video_export_path.size(), "%s", "annotated-video.avi");
         std::snprintf(detector_model_path.data(), detector_model_path.size(), "%s",
                       "models/object_detection_nanodet_2022nov.onnx");
         std::snprintf(browser_directory.data(), browser_directory.size(), "%s", ".");
@@ -435,6 +451,7 @@ struct App {
         try {
             video_player.open(file);
             video_detection.cancel();
+            video_export_worker.request_stop(); // Do not publish a previous video's export.
             video_opened_path = file;
             video_texture.reset();
             video_view.fit();
@@ -653,6 +670,71 @@ struct App {
         }
     }
 
+    void start_video_export() {
+        if (video_export_busy.load()) return;
+        try {
+            if (video_opened_path.empty() || !video_player.has_source())
+                throw std::invalid_argument("Open a recorded video before exporting");
+            if (!video_export_audio_ack)
+                throw std::invalid_argument("Confirm that source audio will be dropped");
+            const std::filesystem::path destination(video_export_path.data());
+            if (destination.extension() != ".avi")
+                throw std::invalid_argument("MJPEG export requires .avi output");
+            chromascope::DnnPostprocessOptions policy;
+            policy.confidence_threshold = detector_options.confidence_threshold;
+            policy.nms_iou_threshold = detector_options.nms_iou_threshold;
+            policy.max_detections = static_cast<std::size_t>(detector_options.max_detections);
+            for (int i = 0; i < chromascope::kNanoDetClassCount; ++i)
+                if (const auto value = detector_class_overrides[static_cast<std::size_t>(i)])
+                    policy.class_thresholds.push_back({i, *value});
+            chromascope::validate_dnn_postprocess_options(policy);
+            // Joining a completed job cannot block on a running inference.
+            if (video_export_worker.joinable()) video_export_worker.join();
+            video_detection.cancel(); // Prevent two NanoDet workers from competing for CPU.
+            video_export_count.store(0);
+            const auto input_file = video_opened_path;
+            const std::filesystem::path model(detector_model_path.data());
+            const std::optional<double> fps = video_export_override_fps
+                ? std::optional<double>{static_cast<double>(video_export_fps)} : std::nullopt;
+            video_export_busy.store(true);
+            {
+                std::lock_guard lock(video_export_status_mutex);
+                video_export_status = "Encoding video on a background worker...";
+            }
+            video_export_worker = std::jthread(
+                [this, input_file, destination, model, policy, fps](std::stop_token stop) {
+                std::string message;
+                try {
+                    auto source = chromascope::VideoSource::open(input_file);
+                    chromascope::RecordedVideoObjectDetector detector(model, policy);
+                    const auto summary = chromascope::export_annotated_video(
+                        source, destination,
+                        [&](const chromascope::VideoFramePacket& packet) {
+                            return detector.detect(packet);
+                        }, {.max_decoded_frames = 100000, .output_fps = fps,
+                            .show_labels = true,
+                            .canceled = [&] { return stop.stop_requested(); },
+                            .progress = [this](std::uint64_t count) {
+                                video_export_count.store(count);
+                            }});
+                    message = "Saved silent MJPEG/AVI: " + destination.string() +
+                              " (" + std::to_string(summary.frames_written) + " frames)";
+                } catch (const std::exception& e) {
+                    message = std::string("Video export not completed: ") + e.what();
+                }
+                {
+                    std::lock_guard lock(video_export_status_mutex);
+                    video_export_status = std::move(message);
+                }
+                video_export_busy.store(false);
+            });
+        } catch (const std::exception& e) {
+            video_export_busy.store(false);
+            std::lock_guard lock(video_export_status_mutex);
+            video_export_status = std::string("Video export rejected: ") + e.what();
+        }
+    }
+
     void draw_video_ui() {
         const float sidebar_width = 345.0f;
         ImGui::BeginChild("Video controls", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders);
@@ -686,6 +768,7 @@ struct App {
         }
         ImGui::SameLine();
         if (ImGui::Button("Close video", ImVec2(-1, 0))) {
+            video_export_worker.request_stop();
             video_detection.cancel();
             video_opened_path.clear();
             video_player.close();
@@ -750,7 +833,10 @@ struct App {
         ImGui::TextUnformatted("RECORDED-VIDEO OBJECT DETECTION (M6.2)");
         ImGui::InputText("ONNX model", detector_model_path.data(),
                          detector_model_path.size());
-        if (ImGui::IsItemEdited()) video_detection.cancel();
+        if (ImGui::IsItemEdited()) {
+            video_detection.cancel();
+            video_export_worker.request_stop();
+        }
         if (ImGui::Button("Browse detector model...", ImVec2(-1, 0)))
             open_file_picker(false, true);
         float confidence = static_cast<float>(detector_options.confidence_threshold);
@@ -804,6 +890,27 @@ struct App {
             progress.cached_frames, chromascope::AsyncRecordedVideoDetection::kMaxCachedFrames);
         ImGui::TextDisabled("Decoder and NanoDet run off-thread; cached overlays only.");
         ImGui::TextDisabled("Frames not yet processed or evicted show no overlay.");
+        ImGui::Separator();
+        ImGui::TextUnformatted("ANNOTATED VIDEO EXPORT (M6.4)");
+        ImGui::TextDisabled("Codec: MJPEG / AVI | Timing: constant FPS");
+        ImGui::InputText("AVI destination", video_export_path.data(), video_export_path.size());
+        ImGui::Checkbox("Discard source audio (silent AVI)", &video_export_audio_ack);
+        ImGui::Checkbox("Override nominal source FPS", &video_export_override_fps);
+        if (video_export_override_fps)
+            ImGui::SliderFloat("Output FPS", &video_export_fps, 1.0F, 120.0F, "%.1f");
+        ImGui::TextDisabled("Source VFR timestamps are not retained in AVI.");
+        ImGui::BeginDisabled(!has_source || video_export_busy.load() || !video_export_audio_ack);
+        if (ImGui::Button("Export annotated AVI", ImVec2(-1, 0))) start_video_export();
+        ImGui::EndDisabled();
+        if (video_export_busy.load() &&
+            ImGui::Button("Cancel AVI export", ImVec2(-1, 0)))
+            video_export_worker.request_stop();
+        ImGui::Text("Frames encoded: %llu",
+            static_cast<unsigned long long>(video_export_count.load()));
+        {
+            std::lock_guard lock(video_export_status_mutex);
+            ImGui::TextWrapped("%s", video_export_status.c_str());
+        }
         ImGui::Separator();
         ImGui::TextWrapped("%s", video_player.status().c_str());
         if (!video_status.empty()) ImGui::TextWrapped("%s", video_status.c_str());

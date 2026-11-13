@@ -524,3 +524,23 @@ add_test(NAME chromascope_cli_video_jsonl_contract COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_jsonl.cmake")
 set_tests_properties(chromascope_cli_video_jsonl_contract PROPERTIES
     LABELS "cli;video;model;streaming;security;negative;regression" TIMEOUT 60)
+
+# M6.4 (#41): transactional, explicitly silent CFR MJPEG/AVI export. Synthetic
+# input and deterministic post-forward detection outputs; no ONNX weight needed.
+add_executable(chromascope_integration_annotated_video_export
+    integration/test_annotated_video_export.cpp)
+target_link_libraries(chromascope_integration_annotated_video_export PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_annotated_video_export)
+target_include_directories(chromascope_integration_annotated_video_export PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_annotated_video_export
+    COMMAND chromascope_integration_annotated_video_export
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-4-video-export")
+set_tests_properties(chromascope_integration_annotated_video_export PROPERTIES
+    LABELS "integration;video;videoio;export;model;dnn;security;negative;regression" TIMEOUT 60)
+add_test(NAME chromascope_cli_annotated_video_export_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-4-cli"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_video_export.cmake")
+set_tests_properties(chromascope_cli_annotated_video_export_contract PROPERTIES
+    LABELS "cli;video;export;security;negative;regression" TIMEOUT 60)

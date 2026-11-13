@@ -16,6 +16,7 @@
 #include "chromascope/ObjectFrameInference.hpp"
 #include "chromascope/RecordedVideoObjectDetection.hpp"
 #include "chromascope/RecordedVideoAnalysis.hpp"
+#include "chromascope/AnnotatedVideoExport.hpp"
 
 #include <opencv2/core/version.hpp>
 
@@ -51,6 +52,10 @@ struct Options {
     std::map<std::string, double, std::less<>> profile_options;
     bool video_probe = false;
     bool analyze_video = false;
+    bool export_annotated_video = false;
+    bool audio_drop_explicit = false;
+    bool mjpeg_explicit = false;
+    std::optional<double> output_fps;
     chromascope::RecordedVideoAnalysisOptions video_analysis;
     std::optional<std::uint64_t> extract_frame;
     std::optional<std::uint64_t> detect_video_frame;
@@ -68,12 +73,18 @@ void usage(std::ostream& os) {
           "       chromascope-cli --video-probe --input VIDEO [--json FILE|-]\n"
           "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n"
           "       chromascope-cli --detect-video-frame INDEX --input VIDEO --profile object --model ONNX [--json FILE|-]\n"
-          "       chromascope-cli --analyze-video --input VIDEO --profile object --model ONNX --jsonl FILE|- [options]\n\n"
+          "       chromascope-cli --analyze-video --input VIDEO --profile object --model ONNX --jsonl FILE|- [options]\n"
+          "       chromascope-cli --export-annotated-video --input VIDEO --profile object --model ONNX\n"
+          "                         --output RESULT.avi --video-codec mjpeg --audio-policy drop [options]\n\n"
           "  -i, --input FILE       Input image or recorded-video file (required)\n"
           "      --video-probe     Inspect video metadata and first decoded frame\n"
           "      --extract-frame N  Extract zero-based video frame N to lossless PNG\n"
           "      --detect-video-frame N  Detect COCO objects in recorded frame N (zero-based)\n"
           "      --analyze-video    Sequential video object detection with JSONL frame records\n"
+          "      --export-annotated-video  Encode all analyzed frames as silent MJPEG/AVI\n"
+          "      --video-codec mjpeg  Explicit export codec (only MJPEG/AVI supported)\n"
+          "      --audio-policy drop  Required: discard any source audio, no mux/passthrough\n"
+          "      --output-fps N    Constant output FPS [1,240]; default source nominal FPS\n"
           "      --jsonl FILE|-    Required for --analyze-video; stream records or stdout\n"
           "      --max-video-frames N  Cap decoded frames at N [1,100000] (default 100000)\n"
           "      --frame-step N    Analyze every Nth decoded frame [1,10000] (default 1)\n"
@@ -182,6 +193,24 @@ Options parse(int argc, char* argv[]) {
             once(flag, "video-action"); o.video_probe = true;
         } else if (flag == "--analyze-video") {
             once(flag, "video-action"); o.analyze_video = true;
+        } else if (flag == "--export-annotated-video") {
+            once(flag, "video-action"); o.export_annotated_video = true;
+        } else if (flag == "--video-codec") {
+            once(flag, "video-codec");
+            if (next(i, argc, argv, flag) != "mjpeg")
+                throw std::invalid_argument("--video-codec supports only mjpeg (AVI)");
+            o.mjpeg_explicit = true;
+        } else if (flag == "--audio-policy") {
+            once(flag, "audio-policy");
+            if (next(i, argc, argv, flag) != "drop")
+                throw std::invalid_argument("--audio-policy supports only drop; no audio is exported");
+            o.audio_drop_explicit = true;
+        } else if (flag == "--output-fps") {
+            once(flag, "output-fps");
+            const double fps = parse_real(next(i, argc, argv, flag));
+            if (fps < 1.0 || fps > 240.0)
+                throw std::invalid_argument("--output-fps must be in [1,240]");
+            o.output_fps = fps;
         } else if (flag == "--extract-frame") {
             once(flag, "video-action");
             o.extract_frame = chromascope::cli::parse_video_frame_index(next(i, argc, argv, flag));
@@ -264,7 +293,8 @@ Options parse(int argc, char* argv[]) {
     if (o.input.empty()) throw std::invalid_argument("--input is required");
     if (o.profile_id.empty()) throw std::invalid_argument("--profile requires a nonempty ID");
     const bool video_object = o.detect_video_frame.has_value();
-    const bool video = o.video_probe || o.extract_frame.has_value() || video_object || o.analyze_video;
+    const bool video = o.video_probe || o.extract_frame.has_value() || video_object ||
+                       o.analyze_video || o.export_annotated_video;
     const bool object = o.profile_id == "object";
     const bool object_arguments = single_use.contains("model") ||
         single_use.contains("object-confidence") || single_use.contains("object-nms") ||
@@ -278,9 +308,13 @@ Options parse(int argc, char* argv[]) {
     } else if (object_arguments) {
         throw std::invalid_argument("--model and object thresholds require --profile object");
     }
-    if (!o.analyze_video && (single_use.contains("jsonl") || single_use.contains("video-max") ||
+    if (!o.analyze_video && (single_use.contains("jsonl") ||
+                             (!o.export_annotated_video && single_use.contains("video-max")) ||
                              single_use.contains("frame-step")))
-        throw std::invalid_argument("--jsonl, --frame-step and --max-video-frames require --analyze-video");
+        throw std::invalid_argument("--jsonl and --frame-step require --analyze-video; --max-video-frames also permits --export-annotated-video");
+    if (!o.export_annotated_video &&
+        (o.audio_drop_explicit || o.mjpeg_explicit || o.output_fps))
+        throw std::invalid_argument("--video-codec, --audio-policy and --output-fps require --export-annotated-video");
     if (video) {
         if (o.analyze_video) {
             if (!object || o.model.empty())
@@ -291,6 +325,13 @@ Options parse(int argc, char* argv[]) {
                 !o.json.empty() || o.json_stdout || !o.output.empty() || !o.mask_output.empty() ||
                 single_use.contains("no-labels"))
                 throw std::invalid_argument("--analyze-video accepts only --jsonl .jsonl|- (no --json, --output, --mask-output, or --no-labels)");
+        } else if (o.export_annotated_video) {
+            if (!object || o.model.empty() || !o.audio_drop_explicit || !o.mjpeg_explicit ||
+                o.output.empty() || o.output.extension() != ".avi" || !o.json.empty() ||
+                o.json_stdout || !o.jsonl.empty() || o.jsonl_stdout || !o.mask_output.empty())
+                throw std::invalid_argument(
+                    "--export-annotated-video requires --profile object --model ONNX --output FILE.avi "
+                    "--video-codec mjpeg --audio-policy drop (no --json or --jsonl)");
         } else if (video_object) {
             if (!object)
                 throw std::invalid_argument("--detect-video-frame requires --profile object and --model");
@@ -731,6 +772,33 @@ int run_analyze_video_command(Options options) {
     return summary.reached_eof ? 0 : 2; // Explicitly report that the scan was truncated.
 }
 
+int run_annotated_video_command(Options options) {
+    const auto paths = chromascope::cli::validate_output_paths(
+        options.input, {options.output, {}, {}, options.output_dir}, "video");
+    options.output = paths.image;
+    (void)chromascope::cli::validate_output_paths(
+        options.model, {options.output, {}, {}, {}}, "model");
+    // Validate and load the approved model before creating output artifacts.
+    chromascope::RecordedVideoObjectDetector detector(options.model, options.object_options);
+    auto source = chromascope::VideoSource::open(options.input, options.video_backend);
+    chromascope::cli::prepare_output_directory(paths);
+    (void)chromascope::cli::validate_output_paths(
+        options.input, {options.output, {}, {}, {}}, "video");
+    (void)chromascope::cli::validate_output_paths(
+        options.model, {options.output, {}, {}, {}}, "model");
+    const auto summary = chromascope::export_annotated_video(
+        source, options.output,
+        [&](const chromascope::VideoFramePacket& packet) { return detector.detect(packet); },
+        {.max_decoded_frames = options.video_analysis.max_decoded_frames,
+         .output_fps = options.output_fps, .show_labels = options.labels});
+    std::cout << "Saved: " << options.output.string() << "\nFrames: " << summary.frames_written
+              << "\nDetections: " << summary.accepted_detections
+              << "\nCodec: MJPEG/AVI\nAudio: dropped (silent output)"
+              << "\nTiming: constant-frame-rate " << summary.output_fps
+              << " FPS (source VFR timing not preserved)\n";
+    return 0;
+}
+
 int run_video_object_command(Options options) {
     // Match the still-image CLI's output protection, plus the video source.
     const auto paths = chromascope::cli::validate_output_paths(
@@ -836,6 +904,8 @@ int main(int argc, char* argv[]) {
         Options options = parse(argc, argv);
         if (options.analyze_video)
             return run_analyze_video_command(std::move(options));
+        if (options.export_annotated_video)
+            return run_annotated_video_command(std::move(options));
         if (options.detect_video_frame)
             return run_video_object_command(std::move(options));
         if (options.video_probe || options.extract_frame)

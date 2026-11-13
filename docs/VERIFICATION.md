@@ -687,3 +687,21 @@ loading or real detector decoding is introduced. Two CTests increase the
 expected count to **75**. Preliminary local GCC/Clang/sanitizer checks are not
 native OpenCV 5.1.0 qualification: all full Release/sanitizer/quality suites,
 manual GUI/CLI regressions and hosted CI jobs must pass before accepting #34.
+
+## M5.4 accepted / M5.5 (#35) GUI detector controls — November 12, 2026
+
+User-reported M5.4 baseline: 75/75 CTests each in GUI Release, CLI-only Release,
+and ASan/UBSan; clang-tidy and 16/16 Python quality tests completed; all six
+GitHub Actions checks succeeded before the reported merge. M5.5 exposes a
+NanoDet CPU object-detection profile, independently verified model status,
+background model load and raw CPU inference diagnostic, as well as visible
+confidence/NMS/max-detections settings. No raw model-output decoder, labeled
+object detections, inference overlays or detector exports are claimed. The
+new `DnnGuiSession` limits pending work and ignores stale/cancelled responses;
+file hashing uses the M5.1 pinned ONNX SHA-256 before OpenCV parses model bytes.
+
+Two new headless CTests raise the expected count to **77**. Local focused
+hash/lifecycle tests and syntax checks are preliminary, not final native
+qualification: accept only after real OpenCV 5.1.0 GUI/CLI Release builds,
+77/77 CTests in each required local configuration, sanitizers, clang-tidy,
+manual GUI/CLI regressions and all six hosted CI checks on the final revision.

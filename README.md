@@ -492,7 +492,7 @@ preprocessing tests bring the expected suite to **73 CTests**. See
 No pretrained weights, detections or GUI controls are added by M5.3.
 
 
-### M5.4 — Class labels, confidence gating and class-aware NMS (pending acceptance)
+### M5.4 — Class labels, confidence gating and class-aware NMS (accepted)
 
 A bounded, model-independent C++ postprocessor maps the selected NanoDet
 COCO-80 model-output IDs to labels, gates decoded candidate scores, performs
@@ -501,3 +501,15 @@ boxes to original-image pixel boundaries. It returns an owned `DetectionResult`
 and keeps inference, raw NanoDet tensor decoding and GUI overlays separate.
 Two new headless CTests raise the expected suite to **75**. See
 [`docs/M5_4_DNN_POSTPROCESSING.md`](docs/M5_4_DNN_POSTPROCESSING.md).
+
+### M5.5 — GUI model status and CPU inference controls (pending native acceptance)
+
+The still-image workspace exposes the selected NanoDet COCO-80 CPU profile,
+local model path, pinned SHA-256 verification and asynchronous load state,
+confidence/NMS/max-detections controls, and a **raw CPU inference** diagnostic.
+Only verified ONNX files can be loaded; the GUI never downloads or bundles model
+weights. It displays tensor shapes and execution duration, **not decoded object
+classes, boxes, annotations, or exports**. Existing Skittles and image-filter
+profiles remain separate and unchanged. Two new headless CTests increase the
+expected suite from **75 to 77**. See
+[`docs/M5_5_DNN_GUI.md`](docs/M5_5_DNN_GUI.md).

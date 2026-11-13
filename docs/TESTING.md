@@ -463,3 +463,29 @@ validation/ownership, and unchanged cross-class overlaps. Run the same suite
 under CLI-only Release and ASan/UBSan, with clang-tidy, provenance, Python
 quality gates and all six hosted GitHub Actions checks before acceptance.
 See `docs/M5_4_DNN_POSTPROCESSING.md` for exact numerical conventions.
+
+## M5.5 (#35) GUI DNN profile and model-status acceptance
+
+The new tests are headless; no registered test depends on a GUI/OpenGL context
+or a pretrained model download. The integration test generates a tiny ONNX
+ReLU graph in `build/` and exercises the asynchronous verification/forward
+controller using a test-only checksum. A genuine NanoDet model is always
+required to pass the **production** pinned digest gate.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'dnn_gui_policy|dnn_gui_session' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Expected **77/77 CTests** in each build. GUI manual acceptance: choose the
+NanoDet CPU profile; verify missing/wrong-hash paths fail safely; load the
+checksum-verified selected ONNX manually when available; confirm raw inference
+shows output dimensions, never detection boxes; test cancellation, unload and
+path edits; switch to classical profiles and test image/video regressions.
+See `docs/M5_5_DNN_GUI.md`. Confidence and NMS controls are reserved for the
+future decoded-box pipeline and do not affect raw forward outputs today.

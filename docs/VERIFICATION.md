@@ -820,3 +820,22 @@ continuous inference or GUI playback integration is claimed.
 under GUI Release, CLI-only Release and ASan/UBSan, clang-tidy, repository
 policy/provenance checks, manual real-ONNX video frame JSON/PNG export and
 existing GUI/CLI regression, and all six hosted GitHub Actions checks.
+
+## M6.1 CLI video probe compatibility correction — pending native acceptance
+
+The first native M6.1 run compiled successfully and passed all three new
+M6.1 CTests, but the existing M4.5 `chromascope_cli_video_probe_extract`
+regression failed in GUI Release, CLI-only Release and ASan/UBSan. The test
+correctly expected the pre-existing `cannot use still-image` diagnostic for
+`--video-probe --profile skittles`, whereas M6.1 had inadvertently replaced
+it with the narrower `cannot use object-profile options` message.
+
+Restored an accurate combined diagnostic covering both still-image and
+object-profile option misuse, without loosening rejection behavior. Extended
+the existing M4.5 test to cover the still-image profile on extraction and the
+M6.1 object profile on video probe. No CTest registrations or detection
+algorithms changed; the expected suite remains **87 CTests**.
+
+**Acceptance remains pending:** focused CTest #62, full 87 CTests in all
+three configurations, quality checks, real-model manual video-frame export,
+and six hosted GitHub Actions checks on the final PR revision.

@@ -257,7 +257,7 @@ Options parse(int argc, char* argv[]) {
             if (single_use.contains("profile") || object_arguments || !o.profile_options.empty() ||
                 o.legacy_settings_changed || single_use.contains("no-labels") ||
                 !o.mask_output.empty())
-                throw std::invalid_argument("Video probe/extraction cannot use object-profile options");
+                throw std::invalid_argument("Video probe/extraction cannot use still-image processing or object-profile options");
             if (o.video_probe && !o.output.empty())
                 throw std::invalid_argument("--video-probe does not accept --output; use --extract-frame");
             if (o.extract_frame) {

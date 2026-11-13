@@ -856,3 +856,26 @@ not native signoff. Require native OpenCV 5.1.0 builds, all 89 CTests in the
 three configurations, static analysis/policy/provenance, manual GUI playback
 and cancellation with a real local model, regression of legacy processing,
 and all six GitHub Actions checks before closing #39.
+
+## M6.2 accepted / M6.3 (#40) pending — November 13, 2026
+
+The user confirmed **89/89 CTests** in GUI Release, CLI-only Release and
+ASan/UBSan, 25 Python quality tests, repository clang-tidy/policy/provenance,
+responsive independent playback/inference, correct matched-frame overlays,
+zoom/seek/cancellation, and no cross-recording artifacts. All six hosted CI
+checks passed, and PR #39 was merged. Two sample videos were included only in
+the local archive; no recording binaries were committed.
+
+M6.3 introduces forward-only whole-recording CLI analysis with streaming JSONL
+start/frame/end records, optional frame-step sampling and a strict decoded-frame
+limit. The single existing pinned NanoDet model instance is reused, and the
+full M5.8 confidence policy, original frame identity/timing and output safety
+rules are preserved. Two offline CTests raise the expected suite to **91**.
+Incomplete limit hits are explicitly marked and exit nonzero; a failed stream
+never emits a success marker. No ONNX weights, third-party movies, or GUI
+behavior changes are included in this milestone.
+
+**M6.3 acceptance pending:** native OpenCV 5.1.0 GUI and CLI Release builds,
+all 91 CTests in Release/CLI-only/ASan-UBSan, static analysis, 25 Python quality
+tests, policy/provenance, real-model stdout/file JSONL verification, existing
+GUI/video/Skittles regressions, and all six hosted Linux/Windows CI checks.

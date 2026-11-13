@@ -15,6 +15,7 @@
 #include "chromascope/NanoDetDecoder.hpp"
 #include "chromascope/ObjectFrameInference.hpp"
 #include "chromascope/RecordedVideoObjectDetection.hpp"
+#include "chromascope/RecordedVideoAnalysis.hpp"
 
 #include <opencv2/core/version.hpp>
 
@@ -27,6 +28,8 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
+#include <cctype>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -38,14 +41,17 @@
 
 namespace {
 struct Options {
-    std::filesystem::path input, output, json, mask_output, output_dir;
+    std::filesystem::path input, output, json, jsonl, mask_output, output_dir;
     int json_version = 1;
     bool json_stdout = false;
+    bool jsonl_stdout = false;
     bool labels = true;
     std::string profile_id = "skittles";
     chromascope::Settings settings;
     std::map<std::string, double, std::less<>> profile_options;
     bool video_probe = false;
+    bool analyze_video = false;
+    chromascope::RecordedVideoAnalysisOptions video_analysis;
     std::optional<std::uint64_t> extract_frame;
     std::optional<std::uint64_t> detect_video_frame;
     chromascope::VideoBackend video_backend = chromascope::VideoBackend::Automatic;
@@ -61,11 +67,16 @@ void usage(std::ostream& os) {
           "Usage: chromascope-cli --input IMAGE [options]\n"
           "       chromascope-cli --video-probe --input VIDEO [--json FILE|-]\n"
           "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n"
-          "       chromascope-cli --detect-video-frame INDEX --input VIDEO --profile object --model ONNX [--json FILE|-]\n\n"
+          "       chromascope-cli --detect-video-frame INDEX --input VIDEO --profile object --model ONNX [--json FILE|-]\n"
+          "       chromascope-cli --analyze-video --input VIDEO --profile object --model ONNX --jsonl FILE|- [options]\n\n"
           "  -i, --input FILE       Input image or recorded-video file (required)\n"
           "      --video-probe     Inspect video metadata and first decoded frame\n"
           "      --extract-frame N  Extract zero-based video frame N to lossless PNG\n"
           "      --detect-video-frame N  Detect COCO objects in recorded frame N (zero-based)\n"
+          "      --analyze-video    Sequential video object detection with JSONL frame records\n"
+          "      --jsonl FILE|-    Required for --analyze-video; stream records or stdout\n"
+          "      --max-video-frames N  Cap decoded frames at N [1,100000] (default 100000)\n"
+          "      --frame-step N    Analyze every Nth decoded frame [1,10000] (default 1)\n"
           "      --video-backend ID  Video backend: auto (default), opencv-mjpeg\n"
           "  -o, --output FILE      Save annotated image or processed raster\n"
           "      --mask-output FILE Export segmentation/contour mask separately\n"
@@ -147,11 +158,30 @@ Options parse(int argc, char* argv[]) {
             const auto value = required_path(i, argc, argv, flag);
             if (value == "-") o.json_stdout = true;
             else o.json = value;
+        } else if (flag == "--jsonl") {
+            once(flag, "jsonl");
+            const auto value = required_path(i, argc, argv, flag);
+            if (value == "-") o.jsonl_stdout = true;
+            else o.jsonl = value;
+        } else if (flag == "--max-video-frames") {
+            once(flag, "video-max");
+            const int count = parse_integer(next(i, argc, argv, flag));
+            if (count < 1 || count > 100000)
+                throw std::invalid_argument("--max-video-frames must be in [1,100000]");
+            o.video_analysis.max_decoded_frames = static_cast<std::uint64_t>(count);
+        } else if (flag == "--frame-step") {
+            once(flag, "frame-step");
+            const int count = parse_integer(next(i, argc, argv, flag));
+            if (count < 1 || count > 10000)
+                throw std::invalid_argument("--frame-step must be in [1,10000]");
+            o.video_analysis.frame_step = static_cast<std::uint32_t>(count);
         } else if (flag == "--json-version") {
             once(flag, "json-version");
             o.json_version = parse_integer(next(i, argc, argv, flag));
         } else if (flag == "--video-probe") {
             once(flag, "video-action"); o.video_probe = true;
+        } else if (flag == "--analyze-video") {
+            once(flag, "video-action"); o.analyze_video = true;
         } else if (flag == "--extract-frame") {
             once(flag, "video-action");
             o.extract_frame = chromascope::cli::parse_video_frame_index(next(i, argc, argv, flag));
@@ -234,7 +264,7 @@ Options parse(int argc, char* argv[]) {
     if (o.input.empty()) throw std::invalid_argument("--input is required");
     if (o.profile_id.empty()) throw std::invalid_argument("--profile requires a nonempty ID");
     const bool video_object = o.detect_video_frame.has_value();
-    const bool video = o.video_probe || o.extract_frame.has_value() || video_object;
+    const bool video = o.video_probe || o.extract_frame.has_value() || video_object || o.analyze_video;
     const bool object = o.profile_id == "object";
     const bool object_arguments = single_use.contains("model") ||
         single_use.contains("object-confidence") || single_use.contains("object-nms") ||
@@ -248,8 +278,20 @@ Options parse(int argc, char* argv[]) {
     } else if (object_arguments) {
         throw std::invalid_argument("--model and object thresholds require --profile object");
     }
+    if (!o.analyze_video && (single_use.contains("jsonl") || single_use.contains("video-max") ||
+                             single_use.contains("frame-step")))
+        throw std::invalid_argument("--jsonl, --frame-step and --max-video-frames require --analyze-video");
     if (video) {
-        if (video_object) {
+        if (o.analyze_video) {
+            if (!object || o.model.empty())
+                throw std::invalid_argument("--analyze-video requires --profile object and --model");
+            if (o.jsonl.empty() && !o.jsonl_stdout)
+                throw std::invalid_argument("--analyze-video requires --jsonl FILE|-");
+            if ((!o.jsonl.empty() && o.jsonl.extension() != ".jsonl") ||
+                !o.json.empty() || o.json_stdout || !o.output.empty() || !o.mask_output.empty() ||
+                single_use.contains("no-labels"))
+                throw std::invalid_argument("--analyze-video accepts only --jsonl .jsonl|- (no --json, --output, --mask-output, or --no-labels)");
+        } else if (video_object) {
             if (!object)
                 throw std::invalid_argument("--detect-video-frame requires --profile object and --model");
             if (!o.output.empty()) chromascope::cli::validate_video_png_path(o.output);
@@ -606,6 +648,89 @@ int run_object_command(Options options) {
 }
 
 
+
+// Make the existing, well-tested schema-v1 single-frame object result a
+// JSONL payload without changing its fields or mishandling whitespace inside
+// user-controlled JSON strings. The emitter writes exactly one physical line.
+std::string compact_json(std::string_view value) {
+    std::string compact;
+    compact.reserve(value.size());
+    bool quoted = false;
+    bool escaped = false;
+    for (const char c : value) {
+        if (quoted) {
+            compact.push_back(c);
+            if (escaped) escaped = false;
+            else if (c == '\\') escaped = true;
+            else if (c == '"') quoted = false;
+        } else if (c == '"') {
+            quoted = true;
+            compact.push_back(c);
+        } else if (c != ' ' && c != '\n' && c != '\r' && c != '\t') {
+            compact.push_back(c);
+        }
+    }
+    if (quoted || escaped)
+        throw std::runtime_error("Invalid unterminated JSON serialization");
+    return compact;
+}
+
+void write_jsonl_line(std::ostream& stream, const std::string& line) {
+    stream << line << '\n';
+    stream.flush(); // Stream records immediately; do not buffer an entire video.
+    if (!stream) throw std::runtime_error("Cannot write video JSONL output");
+}
+
+int run_analyze_video_command(Options options) {
+    // JSONL is the sole output for this operation. Resolve aliases against
+    // both the input video and pinned model before decoding/writing anything.
+    const auto paths = chromascope::cli::validate_output_paths(
+        options.input, {{}, {}, options.jsonl, options.output_dir}, "video");
+    options.jsonl = paths.json;
+    (void)chromascope::cli::validate_output_paths(
+        options.model, {{}, {}, options.jsonl, {}}, "model");
+    // Fail before creating an output file on bad model/source inputs.
+    chromascope::RecordedVideoObjectDetector detector(options.model, options.object_options);
+    auto source = chromascope::VideoSource::open(options.input, options.video_backend);
+    chromascope::cli::prepare_output_directory(paths);
+    (void)chromascope::cli::validate_output_paths(
+        options.input, {{}, {}, options.jsonl, {}}, "video");
+    (void)chromascope::cli::validate_output_paths(
+        options.model, {{}, {}, options.jsonl, {}}, "model");
+    std::ofstream output;
+    if (!options.jsonl_stdout) {
+        output.open(options.jsonl, std::ios::binary | std::ios::trunc);
+        if (!output) throw std::runtime_error("Cannot open JSONL file: " + options.jsonl.string());
+    }
+    std::ostream& sink = options.jsonl_stdout ? std::cout : output;
+    sink.imbue(std::locale::classic());
+    write_jsonl_line(sink,
+        "{\"type\":\"start\",\"schema_version\":1,\"operation\":\"video_analyze\",\"input\":\"" +
+        escape_json(options.input.string()) + "\",\"model_sha256\":\"" +
+        std::string(chromascope::kSelectedNanoDetSha256) +
+        "\",\"max_video_frames\":" + std::to_string(options.video_analysis.max_decoded_frames) +
+        ",\"frame_step\":" + std::to_string(options.video_analysis.frame_step) + "}");
+
+    const auto summary = chromascope::analyze_recorded_video(
+        source,
+        [&](const chromascope::VideoFramePacket& packet) { return detector.detect(packet); },
+        [&](const chromascope::RecordedVideoObjectDetection& result) {
+            std::ostringstream single;
+            write_object_json(single, options, result.inference.detections,
+                              result.elapsed_ms, result.inference.summary, &result);
+            write_jsonl_line(sink, "{\"type\":\"frame\",\"record\":" +
+                                   compact_json(single.str()) + "}");
+        }, options.video_analysis);
+    write_jsonl_line(sink,
+        "{\"type\":\"end\",\"complete\":" +
+        std::string(summary.reached_eof ? "true" : "false") +
+        ",\"reason\":\"" + (summary.reached_eof ? "eof" : "frame_limit_reached") +
+        "\",\"decoded_frames\":" + std::to_string(summary.decoded_frames) +
+        ",\"analyzed_frames\":" + std::to_string(summary.analyzed_frames) +
+        ",\"accepted_detections\":" + std::to_string(summary.accepted_detections) + "}");
+    return summary.reached_eof ? 0 : 2; // Explicitly report that the scan was truncated.
+}
+
 int run_video_object_command(Options options) {
     // Match the still-image CLI's output protection, plus the video source.
     const auto paths = chromascope::cli::validate_output_paths(
@@ -709,6 +834,8 @@ int main(int argc, char* argv[]) {
             }
         }
         Options options = parse(argc, argv);
+        if (options.analyze_video)
+            return run_analyze_video_command(std::move(options));
         if (options.detect_video_frame)
             return run_video_object_command(std::move(options));
         if (options.video_probe || options.extract_frame)

@@ -198,3 +198,15 @@ polls progress/result snapshots without blocking on OpenCV and never passes
 OpenGL textures across threads. The immutable cached result is drawn using the
 same `ImageViewport` transform as the displayed frame, after exact index,
 geometry, timestamp, and provenance matching. See `docs/M6_2_ASYNC_VIDEO_GUI.md`.
+
+## M6.3 sequential CLI video analysis and JSONL output
+
+`RecordedVideoAnalysis` composes `VideoSource` with a per-frame detector and
+synchronous observer. The CLI supplies one long-lived SHA-256-verified
+`RecordedVideoObjectDetector` and a newline-flushed JSONL sink, reusing the
+single-frame JSON schema-v1 serializer as a nested per-frame payload. Each
+source frame and its result are discarded before the next decode, independent
+of the M6.2 GUI cache/worker. A decoded-frame cap limits untrusted recordings;
+frame-step selection preserves source indexes and media timestamp provenance.
+The end marker explicitly distinguishes true decoder EOF from a cap; errors
+produce nonzero exit status without a success marker. See `docs/M6_3_VIDEO_JSONL.md`.

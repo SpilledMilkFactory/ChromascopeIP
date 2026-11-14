@@ -19,7 +19,12 @@ class CameraCapturePolicyTests(unittest.TestCase):
         self.assertNotIn("detach()", source)
 
     def test_no_hidden_camera_activation(self):
-        self.assertNotIn("AsyncCameraCapture", (ROOT / "src/gui/main.cpp").read_text())
+        # M8.4 explicitly connects capture to the GUI, but never to the CLI
+        # or file-based decoder, and only the Start button may open a camera.
+        gui = (ROOT / "src/gui/main.cpp").read_text()
+        self.assertIn('if (ImGui::Button("Start camera",', gui)
+        self.assertIn('camera_capture.start(camera_index, camera_backend)', gui)
+        self.assertIn('if (workspace_mode == 2) {', gui)
         self.assertNotIn("AsyncCameraCapture", (ROOT / "src/cli/main.cpp").read_text())
         self.assertNotIn("AsyncCameraCapture", (ROOT / "src/core/VideoSource.cpp").read_text())
         doc = (ROOT / "docs/M8_3_CAMERA_CAPTURE.md").read_text()

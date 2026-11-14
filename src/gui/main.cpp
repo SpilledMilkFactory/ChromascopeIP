@@ -11,6 +11,9 @@
 #include "chromascope/VideoPlayer.hpp"
 #include "chromascope/AsyncRecordedVideoDetection.hpp"
 #include "chromascope/AnnotatedVideoExport.hpp"
+#include "chromascope/AsyncCameraCapture.hpp"
+#include "chromascope/CameraDiscovery.hpp"
+#include "chromascope/CameraPreviewPolicy.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
 
@@ -132,7 +135,22 @@ struct App {
     chromascope::ImageViewport video_view;
     std::uint64_t video_seek_target = 0;
     bool video_scrubbing = false;
-    int workspace_mode = 0; // 0 = still image; 1 = recorded video
+    // M8.4: a third, explicitly opt-in camera workspace. Construction and
+    // entering this workspace never open a device or request OS permission.
+    // Capture thread owns driver I/O; texture uploads stay on the GUI thread.
+    chromascope::AsyncCameraCapture camera_capture;
+    chromascope::CameraBackend camera_backend = chromascope::CameraBackend::PlatformDefault;
+    chromascope::CameraDiscoveryReport camera_devices;
+    chromascope::CameraActiveFormat camera_active_format;
+    Texture camera_texture;
+    chromascope::ImageViewport camera_view;
+    std::uint64_t camera_generation = 0;
+    std::uint64_t camera_frame_index = 0;
+    std::chrono::nanoseconds camera_frame_time{0};
+    int camera_index = 0;
+    bool camera_frame_visible = false;
+    std::string camera_status = "Camera is OFF. Select a device and press Start camera.";
+    int workspace_mode = 0; // 0 = still image; 1 = recorded video; 2 = live camera
     int detector_profile = 0; // 0 = disabled; 1 = verified NanoDet raw/person detection
     chromascope::DnnGuiSession detector_session;
     chromascope::DnnGuiOptions detector_options;
@@ -210,7 +228,102 @@ struct App {
         }
     }
 
+    void stop_camera() noexcept {
+        // stop() returns immediately even if native driver I/O is blocked;
+        // STOPPING remains visible until the worker actually closes the camera.
+        if (camera_capture.state() != chromascope::CameraCaptureState::Idle)
+            camera_capture.stop();
+        camera_generation = camera_capture.generation();
+        camera_texture.reset();
+        camera_view.fit();
+        camera_frame_visible = false;
+        camera_frame_index = 0;
+        camera_frame_time = std::chrono::nanoseconds{0};
+        camera_active_format = {};
+        camera_status = "Stop requested; device release may still be in progress.";
+    }
+
+    void switch_workspace(int next_mode) {
+        if (workspace_mode == next_mode) return;
+        if (workspace_mode == 2) stop_camera(); // privacy: leaving stops capture
+        if (next_mode != 1) video_player.pause();
+        workspace_mode = next_mode;
+    }
+
+    void start_camera() {
+        // Only called by the explicit user-facing Start camera button.
+        // No probes, fallback, recording, inference or model loading.
+        try {
+            camera_texture.reset();
+            camera_view.fit();
+            camera_frame_visible = false;
+            camera_frame_index = 0;
+            camera_frame_time = std::chrono::nanoseconds{0};
+            camera_active_format = {};
+            camera_generation = camera_capture.start(camera_index, camera_backend);
+            camera_status = "Camera opening requested (OS permission may be required).";
+        } catch (const std::exception& error) {
+            camera_status = std::string("Camera start rejected: ") + error.what();
+        }
+    }
+
+    void update_camera() {
+        // Drain the bounded event queue and upload only the newest frame.
+        // Never perform driver operations or GL operations on the worker.
+        std::optional<chromascope::CameraFramePacket> newest;
+        for (unsigned int i = 0; i < 32; ++i) {
+            auto event = camera_capture.poll();
+            if (!event) break;
+            if (event->generation != camera_generation) continue;
+            switch (event->kind) {
+                case chromascope::CameraCaptureEventKind::Opened:
+                    if (event->format) camera_active_format = *event->format;
+                    camera_status = "Camera opened. Live preview is active.";
+                    break;
+                case chromascope::CameraCaptureEventKind::Frame:
+                    if (chromascope::camera_preview_can_publish(
+                            *event, camera_generation, camera_capture.state()) &&
+                        workspace_mode == 2) {
+                        newest = std::move(event->frame);
+                    }
+                    break;
+                case chromascope::CameraCaptureEventKind::Stopped:
+                    camera_status = "Camera closed. No capture active.";
+                    camera_texture.reset();
+                    camera_frame_visible = false;
+                    break;
+                case chromascope::CameraCaptureEventKind::Error:
+                    camera_status = "Camera error (" + std::string(
+                        chromascope::camera_error_name(event->error_code.value_or(
+                            chromascope::CameraErrorCode::ReadFailed))) + "): " + event->message;
+                    camera_texture.reset();
+                    camera_frame_visible = false;
+                    break;
+            }
+        }
+        // A stop/restart may race an already-popped frame. Recheck the
+        // generation and state before publishing its pixels to the screen.
+        if (newest && workspace_mode == 2 &&
+            camera_capture.generation() == camera_generation &&
+            camera_capture.state() == chromascope::CameraCaptureState::Capturing) {
+            try {
+                const auto image = chromascope::to_cv_mat_copy(newest->image);
+                const bool resized = camera_texture.source_width != image.cols ||
+                                     camera_texture.source_height != image.rows;
+                camera_texture.upload(image);
+                if (resized) camera_view.fit();
+                camera_frame_index = newest->index;
+                camera_frame_time = newest->image.metadata().timestamp->value;
+                camera_frame_visible = true;
+            } catch (const std::exception& error) {
+                stop_camera();
+                camera_status = std::string("Preview conversion failed: ") + error.what();
+            }
+        }
+    }
+
     void update() {
+        update_camera();
         if (video_player.update()) {
             const auto& frame = video_player.current_frame();
             if (frame) {
@@ -450,6 +563,8 @@ struct App {
     // finishing OpenCV calls; generation invalidation blocks stale publication.
     // No previously saved export is deleted by this UI action.
     void clear_private_session() {
+        stop_camera();
+        camera_devices = {};
         processing->cancel();
         pending_ticket = 0;
         detector_session.unload();
@@ -549,7 +664,7 @@ struct App {
             video_scrubbing = false;
             video_status.clear();
             std::snprintf(video_path.data(), video_path.size(), "%s", file.string().c_str());
-            workspace_mode = 1;
+            switch_workspace(1);
         } catch (const std::exception& exception) {
             video_status = std::string("Open failed: ") + exception.what();
         }
@@ -1177,6 +1292,114 @@ struct App {
         draw_file_picker();
     }
 
+    void draw_camera_ui() {
+        const float sidebar_width = 345.0F;
+        ImGui::BeginChild("Camera controls", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders);
+        ImGui::TextUnformatted("LOCAL LIVE CAMERA");
+        ImGui::TextWrapped("Camera activation is opt-in. Nothing is recorded, uploaded "
+                           "or sent to person/object detection by this preview.");
+        ImGui::Separator();
+        const auto current_state = camera_capture.state();
+        const auto badge = chromascope::camera_preview_badge(current_state);
+        const ImVec4 color = badge.may_be_active
+            ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
+            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F);
+        ImGui::TextColored(color, "%s", badge.label);
+        ImGui::TextWrapped("%s", camera_status.c_str());
+        if (current_state == chromascope::CameraCaptureState::Stopping ||
+            current_state == chromascope::CameraCaptureState::Failed) {
+            ImGui::TextWrapped("Driver I/O can block. The camera may remain active "
+                               "until the worker confirms device release.");
+        }
+        ImGui::Separator();
+        ImGui::TextUnformatted("CAMERA BACKEND");
+        const auto backends = chromascope::camera_backend_info();
+        const auto backend_name = chromascope::camera_backend_name(camera_backend);
+        ImGui::BeginDisabled(current_state == chromascope::CameraCaptureState::Starting ||
+                             current_state == chromascope::CameraCaptureState::Capturing ||
+                             current_state == chromascope::CameraCaptureState::Stopping);
+        if (ImGui::BeginCombo("##camera_backend", backend_name.data())) {
+            const bool is_default = camera_backend == chromascope::CameraBackend::PlatformDefault;
+            if (ImGui::Selectable("System default (explicit native backend)", is_default))
+                camera_backend = chromascope::CameraBackend::PlatformDefault;
+            for (const auto& backend : backends) {
+                ImGui::BeginDisabled(!backend.supported_on_host || !backend.registered_for_camera);
+                if (ImGui::Selectable(backend.name.data(), camera_backend == backend.backend))
+                    camera_backend = backend.backend;
+                ImGui::EndDisabled();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::EndDisabled();
+        ImGui::TextDisabled("V4L2 on Linux; MSMF on Windows; DShow is explicit only.");
+        if (ImGui::Button("List devices (no opening)", ImVec2(-1, 0))) {
+            try {
+                camera_devices = chromascope::discover_cameras(
+                    {.backend = camera_backend, .max_indices = 16, .allow_device_open = false});
+            } catch (const std::exception& error) {
+                camera_devices = {};
+                camera_status = std::string("Passive camera listing failed: ") + error.what();
+            }
+        }
+        if (!camera_devices.notice.empty())
+            ImGui::TextWrapped("%s", camera_devices.notice.c_str());
+        for (const auto& device : camera_devices.devices) {
+            const std::string label = device.label + " (index " +
+                std::to_string(device.index) + ")##camera_device_" +
+                std::to_string(device.index);
+            if (ImGui::Selectable(label.c_str(), camera_index == device.index))
+                camera_index = device.index;
+        }
+        ImGui::TextDisabled("Discovery is unverified. Windows: enter an index manually.");
+        ImGui::InputInt("Device index", &camera_index);
+        ImGui::TextDisabled("OpenCV device index, 0 to 255; indices are backend-specific.");
+        ImGui::TextDisabled("Format: driver-selected (M8.2 strict format API retained).");
+        const bool opening = current_state == chromascope::CameraCaptureState::Starting;
+        const bool capturing = current_state == chromascope::CameraCaptureState::Capturing;
+        const bool stopping = current_state == chromascope::CameraCaptureState::Stopping;
+        ImGui::BeginDisabled(opening || capturing || stopping || camera_index < 0 || camera_index > 255);
+        if (ImGui::Button("Start camera", ImVec2(-1, 0))) start_camera();
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!opening && !capturing);
+        if (ImGui::Button("Stop camera", ImVec2(-1, 0))) stop_camera();
+        ImGui::EndDisabled();
+        ImGui::Separator();
+        ImGui::Text("Completed frames dropped: %llu",
+            static_cast<unsigned long long>(camera_capture.dropped_frames()));
+        ImGui::Text("Worker queue: %zu frame(s), %zu bytes",
+            camera_capture.queued_frames(), camera_capture.queued_pixel_bytes());
+        if (camera_frame_visible) {
+            ImGui::Text("Frame %llu | Capture monotonic %.3f s",
+                static_cast<unsigned long long>(camera_frame_index),
+                static_cast<double>(camera_frame_time.count()) / 1'000'000'000.0);
+        }
+        if (camera_active_format.width > 0 && camera_active_format.height > 0)
+            ImGui::Text("Negotiated: %d x %d | reported %.1f fps",
+                camera_active_format.width, camera_active_format.height, camera_active_format.fps);
+        ImGui::TextWrapped("Stop or switch workspaces to request device release. "
+                           "Session reset also stops the preview and clears pixels.");
+        ImGui::EndChild();
+        ImGui::SameLine();
+        ImGui::BeginChild("Live camera preview", ImVec2(0, 0), ImGuiChildFlags_Borders,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::TextUnformatted("LIVE PREVIEW");
+        ImGui::SameLine();
+        const auto preview_badge = chromascope::camera_preview_badge(camera_capture.state());
+        ImGui::TextColored(preview_badge.may_be_active
+            ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
+            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", preview_badge.label);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Fit camera")) camera_view.fit();
+        ImGui::Separator();
+        if (camera_frame_visible && camera_texture.id &&
+            camera_capture.state() == chromascope::CameraCaptureState::Capturing)
+            draw_viewport_texture("##camera_canvas", camera_texture, camera_view);
+        else
+            ImGui::TextWrapped("No live camera frame. Choose a camera and press Start camera. "
+                               "An OS permission prompt may appear.");
+        ImGui::EndChild();
+    }
+
     void draw_ui() {
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -1187,21 +1410,26 @@ struct App {
 
         ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP");
         ImGui::SameLine();
-        ImGui::TextDisabled("v0.1.3  |  Image & recorded video  |  OpenCV 5.1.0 / ImGui 1.93.0");
+        ImGui::TextDisabled("v0.1.3  |  Images, video & local camera  |  OpenCV 5.1.0 / ImGui 1.93.0");
         ImGui::Separator();
-        if (ImGui::RadioButton("Still images", workspace_mode == 0)) {
-            workspace_mode = 0;
-            video_player.pause();
-        }
+        if (ImGui::RadioButton("Still images", workspace_mode == 0))
+            switch_workspace(0);
         ImGui::SameLine();
         if (ImGui::RadioButton("Recorded video", workspace_mode == 1))
-            workspace_mode = 1;
+            switch_workspace(1);
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Live camera", workspace_mode == 2))
+            switch_workspace(2); // no implicit device opening
+        ImGui::SameLine();
+        const auto camera_badge = chromascope::camera_preview_badge(camera_capture.state());
+        ImGui::TextColored(camera_badge.may_be_active
+            ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
+            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", camera_badge.label);
         ImGui::Separator();
         // M7.5 person quick-entry actions select the existing, verified
         // person-only policies; they never load weights or run inference.
         if (ImGui::SmallButton("People in image")) {
-            if (workspace_mode == 1) video_player.pause();
-            workspace_mode = 0;
+            switch_workspace(0);
             show_overlay = true;
             show_labels = true;
             if (detector_profile == 0) {
@@ -1211,7 +1439,7 @@ struct App {
         }
         ImGui::SameLine();
         if (ImGui::SmallButton("People in video")) {
-            workspace_mode = 1;
+            switch_workspace(1);
             video_show_detections = true;
             if (video_detection_profile != 1) {
                 video_detection.cancel();
@@ -1239,9 +1467,9 @@ struct App {
             ImGui::TextWrapped("This app's first-party runtime has no upload, "
                 "telemetry, face recognition, or identity matching feature. "
                 "Person boxes are COCO class 0 predictions, not identities.");
-            ImGui::TextWrapped("Images, model weights, decoded frames and caches "
-                "are processed locally. Saving an annotated image, AVI or "
-                "JSON/JSONL file is explicit. Video exports discard audio.");
+            ImGui::TextWrapped("Images, model weights, decoded frames, camera "
+                "preview pixels and caches stay local. Camera preview never "
+                "records or uploads. File exports are explicit; AVI exports discard audio.");
             ImGui::TextDisabled("No automatic GUI layout file is written.");
             if (ImGui::Button("Clear loaded media, model and results"))
                 clear_private_session();
@@ -1253,6 +1481,11 @@ struct App {
         ImGui::Separator();
         if (workspace_mode == 1) {
             draw_video_ui();
+            ImGui::End();
+            return;
+        }
+        if (workspace_mode == 2) {
+            draw_camera_ui();
             ImGui::End();
             return;
         }

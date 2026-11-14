@@ -4,7 +4,7 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Current stage (M8.1 preparation):** accepted M7.6 includes still-image and recorded-video CPU NanoDet object/person boxes, bounded asynchronous analysis, silent MJPEG/AVI export, and the `--person-only` GUI/CLI workflow, with **110/110 CTests** across three local configurations and six hosted checks. M8.1 introduces explicit native camera backend plumbing (V4L2 on Linux; MSMF with opt-in DirectShow on Windows) and an offline CLI registry report. **There is no webcam GUI/live preview, automatic capture, biometric identification, or cross-frame identity tracking.** See [camera backend decision](docs/M8_1_CAMERA_BACKENDS.md) and [local privacy controls](docs/M7_6_LOCAL_PRIVACY.md).
+> **Current stage (M8.4 implementation):** M8.1–M8.3 established native backend selection, passive discovery, validated formats, typed errors and bounded asynchronous capture. M8.4 adds a **user-activated local live-camera GUI workspace** with device selection, a visible capture indicator and Stop/session-reset cleanup. Still-image and recorded-video workflows remain intact. No automatic camera activation, recording, upload, face recognition or identity tracking is introduced. See [M8.4 camera preview](docs/M8_4_CAMERA_GUI.md) and [privacy controls](docs/M7_6_LOCAL_PRIVACY.md).
 
 ## Current capabilities (M8.1 preparation; M7.6 accepted)
 
@@ -765,3 +765,13 @@ or YUYV requests must negotiate successfully or fail with a categorized
 latest-frame queue with source-monotonic timestamps, generation-safe
 stop/restart and typed read errors. No GUI or CLI hardware activation is added;
 see [M8.3 capture notes](docs/M8_3_CAMERA_CAPTURE.md).
+
+### M8.4 — Live camera preview in GUI
+
+The **Live camera** tab offers native backend / device index selection, passive
+V4L2 listing, explicit Start and Stop buttons, a live BGR8/OpenGL preview,
+and visible STARTING / LIVE / STOPPING / OFF / ERROR status. Switching workspaces
+or clearing the private session requests camera shutdown. Native driver calls
+can block; STOPPING does not mean that the device has already closed. There is
+no automatic media storage or live inference. See
+[the M8.4 GUI camera contract](docs/M8_4_CAMERA_GUI.md).

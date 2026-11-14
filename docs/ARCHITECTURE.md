@@ -376,3 +376,15 @@ thread. Completed BGR8 packets enter a bounded latest-frame-wins queue with
 monotonic capture timestamps, generation-rejected stale results and explicit
 cooperative stop. It remains separate from recorded-video decode and GUI;
 see `docs/M8_3_CAMERA_CAPTURE.md`.
+
+
+### M8.4 — Opt-in GUI camera preview
+
+`App` owns `AsyncCameraCapture` and a separate presentation-only camera texture
+and viewport. The third **Live camera** workspace does not open hardware until
+its Start button is pressed. The worker exclusively owns driver calls; the GUI
+polls current-generation, bounded BGR8 events and uploads only the most recent
+frame. The capture indicator is conservative through Starting/Stopping/Failed,
+and leaving the camera view or clearing the session stops and clears the
+preview without modifying recorded-video or still-image media. See
+`docs/M8_4_CAMERA_GUI.md`.

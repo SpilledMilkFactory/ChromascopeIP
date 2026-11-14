@@ -213,40 +213,64 @@ def _unique_pairs(pairs):
     return result
 
 
-def evaluate(ground_truth, predictions, iou_threshold):
+def _counts():
+    return {'tp': 0, 'fp': 0, 'fn': 0, 'annotated_frames': 0,
+            'positive_frames': 0, 'negative_frames': 0}
+
+
+def _finalize_counts(counts):
+    tp, fp, fn = (counts[k] for k in ('tp', 'fp', 'fn'))
+    counts['precision'] = tp / (tp + fp) if tp + fp else None
+    counts['recall'] = tp / (tp + fn) if tp + fn else None
+    counts['f1'] = 2 * tp / (2 * tp + fp + fn) if 2 * tp + fp + fn else None
+    return counts
+
+
+def _score_frame(gt, predictions, iou_threshold):
+    # Descending score, stable original-order ties, greedy 1:1 box matching.
+    used = set()
+    tp = fp = 0
+    for score, box in sorted(predictions, key=lambda pair: -pair[0]):
+        best = None
+        best_iou = 0.0
+        for item, candidate in enumerate(gt):
+            if item in used:
+                continue
+            intersection = iou(box, candidate)
+            if intersection >= iou_threshold and intersection > best_iou:
+                best, best_iou = item, intersection
+        if best is None:
+            fp += 1
+        else:
+            used.add(best)
+            tp += 1
+    return tp, fp, len(gt) - len(used)
+
+
+def evaluate(ground_truth, predictions, iou_threshold, *, with_scenarios=False):
     require(set(ground_truth) == set(predictions),
             'ground-truth indexes must exactly match every analyzed JSONL frame')
-    summary = {'tp': 0, 'fp': 0, 'fn': 0, 'annotated_frames': len(ground_truth),
-               'positive_frames': 0, 'negative_frames': 0}
+    summary = _counts()
+    scenarios = {}
     for index in sorted(ground_truth):
         truth = ground_truth[index]
         pred = predictions[index]
         require((truth['width'], truth['height']) == (pred['width'], pred['height']),
                 f'frame dimensions mismatch at {index}')
         gt = truth['persons']
-        if gt: summary['positive_frames'] += 1
-        else: summary['negative_frames'] += 1
-        # Descending score, deterministic tie-break by original occurrence;
-        # greedily choose the unmatched ground-truth box with greatest IoU.
-        used = set()
-        for score, box in sorted(pred['persons'], key=lambda pair: -pair[0]):
-            best = None; best_iou = 0.0
-            for item, candidate in enumerate(gt):
-                if item in used: continue
-                intersection = iou(box, candidate)
-                if intersection >= iou_threshold and intersection > best_iou:
-                    best, best_iou = item, intersection
-            if best is None: summary['fp'] += 1
-            else:
-                used.add(best)
-                summary['tp'] += 1
-        summary['fn'] += len(gt) - len(used)
-    tp, fp, fn = (summary[k] for k in ('tp', 'fp', 'fn'))
-    summary['precision'] = tp / (tp+fp) if tp+fp else None
-    summary['recall'] = tp / (tp+fn) if tp+fn else None
-    summary['f1'] = 2*tp / (2*tp+fp+fn) if 2*tp+fp+fn else None
+        tp, fp, fn = _score_frame(gt, pred['persons'], iou_threshold)
+        for group in [summary, *(scenarios.setdefault(tag, _counts())
+                                  for tag in truth['tags'])]:
+            group['annotated_frames'] += 1
+            group['positive_frames' if gt else 'negative_frames'] += 1
+            group['tp'] += tp
+            group['fp'] += fp
+            group['fn'] += fn
+    _finalize_counts(summary)
+    if with_scenarios:
+        return summary, {name: _finalize_counts(scenarios[name])
+                         for name in sorted(scenarios)}
     return summary
-
 
 def perform(annotation_path, jsonl_path, media_path):
     actual_media_hash = sha256_file(media_path)
@@ -256,16 +280,18 @@ def perform(annotation_path, jsonl_path, media_path):
     require(isinstance(stream.get('input'), str) and
             Path(stream['input']).name == Path(media_path).name,
             'JSONL source basename does not match supplied media')
-    counts = evaluate(truth, pred, threshold)
+    counts, scenarios = evaluate(truth, pred, threshold, with_scenarios=True)
     return {'schema_version': 1, 'metric_definition': 'person_box_greedy_one_to_one_iou_not_coco_map',
             'model_sha256': EXPECTED_MODEL_SHA256, 'media_sha256': actual_media_hash,
             'iou_threshold': threshold, 'frame_step': stream['frame_step'],
             'annotations_sha256': sha256_file(annotation_path),
             'jsonl_sha256': sha256_file(jsonl_path), 'metrics': counts,
+            'scenario_metrics': scenarios,
             'limitations': ['only analyzed independently annotated frames',
                             'not COCO AP/mAP or confidence calibration',
                             'not person identification or a generalization claim',
-                            'no unlabelled or ignored persons supported']}
+                            'no unlabelled or ignored persons supported',
+                            'scenario tags may overlap; subgroup totals must not be summed']}
 
 
 def main(argv=None):

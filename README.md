@@ -694,3 +694,15 @@ the still-image GUI remains raw-tensor diagnostics only. See
 [`docs/M7_2_PERSON_PROFILE.md`](docs/M7_2_PERSON_PROFILE.md).
 Three offline CTests raise the expected suite from **102 to 105**, with **36**
 Python quality tests after two evaluator compatibility tests. Person-only filtering is not an accuracy claim.
+
+### M7.4 — Synthetic person scenario regression coverage (#50)
+
+Eight reproducible, fully synthetic person-box contract cases now cover crowds,
+small/large scale, partial occlusion, boundary clipping and empty scenes.
+The M7.1 evaluator reports per-tag TP/FP/FN, precision, recall and F1 in
+`scenario_metrics`, without changing its existing aggregate report. A new
+headless video CTest creates a local MJPEG clip and tests person-box geometry,
+confidence, NMS and seeking using deterministic post-forward candidates.
+**No model-accuracy claim is made**; real NanoDet generalization requires
+independently labeled, rights-cleared video. See
+[`docs/M7_4_PERSON_SCENARIOS.md`](docs/M7_4_PERSON_SCENARIOS.md).

@@ -842,3 +842,23 @@ invalidation, failed-closed non-NanoDet tensors, cancel and unload. Full
 107/107 test suites, 36/36 Python quality tests, clang-tidy, manual still-GUI
 and existing video checks, and six hosted jobs are required for acceptance.
 See `docs/M7_3_PERSON_BOXES.md`.
+
+## M7.4 (#50) — Person crowds, scale, occlusion and negative scenes
+
+The registered **108th CTest** is `chromascope_regression_person_scenarios_video`.
+It builds its own portable synthetic MJPEG/AVI file in the ignored build tree,
+exercises OpenCV playback and fixed post-forward person boxes, and checks frame
+indexes, NMS, class-0 presentation, source-space boundary clipping, EOF and
+seeking. No model binary or third-party footage is required. Run:
+
+```sh
+ctest --test-dir build/presets/linux-release -R person_scenarios --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+The Python quality suite is now **40 tests**; the four new cases check
+reproducible fixture provenance, deterministic per-scenario metrics, incomplete
+or tampered source rejection, and missed/false person accounting. The
+synthetic numbers are arithmetic test vectors, not NanoDet accuracy. See
+`docs/M7_4_PERSON_SCENARIOS.md` and the independent annotation procedure in
+`docs/M7_1_PERSON_MODEL_EVALUATION.md`.

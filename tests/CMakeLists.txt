@@ -669,3 +669,19 @@ add_test(NAME chromascope_integration_person_still_gui_session
         "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m7-3-still-gui-session")
 set_tests_properties(chromascope_integration_person_still_gui_session PROPERTIES
     LABELS "integration;person;gui-contract;model;dnn;security;async;lifecycle;regression;negative" TIMEOUT 60)
+
+# M7.4 (#50): generated MJPEG person-scene regression through the real
+# OpenCV video decoder, source-space postprocessing, confidence labels and
+# seeking. No external people video and no pretrained model weights.
+add_executable(chromascope_regression_person_scenarios_video
+    regression/test_person_scenarios_video.cpp)
+target_link_libraries(chromascope_regression_person_scenarios_video PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_regression_person_scenarios_video)
+target_include_directories(chromascope_regression_person_scenarios_video PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_regression_person_scenarios_video
+    COMMAND chromascope_regression_person_scenarios_video
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m7-4-person-scenarios")
+set_tests_properties(chromascope_regression_person_scenarios_video PROPERTIES
+    LABELS "regression;integration;person;video;videoio;model;dnn;postprocessing;seeking;fixtures;negative"
+    TIMEOUT 90)

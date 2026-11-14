@@ -311,3 +311,14 @@ and confidence labels. Export rasterizes the same detection snapshot onto an
 independent BGR8 source copy. The video GUI/CLI retain their original paths
 and timings. No GPU work is done on the model thread; no additional worker or
 network dependency is introduced. See `docs/M7_3_PERSON_BOXES.md`.
+
+## M7.4 — Person scenario testing and evaluation breakdown
+
+The model-independent person-scenario manifest in
+`tests/fixtures/person_scenarios.json` provides hand-authored ground-truth and
+mock detection boxes for crowd/scale/occlusion/negative contract tests. The
+M7.1 stdlib evaluator retains its exact-frame, rights, digest, box-IoU and
+fail-closed rules and adds per-tag `scenario_metrics` based on the *same*
+greedy per-frame matcher. The synthetic MJPEG CTest checks decoder and
+source-space postprocessing without changing the NanoDet model, GUI, CLI or
+inference runtime. See `docs/M7_4_PERSON_SCENARIOS.md`.

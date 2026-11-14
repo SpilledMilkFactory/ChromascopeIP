@@ -870,3 +870,22 @@ Expected **109 CTests** (one additional offline CLI alias policy test),
 -R person_workflow --output-on-failure`, followed by all suites and the
 manual GUI quick-entry/overlay/export checks described in
 `docs/M7_5_PERSON_WORKFLOW.md`. No ONNX weights are needed by the CTest.
+
+## M7.6 (#52) — Local privacy and no-input CLI contract
+
+Expected **110 CTests** (109 baseline plus
+`chromascope_cli_privacy_contract`), **43 Python quality tests** (40 plus
+three source/documentation guards). `chromascope-cli --privacy-info` requires
+no input or model weights; the CTest validates an empty working directory,
+privacy disclosures and rejection of mixed arguments. Focused test:
+
+```sh
+ctest --test-dir build/presets/linux-release -R cli_privacy_contract --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+All three full native CTest configurations, static analysis, provenance
+policies, manual GUI privacy session reset, no-new-`imgui.ini` check and six
+hosted GitHub Actions jobs remain mandatory. Static source/documentation tests
+are **not** proof that OS, third-party libraries or the host network never
+store/transmit data. See `docs/M7_6_LOCAL_PRIVACY.md`.

@@ -1,4 +1,9 @@
-# ChromascopeIP — M0–M0.3 Architecture
+# ChromascopeIP — M0–M0.3 Architecture (historical baseline)
+
+The early pipeline/"excluded from M0" sections below describe the **M0
+baseline**, not the current M7 feature set. Later sections describe the
+implemented async video and NanoDet pipelines. Current local processing,
+retention and privacy limitations: [M7.6 privacy policy](M7_6_LOCAL_PRIVACY.md).
 
 ## Goal
 
@@ -329,3 +334,15 @@ The GUI has two top-level actions that only select the existing class-0
 NanoDet still-image/recorded-video workflows. No new inference adapter,
 processor or cache exists. The CLI `--person-only` aliases the already
 validated `--profile person` parser branch. See `docs/M7_5_PERSON_WORKFLOW.md`.
+
+## M7.6 — Runtime privacy boundary
+
+First-party media and model inference remains local; the shipped CLI and GUI
+contain no upload/telemetry/identity inference subsystem. Model and media
+paths refer to local files. Dear ImGui auto layout/log persistence is disabled
+in the GUI. `Clear loaded media, model and results` requests cancellation,
+closes the video decoder and drops displayed CPU/GPU buffers without touching
+previous exports. Background codecs may still finish, and third-party/OS
+behavior is not covered by a zero-network or secure-wipe claim. Runtime
+`--privacy-info` prints a standalone no-media privacy summary. See
+`docs/M7_6_LOCAL_PRIVACY.md` for a boundary map and acceptance checklist.

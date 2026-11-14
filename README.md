@@ -4,9 +4,9 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Development stage:** M0–M5.1 accepted through issue #31 with 69 passing native CTests and six passing hosted GitHub Actions checks. Recorded-video GUI playback and CLI probing/extraction remain available; M5.2 adds a CPU-first DNN tensor adapter, while full NanoDet detection and live camera capture remain future work.
+> **Current stage (M7.6 preparation):** still-image and recorded-video CPU NanoDet object/person boxes, bounded asynchronous analysis, silent MJPEG/AVI export, and the `--person-only` GUI/CLI workflow exist. M7.5 passed **109/109** CTests across three local configurations and six hosted CI checks. **Live camera capture, biometric identity recognition, and cross-frame identity tracking are not implemented.** See [local privacy and session controls](docs/M7_6_LOCAL_PRIVACY.md).
 
-## Current capabilities (through accepted M4.7)
+## Current capabilities (through accepted M7.5)
 
 | Capability | C++ library | CLI | GUI |
 | --- | :---: | :---: | :---: |
@@ -20,9 +20,11 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 | Open the four archived examples | Yes | Yes | Yes |
 | Recorded-video decoding and navigation | Yes | Probe/extract | Play/seek |
 | Webcam capture | **Planned** | **No** | **No** |
-| General multi-class object detection | Model selected; inference planned | **No** | **No** |
+| General multi-class object detection (NanoDet CPU) | Yes | Yes | Yes |
+| Person-only boxes (COCO class 0) | Yes | Yes | Yes |
+| Identity or face recognition | **No** | **No** | **No** |
 
-The current **Skittles** profile uses classical image processing, not a trained model. Hough-circle candidates and an HSV color classifier perform best on reasonably separated, roughly round candies. Real-world people, arbitrary objects, occlusions, and camera streams will require different algorithms. I am planning those as separate milestones after the accepted M0.3 baseline.
+The current **Skittles** profile uses classical image processing, not a trained model. Hough-circle candidates and an HSV color classifier perform best on reasonably separated, roughly round candies. Person and COCO-80 object boxes use the separately verified NanoDet CPU model. They are not biometric identities and do not guarantee recall under occlusion, crowding or small-object scale. Live camera input remains a later milestone.
 
 ## M2.4 background processing (accepted)
 
@@ -79,6 +81,18 @@ CLI behavior and JSON output stay compatible. See
 [docs/IMAGE_FILTER_PROFILES.md](docs/IMAGE_FILTER_PROFILES.md) for definitions,
 examples, safety constraints, tests, and acceptance. Expected suite: **35 CTests**.
 
+## Privacy and local processing (M7.6)
+
+The first-party GUI/CLI runtime processes user-selected images, videos and
+verified ONNX weights on the local host; it has no built-in upload, telemetry
+or identity-recognition service. Person detection returns category-level
+boxes, **not names or identities**. The GUI exposes a local session reset and
+disables automatic ImGui layout/log persistence. Explicit outputs, old files,
+OS caches, build-time dependency downloads and third-party behavior are
+separate concerns: consult [docs/M7_6_LOCAL_PRIVACY.md](docs/M7_6_LOCAL_PRIVACY.md)
+for the exact claims, limitations and user controls. Run
+`chromascope-cli --privacy-info` for an offline summary.
+
 ## Source tree
 
 ```text
@@ -99,14 +113,17 @@ ChromascopeIP/
 ```
 
 
-### Recorded-video GUI player (M4.4)
+### Recorded-video GUI player (M4.4 foundation; enhanced through M7.5)
 
 The **Recorded video** workspace opens a local video asynchronously and shows
 its decoded frames with Play/Pause, previous/next frame, absolute frame seeking,
 a frame-count timeline (when the backend provides one), nominal-FPS playback
 pacing, and fit/zoom/pan. The still-image workspace and exports remain
-independent. Audio, frame-level image analysis, and precise variable-FPS
-playback are not yet supported. See [M4.4 video GUI](docs/M4_4_VIDEO_GUI.md).
+independent. Audio playback and precise variable-FPS pacing are still not supported;
+recorded-frame NanoDet object/person analysis and silent AVI export were added
+in M6 and M7. See [M4.4 video GUI](docs/M4_4_VIDEO_GUI.md),
+[M6.2 asynchronous video analysis](docs/M6_2_ASYNC_VIDEO_GUI.md), and
+[M7.5 person workflows](docs/M7_5_PERSON_WORKFLOW.md).
 
 ## Development prerequisites (Ubuntu 26.04)
 

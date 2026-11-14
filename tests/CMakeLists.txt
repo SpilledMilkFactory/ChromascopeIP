@@ -685,3 +685,14 @@ add_test(NAME chromascope_regression_person_scenarios_video
 set_tests_properties(chromascope_regression_person_scenarios_video PROPERTIES
     LABELS "regression;integration;person;video;videoio;model;dnn;postprocessing;seeking;fixtures;negative"
     TIMEOUT 90)
+
+# M7.5 (#51): existing person-profile CLI semantics via a discoverable alias.
+# Fully offline and model-free; all four operation paths must fail closed on
+# a hash-invalid fixture before producing any output.
+add_test(NAME chromascope_cli_person_workflow_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m7-5-person-workflow"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_person_workflow.cmake")
+set_tests_properties(chromascope_cli_person_workflow_contract PROPERTIES
+    LABELS "cli;person;gui-contract;model;dnn;security;negative;regression" TIMEOUT 35)

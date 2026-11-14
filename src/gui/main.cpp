@@ -604,7 +604,7 @@ struct App {
 
     void draw_detector_controls() {
         ImGui::Separator();
-        ImGui::TextUnformatted("OBJECT DETECTION / PERSON BOXES (M7.3)");
+        ImGui::TextUnformatted("PERSON DETECTION / MODEL (M7.5)");
         if (ImGui::Combo("Detector profile", &detector_profile,
                          "Disabled (classical profiles)\0NanoDet COCO-80 / CPU\0")) {
             detector_session.unload();
@@ -656,6 +656,10 @@ struct App {
                                0.0F, 1.0F, "%.2f"))
             detector_session.clear_results();
         ImGui::TextDisabled("Person boxes require BOTH confidence and display thresholds.");
+        ImGui::Text("Effective person cutoff: %.2f",
+            static_cast<double>(std::max({still_person_display_threshold,
+                static_cast<float>(detector_options.confidence_threshold),
+                detector_class_overrides[0].value_or(0.0F)})));
         if (ImGui::CollapsingHeader("Per-class thresholds (recorded-video detection)")) {
             ImGui::SliderInt("COCO class ID", &detector_selected_class, 0,
                              chromascope::kNanoDetClassCount - 1);
@@ -680,7 +684,8 @@ struct App {
             ImGui::TextDisabled("Class 0 override also applies to still-image person boxes.");
         }
         ImGui::TextDisabled("Raw tensor diagnostics ignore the confidence sliders.");
-        ImGui::TextDisabled("Person boxes use the M7.2 postprocessor shared by CLI and video.");
+        ImGui::TextDisabled("Person boxes use the same class-0 postprocessor as CLI/video.");
+        ImGui::TextDisabled("Select People in image above to find this workflow again.");
         const bool ready = detector_session.ready_for(detector_model_path.data());
         ImGui::BeginDisabled(!ready || !input_frame || busy);
         if (ImGui::Button("Detect people in still image", ImVec2(-1, 0))) {
@@ -928,7 +933,7 @@ struct App {
         }
         ImGui::EndDisabled();
         ImGui::Separator();
-        ImGui::TextUnformatted("RECORDED-VIDEO DETECTION (M7.2)");
+        ImGui::TextUnformatted("RECORDED-VIDEO DETECTION / PEOPLE (M7.5)");
         if (ImGui::Combo("Video detection profile", &video_detection_profile,
                 "COCO-80 objects\0Person only (COCO ID 0)\0")) {
             video_detection.cancel();
@@ -960,14 +965,19 @@ struct App {
         if (ImGui::Button("Browse detector model...", ImVec2(-1, 0)))
             open_file_picker(false, true);
         float confidence = static_cast<float>(detector_options.confidence_threshold);
-        if (ImGui::SliderFloat("Video confidence", &confidence, 0.0f, 1.0f, "%.2f"))
+        bool video_policy_changed = false;
+        if (ImGui::SliderFloat("Video confidence", &confidence, 0.0f, 1.0f, "%.2f")) {
             detector_options.confidence_threshold = confidence;
+            video_policy_changed = true;
+        }
         float iou = static_cast<float>(detector_options.nms_iou_threshold);
-        if (ImGui::SliderFloat("Video NMS IoU", &iou, 0.0f, 1.0f, "%.2f"))
+        if (ImGui::SliderFloat("Video NMS IoU", &iou, 0.0f, 1.0f, "%.2f")) {
             detector_options.nms_iou_threshold = iou;
-        ImGui::SliderInt("Video max boxes", &detector_options.max_detections, 1, 512);
-        ImGui::SliderFloat("Video weak-candidate floor", &video_uncertainty_floor,
-                           0.0F, 1.0F, "%.2f");
+            video_policy_changed = true;
+        }
+        video_policy_changed |= ImGui::SliderInt("Video max boxes", &detector_options.max_detections, 1, 512);
+        video_policy_changed |= ImGui::SliderFloat("Video weak-candidate floor", &video_uncertainty_floor,
+                                                   0.0F, 1.0F, "%.2f");
         ImGui::TextDisabled("Diagnostic only: weak scores do not become boxes or an unknown class.");
         if (ImGui::CollapsingHeader("Video per-class confidence")) {
             ImGui::SliderInt("Video class ID", &detector_selected_class, 0,
@@ -980,13 +990,22 @@ struct App {
             if (ImGui::Checkbox("Override this class", &enabled)) {
                 if (enabled) threshold = 0.75F;
                 else threshold.reset();
+                video_policy_changed = true;
             }
             if (threshold) {
                 float value = *threshold;
-                if (ImGui::SliderFloat("Video class confidence", &value, 0.0F, 1.0F, "%.2f"))
+                if (ImGui::SliderFloat("Video class confidence", &value, 0.0F, 1.0F, "%.2f")) {
                     threshold = value;
+                    video_policy_changed = true;
+                }
             }
             ImGui::TextDisabled("Changes apply to the next analysis or AVI export.");
+        }
+        if (video_policy_changed) {
+            video_detection.cancel();
+            video_export_worker.request_stop();
+            // This confidence/class policy is also used by still-image DNN.
+            detector_session.clear_results();
         }
         std::size_t active_overrides = 0;
         for (const auto& item : detector_class_overrides)
@@ -995,6 +1014,10 @@ struct App {
         if (video_detection_profile == 1)
             ImGui::TextDisabled("Only the person (ID 0) override affects person-only results.");
         ImGui::Checkbox("Show matched-frame overlays", &video_show_detections);
+        if (video_detection_profile == 1) {
+            ImGui::TextDisabled("Person overlays: source-space boxes + confidence; cached frames only.");
+            ImGui::TextDisabled("Show/Hide is presentation-only, not a different detection result.");
+        }
         ImGui::BeginDisabled(!has_source);
         if (ImGui::Button("Analyze recording", ImVec2(-1, 0))) start_video_detection();
         ImGui::EndDisabled();
@@ -1088,9 +1111,10 @@ struct App {
             if (video_show_detections && current)
                 matched = video_detection.overlay_for(*current);
             if (matched) {
-                ImGui::Text("Matched frame %llu: %zu accepted objects (%.1f ms)",
+                ImGui::Text("Matched frame %llu: %zu accepted %s (%.1f ms)",
                     static_cast<unsigned long long>(matched->frame_index),
-                    matched->inference.detections.objects().size(), matched->elapsed_ms);
+                    matched->inference.detections.objects().size(),
+                    video_detection_profile == 1 ? "people" : "objects", matched->elapsed_ms);
                 ImGui::Text("Confidence status: %s | weak candidates: %zu",
                     std::string(matched->inference.summary.status()).c_str(),
                     matched->inference.summary.weak_candidates);
@@ -1129,6 +1153,43 @@ struct App {
         ImGui::SameLine();
         if (ImGui::RadioButton("Recorded video", workspace_mode == 1))
             workspace_mode = 1;
+        ImGui::Separator();
+        // M7.5 person quick-entry actions select the existing, verified
+        // person-only policies; they never load weights or run inference.
+        if (ImGui::SmallButton("People in image")) {
+            if (workspace_mode == 1) video_player.pause();
+            workspace_mode = 0;
+            show_overlay = true;
+            show_labels = true;
+            if (detector_profile == 0) {
+                detector_profile = 1;
+                detector_session.clear_results();
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("People in video")) {
+            workspace_mode = 1;
+            video_show_detections = true;
+            if (video_detection_profile != 1) {
+                video_detection.cancel();
+                video_export_worker.request_stop();
+                video_detection_profile = 1;
+            }
+        }
+        ImGui::SameLine();
+        if (workspace_mode == 1 && video_detection_profile == 1) {
+            ImGui::TextDisabled("PERSON ONLY | COCO 0 | cutoff >= %.2f",
+                static_cast<double>(std::max({video_person_display_threshold,
+                    static_cast<float>(detector_options.confidence_threshold),
+                    detector_class_overrides[0].value_or(0.0F)})));
+        } else if (workspace_mode == 0 && detector_profile != 0) {
+            ImGui::TextDisabled("STILL PEOPLE | COCO 0 | cutoff >= %.2f",
+                static_cast<double>(std::max({still_person_display_threshold,
+                    static_cast<float>(detector_options.confidence_threshold),
+                    detector_class_overrides[0].value_or(0.0F)})));
+        } else {
+            ImGui::TextDisabled("Select a people workflow; no automatic model loading");
+        }
         ImGui::Separator();
         if (workspace_mode == 1) {
             draw_video_ui();

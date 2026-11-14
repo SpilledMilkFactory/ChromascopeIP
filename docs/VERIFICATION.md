@@ -1053,3 +1053,13 @@ measured model recall/precision result: no real-world NanoDet evaluation or
 trained-weight changes are introduced. The hand-authored synthetic data are
 safe to version; external people videos remain untracked and must have their
 rights reviewed separately. See `docs/M7_4_PERSON_SCENARIOS.md`.
+
+### M7.5 (#51) preparation — person-only entry points
+
+The previous 108/108 CTests and 40 Python quality tests passed on M7.4 and
+all six hosted checks were reported green; the PR was merged. M7.5 adds
+GUI toolbar shortcuts for still/video person-only mode and a CLI `--person-only`
+alias with strict argument conflict guards. Expected suite **109 CTests**.
+Final native Release, CLI-only Release, sanitizer, static analysis, manual
+GUI/CLI, and six hosted checks remain pending until user verification. See
+`docs/M7_5_PERSON_WORKFLOW.md`.

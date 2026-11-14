@@ -72,8 +72,8 @@ void usage(std::ostream& os) {
           "Usage: chromascope-cli --input IMAGE [options]\n"
           "       chromascope-cli --video-probe --input VIDEO [--json FILE|-]\n"
           "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n"
-          "       chromascope-cli --detect-video-frame INDEX --input VIDEO --profile object --model ONNX [--json FILE|-]\n"
-          "       chromascope-cli --analyze-video --input VIDEO --profile object --model ONNX --jsonl FILE|- [options]\n"
+          "       chromascope-cli --detect-video-frame INDEX --input VIDEO --profile object|person --model ONNX [--json FILE|-]\n"
+          "       chromascope-cli --analyze-video --input VIDEO --profile object|person --model ONNX --jsonl FILE|- [options]\n"
           "       chromascope-cli --export-annotated-video --input VIDEO --profile object|person --model ONNX\n"
           "                         --output RESULT.avi --video-codec mjpeg --audio-policy drop [options]\n\n"
           "  -i, --input FILE       Input image or recorded-video file (required)\n"
@@ -99,6 +99,7 @@ void usage(std::ostream& os) {
           "      --set KEY=VALUE   Override a named numeric processor option (repeatable)\n"
           "      --profile object   NanoDet COCO-80 CPU object detection\n"
           "      --profile person   NanoDet person-only (COCO ID 0) CPU detection\n"
+          "      --person-only      Shortcut for --profile person (all image/video detection operations)\n"
           "      --display-threshold N  Person-only visible-box cutoff [0,1], default 0.50\n"
           "      --model FILE      Required pinned NanoDet ONNX for object/person profiles\n"
           "      --confidence N    Object score threshold in [0,1], default 0.50\n"
@@ -114,7 +115,13 @@ void usage(std::ostream& os) {
           "      --min-confidence N Color confidence in [0,1], default 0.25\n"
           "      --no-labels       Draw circles without text\n"
           "  -h, --help            Show command reference\n"
-          "      --version         Print version and OpenCV version\n";
+          "      --version         Print version and OpenCV version\n"
+          "\nPerson-only examples (ONNX is a local, SHA-256-verified NanoDet file):\n"
+          "  chromascope-cli --person-only --input photo.png --model model.onnx --display-threshold 0.65 --json -\n"
+          "  chromascope-cli --detect-video-frame 0 --person-only --input clip.mp4 --model model.onnx --json -\n"
+          "  chromascope-cli --analyze-video --person-only --input clip.mp4 --model model.onnx --jsonl people.jsonl\n"
+          "  chromascope-cli --export-annotated-video --person-only --input clip.mp4 --model model.onnx\n"
+          "                   --output people.avi --video-codec mjpeg --audio-policy drop\n";
 }
 
 std::string next(int& i, int argc, char* argv[], std::string_view flag) {
@@ -226,6 +233,10 @@ Options parse(int argc, char* argv[]) {
             if (value == "auto") o.video_backend = chromascope::VideoBackend::Automatic;
             else if (value == "opencv-mjpeg") o.video_backend = chromascope::VideoBackend::OpenCVMJPEG;
             else throw std::invalid_argument("Unknown --video-backend (supported: auto, opencv-mjpeg)");
+        } else if (flag == "--person-only") {
+            // M7.5 is a discoverability alias, never a second inference path.
+            once(flag, "profile");
+            o.profile_id = "person";
         } else if (flag == "--mode" || flag == "--profile") {
             once(flag, "profile");
             o.profile_id = next(i, argc, argv, flag);

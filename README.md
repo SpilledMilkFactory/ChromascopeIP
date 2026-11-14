@@ -706,3 +706,13 @@ confidence, NMS and seeking using deterministic post-forward candidates.
 **No model-accuracy claim is made**; real NanoDet generalization requires
 independently labeled, rights-cleared video. See
 [`docs/M7_4_PERSON_SCENARIOS.md`](docs/M7_4_PERSON_SCENARIOS.md).
+
+### M7.5 — Person-only workflow (pending acceptance)
+
+The GUI top toolbar now exposes **People in image** and **People in video**
+quick-entry actions for the existing class-0 NanoDet workflow. Both operate
+with the same pinned, manually verified CPU model and class-0 confidence/overlay
+semantics from M7.2/M7.3. The CLI accepts `--person-only` as a convenience alias
+for `--profile person` for still JSON/PNG, video-frame JSON, streaming JSONL,
+and silent annotated AVI. No model is downloaded, bundled, or auto-loaded.
+See [M7.5 person workflow](docs/M7_5_PERSON_WORKFLOW.md).

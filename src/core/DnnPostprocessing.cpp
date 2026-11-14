@@ -98,7 +98,8 @@ void validate_dnn_postprocess_options(const DnnPostprocessOptions& options) {
     };
     if (!valid_probability(options.confidence_threshold) ||
         !valid_probability(options.nms_iou_threshold) ||
-        !valid_probability(options.uncertainty_floor))
+        !valid_probability(options.uncertainty_floor) ||
+        !valid_probability(options.person_display_threshold))
         throw std::invalid_argument("DNN confidence, IoU and diagnostic floor must be finite in [0,1]");
     if (options.max_detections == 0 || options.max_detections > kMaxKept)
         throw std::invalid_argument("DNN maximum detections must be in [1,512]");
@@ -151,7 +152,12 @@ DetectionResult postprocess_dnn_boxes(
             !std::isfinite(c.x1) || !std::isfinite(c.y1) ||
             c.x1 <= c.x0 || c.y1 <= c.y0)
             throw std::invalid_argument("Invalid decoded DNN candidate");
-        const double threshold = dnn_class_threshold(options, c.class_id);
+        // Validate untrusted candidates *before* class filtering. Non-person
+        // candidates must not pollute person-only results or diagnostics.
+        if (options.person_only && c.class_id != 0) continue;
+        const double threshold = options.person_only
+            ? std::max(dnn_class_threshold(options, 0), options.person_display_threshold)
+            : dnn_class_threshold(options, c.class_id);
         if (c.confidence < options.uncertainty_floor && c.confidence < threshold) continue;
         const auto [source_x0, source_y0] = geometry.model_to_source(c.x0, c.y0);
         const auto [source_x1, source_y1] = geometry.model_to_source(c.x1, c.y1);

@@ -666,3 +666,18 @@ Two offline CTests extend the suite from 100 to **102**; the Python quality
 suite extends from 25 to **34** tests. Actual person accuracy evaluation
 requires an authorized, independently labeled dataset and a completed local
 analysis. The selected checkpoint remains optional and unbundled.
+
+
+### M7.2 — Person-only NanoDet profile and display threshold
+
+The `person` profile uses the same pinned NanoDet CPU inference engine but
+accepts **only COCO class 0**. A configurable `--display-threshold` (default
+0.50, inclusive) is combined with the existing confidence/class-0 threshold
+using the higher cutoff. Non-person proposals never become person results or
+uncertainty warnings. Single-frame/recorded-video CLI, streaming JSONL and
+silent annotated AVI all share this policy; `object` remains COCO-80. The
+recorded-video GUI adds a person-only selector and display-threshold slider;
+the still-image GUI remains raw-tensor diagnostics only. See
+[`docs/M7_2_PERSON_PROFILE.md`](docs/M7_2_PERSON_PROFILE.md).
+Three offline CTests raise the expected suite from **102 to 105**, with **36**
+Python quality tests after two evaluator compatibility tests. Person-only filtering is not an accuracy claim.

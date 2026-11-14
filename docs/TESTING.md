@@ -800,3 +800,30 @@ there is no distributable, independently labeled person dataset in the repo.
 Native full Release/CLI/sanitizer builds, clang-tidy, security/provenance
 checks and six hosted CI checks remain required for acceptance. See the
 M7.1 document for input format, media rights and quantitative limitations.
+
+
+## M7.2 — Person-only profile and display threshold
+
+Expected CTest suite: **105** (previously 102). New tests:
+
+- `chromascope_unit_person_profile`: class-0 filtering, cutoff inclusivity,
+  NMS, original object profile, diagnostics and adversarial bounds.
+- `chromascope_integration_person_profile_video`: generated MJPEG with
+  synthetic NanoDet outputs, person-only streaming, seeking and silent AVI.
+- `chromascope_cli_person_profile_contract`: CLI help/profile listing, invalid
+  and duplicate cutoffs, incompatible class overrides and model hash failure.
+
+```bash
+ctest --test-dir build/presets/linux-release -R 'person_profile' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+Two M7.2 Python tests extend the M7.1 evaluator to accept validated person-only JSONL, reject class contamination and ensure profile/cutoff consistency, bringing the suite to **36 tests**. All previous 34 tests remain applicable; CI/provenance, clang-tidy
+and manually tested GUI/CLI workflows remain acceptance gates. Verify both
+object and person modes using authorized user-provided video and the pinned
+ONNX model. See `docs/M7_2_PERSON_PROFILE.md`.

@@ -281,3 +281,20 @@ This prevents upstream benchmark numbers or synthetic unit tests from being
 misrepresented as locally validated real-world person accuracy. License and
 release conditions remain unchanged. See
 `docs/M7_1_PERSON_MODEL_EVALUATION.md`.
+
+
+## M7.2 person-only profile boundary
+
+`DnnPostprocessOptions::person_only` routes both still and recorded-frame
+NanoDet output through the existing class-0-only postprocessing gate.
+`person_display_threshold` is an inclusive extra score cutoff; the higher of
+that value and the existing class confidence threshold determines accepted
+person boxes. All raw candidates are validated before class exclusion; only
+class-0 candidates may contribute to weak-person diagnostics.
+
+`chromascope-cli --profile person` selects this policy for still images,
+video frames, streaming JSONL and annotated AVI. The recorded-video GUI
+snapshots the same options into asynchronous analyzer/export jobs, canceling
+stale results when the profile or cutoff changes. Core frame timing, owner
+identity, source timestamp, NMS, class map, pinned model, codec and audio
+policies remain unchanged. See `docs/M7_2_PERSON_PROFILE.md`.

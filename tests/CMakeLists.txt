@@ -645,3 +645,27 @@ add_test(NAME chromascope_cli_person_profile_contract COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_person_profile.cmake")
 set_tests_properties(chromascope_cli_person_profile_contract PROPERTIES
     LABELS "cli;person;model;dnn;security;negative;regression" TIMEOUT 25)
+
+# M7.3 (#49): still-image person boxes with video/CLI postprocessing parity,
+# immutable worker snapshots, deterministic source-pixel overlays and exports.
+# Generated synthetic-only inputs; no shipped model binaries or video assets.
+add_executable(chromascope_integration_person_still_boxes
+    integration/test_person_still_boxes.cpp)
+target_link_libraries(chromascope_integration_person_still_boxes PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_person_still_boxes)
+target_include_directories(chromascope_integration_person_still_boxes PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_person_still_boxes
+    COMMAND chromascope_integration_person_still_boxes
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m7-3-still-person-boxes")
+set_tests_properties(chromascope_integration_person_still_boxes PROPERTIES
+    LABELS "integration;person;image;dnn;postprocessing;annotation;export;regression;negative" TIMEOUT 60)
+add_executable(chromascope_integration_person_still_gui_session
+    integration/test_person_still_gui_session.cpp)
+target_link_libraries(chromascope_integration_person_still_gui_session PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_person_still_gui_session)
+target_include_directories(chromascope_integration_person_still_gui_session PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_person_still_gui_session
+    COMMAND chromascope_integration_person_still_gui_session
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m7-3-still-gui-session")
+set_tests_properties(chromascope_integration_person_still_gui_session PROPERTIES
+    LABELS "integration;person;gui-contract;model;dnn;security;async;lifecycle;regression;negative" TIMEOUT 60)

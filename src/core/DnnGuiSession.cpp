@@ -1,6 +1,7 @@
 #include "chromascope/DnnGuiSession.hpp"
 
 #include "chromascope/CpuDnnAdapter.hpp"
+#include "chromascope/ObjectFrameInference.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -44,8 +45,8 @@ void DnnGuiSession::load(std::filesystem::path path) {
     std::lock_guard lock(mutex_);
     ++generation_;
     ready_path_.clear();
-    state_ = {DnnGuiStage::Checking, generation_, "Checking model SHA-256 and loading CPU network...", path, {}, 0.0};
-    pending_ = Command{CommandKind::Load, generation_, std::move(path), nullptr, {}};
+    state_ = {DnnGuiStage::Checking, generation_, "Checking model SHA-256 and loading CPU network...", path, {}, 0.0, {}, {}};
+    pending_ = Command{CommandKind::Load, generation_, std::move(path), nullptr, {}, {}};
     cv_.notify_one();
 }
 
@@ -59,8 +60,40 @@ void DnnGuiSession::run(std::shared_ptr<const ImageFrame> frame, DnnPreprocessOp
         throw std::logic_error("Verify and load a model before running inference");
     ++generation_;
     state_ = {DnnGuiStage::Running, generation_, "Running raw CPU model inference...",
-              ready_path_, {}, 0.0};
-    pending_ = Command{CommandKind::Infer, generation_, ready_path_, std::move(frame), options};
+              ready_path_, {}, 0.0, {}, {}};
+    pending_ = Command{CommandKind::Infer, generation_, ready_path_, std::move(frame), options, {}};
+    cv_.notify_one();
+}
+
+void DnnGuiSession::run_person(std::shared_ptr<const ImageFrame> frame,
+                               DnnPostprocessOptions options) {
+    if (!frame) throw std::invalid_argument("Open an image before detecting people");
+    if (!options.person_only)
+        throw std::invalid_argument("Person GUI inference requires a person-only profile");
+    validate_dnn_postprocess_options(options);
+    // Geometry/preprocessing failures must occur before a task is queued.
+    (void)make_dnn_preprocess_geometry(frame->width(), frame->height(), {});
+    std::lock_guard lock(mutex_);
+    if (ready_path_.empty() || (state_.stage != DnnGuiStage::Ready &&
+                                state_.stage != DnnGuiStage::Completed))
+        throw std::logic_error("Verify and load a model before detecting people");
+    ++generation_;
+    state_ = {DnnGuiStage::Running, generation_, "Detecting people with verified NanoDet CPU model...",
+              ready_path_, {}, 0.0, {}, {}};
+    pending_ = Command{CommandKind::InferPerson, generation_, ready_path_,
+                       std::move(frame), {}, std::move(options)};
+    cv_.notify_one();
+}
+
+void DnnGuiSession::clear_results() {
+    std::lock_guard lock(mutex_);
+    if (state_.stage != DnnGuiStage::Completed && state_.stage != DnnGuiStage::Running)
+        return;
+    ++generation_;
+    pending_.reset();
+    // Any in-flight forward may finish, but its generation cannot publish.
+    state_ = {DnnGuiStage::Ready, generation_, "Detection settings changed; rerun to update person boxes.",
+              ready_path_, {}, 0.0, {}, {}};
     cv_.notify_one();
 }
 
@@ -71,8 +104,8 @@ void DnnGuiSession::cancel() {
     // A cancelled operation must never publish a stale tensor result.
     ready_path_.clear();
     state_ = {DnnGuiStage::Cancelled, generation_,
-              "Request cancelled; load the verified model again to resume.", {}, {}, 0.0};
-    pending_ = Command{CommandKind::Unload, generation_, {}, nullptr, {}};
+              "Request cancelled; load the verified model again to resume.", {}, {}, 0.0, {}, {}};
+    pending_ = Command{CommandKind::Unload, generation_, {}, nullptr, {}, {}};
     cv_.notify_one();
 }
 
@@ -80,8 +113,8 @@ void DnnGuiSession::unload() {
     std::lock_guard lock(mutex_);
     ++generation_;
     ready_path_.clear();
-    state_ = {DnnGuiStage::Unloaded, generation_, "No model loaded.", {}, {}, 0.0};
-    pending_ = Command{CommandKind::Unload, generation_, {}, nullptr, {}};
+    state_ = {DnnGuiStage::Unloaded, generation_, "No model loaded.", {}, {}, 0.0, {}, {}};
+    pending_ = Command{CommandKind::Unload, generation_, {}, nullptr, {}, {}};
     cv_.notify_one();
 }
 
@@ -146,14 +179,23 @@ void DnnGuiSession::worker_loop(std::stop_token stop) {
             } else {
                 if (!network || loaded_path != work.path)
                     throw std::logic_error("Model was unloaded before inference began");
-                const auto start=std::chrono::steady_clock::now();
-                const auto input=preprocess_dnn_frame(*work.frame, work.options);
-                const auto outputs=network->forward(input.tensor);
-                result.elapsed_ms=std::chrono::duration<double,std::milli>(
-                    std::chrono::steady_clock::now()-start).count();
-                for (const auto& output : outputs) result.output_shapes.push_back(output.shape);
+                const auto start = std::chrono::steady_clock::now();
+                if (work.kind == CommandKind::InferPerson) {
+                    auto inference = infer_object_frame(*work.frame, *network, work.postprocess);
+                    result.person_summary = inference.summary;
+                    result.person_detections = std::make_shared<const DetectionResult>(
+                        std::move(inference.detections));
+                    result.message = "Person-only NanoDet inference completed (COCO class 0).";
+                } else {
+                    const auto input = preprocess_dnn_frame(*work.frame, work.options);
+                    const auto outputs = network->forward(input.tensor);
+                    for (const auto& output : outputs)
+                        result.output_shapes.push_back(output.shape);
+                    result.message = "Raw CPU inference complete. Outputs are NOT decoded object detections.";
+                }
+                result.elapsed_ms = std::chrono::duration<double, std::milli>(
+                    std::chrono::steady_clock::now() - start).count();
                 result.stage = DnnGuiStage::Completed;
-                result.message = "Raw CPU inference complete. Outputs are NOT decoded object detections.";
             }
         } catch (const std::exception& error) {
             result.stage = DnnGuiStage::Failed;

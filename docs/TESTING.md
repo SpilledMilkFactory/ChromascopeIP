@@ -827,3 +827,18 @@ Two M7.2 Python tests extend the M7.1 evaluator to accept validated person-only 
 and manually tested GUI/CLI workflows remain acceptance gates. Verify both
 object and person modes using authorized user-provided video and the pinned
 ONNX model. See `docs/M7_2_PERSON_PROFILE.md`.
+
+## M7.3 — Still-image person boxes / recorded-video parity (#49)
+
+The expected registered suite increases to **107 CTests** (previously 105).
+Run `ctest --test-dir build/presets/linux-release -R 'person_still' --output-on-failure`
+and repeat in CLI-only Release and ASan/UBSan. The two new tests use generated
+synthetic proposals and an in-tree test-only Relu ONNX model: there are no
+runtime downloads, pretrained model weights, or copyrighted video assets.
+The first covers model-space/source-pixel box mapping, accepted class 0,
+confidence labels, BGR source immutability and PNG export. The second covers
+verified background session, bad model/option rejection, generation
+invalidation, failed-closed non-NanoDet tensors, cancel and unload. Full
+107/107 test suites, 36/36 Python quality tests, clang-tidy, manual still-GUI
+and existing video checks, and six hosted jobs are required for acceptance.
+See `docs/M7_3_PERSON_BOXES.md`.

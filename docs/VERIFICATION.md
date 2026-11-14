@@ -1037,3 +1037,19 @@ confidence/display thresholds, stale-result clearing on setting/image/model
 changes and cancellation, zero-person result, PNG export and classical/video
 regression. No claim of measured recognition accuracy is made. See
 `docs/M7_3_PERSON_BOXES.md`.
+
+## M7.4 (#50) — Scenario regression acceptance (pending native verification)
+
+M7.3 was accepted after **107/107 CTests** in GUI Release, CLI Release and
+ASan/UBSan, plus the six hosted CI jobs and manual still/video UI checks.
+M7.4 adds one headless generated-MJPEG regression and four stdlib-only Python
+tests: expected **108/108 CTests** per native configuration and **40/40
+Python quality tests**. Also require `git diff --check`, pinned model/fixture
+provenance and CI-policy scripts, clang-tidy, and all six GitHub Actions jobs.
+
+M7.4 verifies post-forward contracts and evaluator error accounting for crowded,
+small/large, partially occluded, cropped and empty scenes. This is NOT a
+measured model recall/precision result: no real-world NanoDet evaluation or
+trained-weight changes are introduced. The hand-authored synthetic data are
+safe to version; external people videos remain untracked and must have their
+rights reviewed separately. See `docs/M7_4_PERSON_SCENARIOS.md`.

@@ -126,3 +126,12 @@ Windows explanatory report; it opens no camera and writes no media. Only an
 explicit C++ opt-in enables probing, which may trigger OS camera permissions.
 No live capture UI or automatic inference is introduced. See
 `docs/M8_2_CAMERA_DISCOVERY.md`.
+
+
+### M8.3 capture extension
+
+The opt-in `AsyncCameraCapture` worker holds transient bounded in-memory
+camera frames, requires explicit `start()` before any driver access, and
+does not persist or network-transmit captured frames. `stop()` invalidates
+queued data but does not securely erase OS/driver buffers; see
+`docs/M8_3_CAMERA_CAPTURE.md`.

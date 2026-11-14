@@ -911,3 +911,11 @@ Run `ctest --test-dir build/presets/linux-release -L camera --output-on-failure`
 and `chromascope-cli --camera-devices` (passive). No CI test opens a webcam.
 Run full GUI, CLI and sanitizer suites, static analysis, provenance and all
 six hosted CI checks; consult `docs/M8_2_CAMERA_DISCOVERY.md`.
+
+
+### M8.3 camera lifecycle regression
+
+`chromascope_unit_async_camera_capture_policy` and
+`chromascope_integration_async_camera_capture` are hardware-free synthetic
+CTest cases for queue bounds, frame ownership/timestamps, stop/restart and
+typed error paths. Expect 118 native CTests and 49 Python quality tests.

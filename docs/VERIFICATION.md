@@ -1105,3 +1105,11 @@ M8.2 introduces passive bounded discovery, strict requested camera format
 negotiation, categorized failures, three offline CTests and two Python guards.
 Expected: **116 CTests / 47 Python tests**. Native/hosted/manual M8.2
 acceptance is pending user verification. See `docs/M8_2_CAMERA_DISCOVERY.md`.
+
+
+### M8.3 (#55) qualification
+
+Run the GUI Release, CLI Release and CLI ASan/UBSan presets, and `ctest`
+with `-L camera`; expect 118 native CTests, including both new async camera
+checks. Run Python quality suite (49), clang-tidy and provenance/CI policy
+checks. No automated test opens real camera hardware.

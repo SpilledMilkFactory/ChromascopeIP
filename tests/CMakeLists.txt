@@ -731,3 +731,12 @@ add_test(NAME chromascope_cli_camera_devices_contract COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_camera_devices.cmake")
 set_tests_properties(chromascope_cli_camera_devices_contract PROPERTIES
     LABELS "cli;camera;videoio;security;negative;regression" TIMEOUT 25)
+
+# M8.3 (#55): bounded async camera capture and cooperative lifecycle.
+# Synthetic readers: never open physical cameras on CI or in ctest.
+chromascope_add_cpp_test(chromascope_unit_async_camera_capture_policy
+    unit/test_async_camera_capture_policy.cpp
+    "unit;camera;async;videoio;security;negative;regression;lifecycle" 20)
+chromascope_add_cpp_test(chromascope_integration_async_camera_capture
+    integration/test_async_camera_capture.cpp
+    "integration;camera;async;videoio;frame;timing;security;negative;regression;lifecycle" 25)

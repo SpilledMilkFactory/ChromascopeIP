@@ -346,3 +346,16 @@ previous exports. Background codecs may still finish, and third-party/OS
 behavior is not covered by a zero-network or secure-wipe claim. Runtime
 `--privacy-info` prints a standalone no-media privacy summary. See
 `docs/M7_6_LOCAL_PRIVACY.md` for a boundary map and acceptance checklist.
+
+## M8.1 camera core boundary
+
+`CameraSource` is a synchronous, move-only opt-in device adapter independent
+of file-backed `VideoSource`. Linux explicitly selects V4L2; Windows explicitly
+selects Media Foundation with optional explicit DirectShow compatibility.
+The backend registry API does not access a physical device; `CameraSource::open`
+is the only hardware entry point and is not used by GUI or CLI in M8.1.
+A successful read returns independently owned bounded BGR8 pixels with
+`CaptureMonotonic` time instead of recorded `MediaPresentation` timestamps.
+No automatic fallback, networking, persistence, background capture, live
+preview or frame-based person inference is implemented. See
+`docs/M8_1_CAMERA_BACKENDS.md` for interface, selection and test gates.

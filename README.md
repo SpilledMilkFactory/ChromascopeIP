@@ -4,9 +4,9 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Current stage (M7.6 preparation):** still-image and recorded-video CPU NanoDet object/person boxes, bounded asynchronous analysis, silent MJPEG/AVI export, and the `--person-only` GUI/CLI workflow exist. M7.5 passed **109/109** CTests across three local configurations and six hosted CI checks. **Live camera capture, biometric identity recognition, and cross-frame identity tracking are not implemented.** See [local privacy and session controls](docs/M7_6_LOCAL_PRIVACY.md).
+> **Current stage (M8.1 preparation):** accepted M7.6 includes still-image and recorded-video CPU NanoDet object/person boxes, bounded asynchronous analysis, silent MJPEG/AVI export, and the `--person-only` GUI/CLI workflow, with **110/110 CTests** across three local configurations and six hosted checks. M8.1 introduces explicit native camera backend plumbing (V4L2 on Linux; MSMF with opt-in DirectShow on Windows) and an offline CLI registry report. **There is no webcam GUI/live preview, automatic capture, biometric identification, or cross-frame identity tracking.** See [camera backend decision](docs/M8_1_CAMERA_BACKENDS.md) and [local privacy controls](docs/M7_6_LOCAL_PRIVACY.md).
 
-## Current capabilities (through accepted M7.5)
+## Current capabilities (M8.1 preparation; M7.6 accepted)
 
 | Capability | C++ library | CLI | GUI |
 | --- | :---: | :---: | :---: |
@@ -19,7 +19,7 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 | Save structured machine-readable JSON | — | Yes | — |
 | Open the four archived examples | Yes | Yes | Yes |
 | Recorded-video decoding and navigation | Yes | Probe/extract | Play/seek |
-| Webcam capture | **Planned** | **No** | **No** |
+| Webcam backend adapter (explicit opt-in, not live UI) | **M8.1 core** | Registry only | **No** |
 | General multi-class object detection (NanoDet CPU) | Yes | Yes | Yes |
 | Person-only boxes (COCO class 0) | Yes | Yes | Yes |
 | Identity or face recognition | **No** | **No** | **No** |
@@ -92,6 +92,20 @@ OS caches, build-time dependency downloads and third-party behavior are
 separate concerns: consult [docs/M7_6_LOCAL_PRIVACY.md](docs/M7_6_LOCAL_PRIVACY.md)
 for the exact claims, limitations and user controls. Run
 `chromascope-cli --privacy-info` for an offline summary.
+
+## M8.1 camera backend foundation (Issue #53; verification pending)
+
+The move-only `CameraSource` core API selects V4L2 on Linux and MSMF on Windows,
+with an **explicit** DirectShow alternative. It owns the camera handle and
+returns deep-copied, bounded BGR8 frames with monotonic capture timestamps.
+Device opening is only performed through an explicit `CameraSource::open()` call;
+no CLI/GUI mode invokes it yet. `chromascope-cli --camera-backends` reports
+backend registration **without opening a camera**, scanning device indices or
+prompting for permission. It must be used alone. Existing recorded-video
+file paths and M7.6 privacy controls are unchanged. See
+[docs/M8_1_CAMERA_BACKENDS.md](docs/M8_1_CAMERA_BACKENDS.md) for backend
+selection, API contracts, risks, and verification. M8.1 expects **113 CTests**
+and **45 Python quality tests**. Actual webcam validation is a later milestone.
 
 ## Source tree
 

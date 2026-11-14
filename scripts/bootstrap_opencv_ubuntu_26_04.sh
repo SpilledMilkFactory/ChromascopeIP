@@ -43,7 +43,7 @@ cmake -S "${source_dir}" -B "${build_dir}" -G Ninja \
     -DBUILD_TESTS=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_EXAMPLES=OFF \
     -DBUILD_opencv_apps=OFF -DBUILD_opencv_python2=OFF \
     -DBUILD_opencv_python3=OFF -DBUILD_JAVA=OFF \
-    -DWITH_FFMPEG=ON -DWITH_GSTREAMER=OFF \
+    -DWITH_FFMPEG=ON -DWITH_GSTREAMER=OFF -DWITH_V4L=ON \
     -DWITH_OPENCL=OFF -DWITH_PROTOBUF=ON -DBUILD_PROTOBUF=ON
 cmake --build "${build_dir}" --parallel "${OPENCV_BUILD_JOBS:-$(nproc)}"
 cmake --install "${build_dir}"

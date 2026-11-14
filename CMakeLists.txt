@@ -46,6 +46,7 @@ add_library(chromascope_core STATIC
     src/core/SegmentationProfiles.cpp
     src/core/ProcessingQueue.cpp
     src/core/VideoSource.cpp
+    src/core/CameraSource.cpp
     src/core/AsyncVideoDecoder.cpp
     src/core/VideoPlayer.cpp
     src/core/CpuDnnAdapter.cpp

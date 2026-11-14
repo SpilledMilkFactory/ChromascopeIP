@@ -889,3 +889,15 @@ policies, manual GUI privacy session reset, no-new-`imgui.ini` check and six
 hosted GitHub Actions jobs remain mandatory. Static source/documentation tests
 are **not** proof that OS, third-party libraries or the host network never
 store/transmit data. See `docs/M7_6_LOCAL_PRIVACY.md`.
+
+## M8.1 (#53) — Native camera backend foundation (no hardware in CTest)
+
+Expected **113 native CTests** (110 + camera policy, synthetic frame boundary,
+and CLI registry contract) and **45 Python quality tests** (43 + two M8.1
+invariants). Run `ctest --test-dir build/presets/linux-release -L camera
+--output-on-failure` and `chromascope-cli --camera-backends` first, then
+all three native configurations and full quality/provenance/static-analysis
+checks. The CLI command does not open devices or write files. Synthetic tests
+do not demonstrate webcam permission, driver, or live GUI functionality; see
+`docs/M8_1_CAMERA_BACKENDS.md`. Six hosted CI jobs and manual preexisting
+GUI/CLI regressions are mandatory for sign-off.

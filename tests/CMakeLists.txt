@@ -705,3 +705,16 @@ add_test(NAME chromascope_cli_privacy_contract COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_privacy.cmake")
 set_tests_properties(chromascope_cli_privacy_contract PROPERTIES
     LABELS "cli;privacy;security;negative;regression;person" TIMEOUT 25)
+
+# M8.1 (#53): explicit native camera backend policy and safe frame boundary.
+# No CI step connects to a webcam or prompts for device permission.
+chromascope_add_cpp_test(chromascope_unit_camera_backend_policy
+    unit/test_camera_backend_policy.cpp "unit;camera;videoio;security;negative;regression" 20)
+chromascope_add_cpp_test(chromascope_integration_camera_frame_boundary
+    integration/test_camera_frame_boundary.cpp "integration;camera;videoio;frame;security;negative;regression" 20)
+add_test(NAME chromascope_cli_camera_backend_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m8-1-camera-backends"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_camera_backends.cmake")
+set_tests_properties(chromascope_cli_camera_backend_contract PROPERTIES
+    LABELS "cli;camera;videoio;security;negative;regression" TIMEOUT 25)

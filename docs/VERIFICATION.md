@@ -1082,3 +1082,16 @@ clang-tidy, and provenance remain **pending final user acceptance**.
 The documentation/contract tests do **not** establish comprehensive absence
 of all third-party or OS networking, forensic erasure, or approval to
 redistribute third-party people footage. See `docs/M7_6_LOCAL_PRIVACY.md`.
+
+### M7.6 accepted / M8.1 (#53) pending local and hosted verification
+
+User reported GUI Release 110/110, CLI Release 110/110, ASan/UBSan 110/110,
+43/43 Python quality checks and successful first-party policies/static analysis,
+manual GUI/CLI parity, and six successful hosted CI jobs. User confirmed M7.6
+was merged after the GitHub screenshot. M8.1 adds explicit V4L2/MSMF backend
+selection, opt-in Windows DirectShow fallback, a move-only camera core adapter,
+BGR8 frame ownership and capture-clock semantics, and an offline CLI backend
+registry report. Expected **113 CTests** and **45 Python quality tests**.
+Native build, real-device testing and hosted CI for M8.1 **not yet verified**.
+This milestone does not claim GUI webcam support or universal camera hardware
+compatibility. See `docs/M8_1_CAMERA_BACKENDS.md`.

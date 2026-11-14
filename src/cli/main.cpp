@@ -8,6 +8,7 @@
 #include "CliOutputPaths.hpp"
 #include "VideoCliContract.hpp"
 #include "chromascope/VideoSource.hpp"
+#include "chromascope/CameraSource.hpp"
 #include "chromascope/CpuDnnAdapter.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPreprocessing.hpp"
@@ -115,6 +116,7 @@ void usage(std::ostream& os) {
           "      --min-confidence N Color confidence in [0,1], default 0.25\n"
           "      --no-labels       Draw circles without text\n"
           "      --privacy-info    Explain local data handling; use alone (no media read)\n"
+          "      --camera-backends  Report local camera API registry (no device opened; standalone)\n"
           "  -h, --help            Show command reference\n"
           "      --version         Print version and OpenCV version\n"
           "\nPerson-only examples (ONNX is a local, SHA-256-verified NanoDet file):\n"
@@ -950,6 +952,23 @@ int run_video_object_command(Options options) {
 
 int main(int argc, char* argv[]) {
     try {
+        // Camera backend inspection is local, read-only and hardware-free.
+        // Check before --help/--version so mixed requests cannot bypass the guard.
+        for (int i = 1; i < argc; ++i) {
+            if (std::string_view(argv[i]) != "--camera-backends") continue;
+            if (argc != 2)
+                throw std::invalid_argument("--camera-backends must be used alone");
+            std::cout << "Camera backend registry (M8.1; no devices opened):\n";
+            for (const auto& backend : chromascope::camera_backend_info()) {
+                std::cout << "  " << backend.name
+                          << " host=" << (backend.supported_on_host ? "supported" : "unsupported")
+                          << " registered=" << (backend.registered_for_camera ? "yes" : "no")
+                          << (backend.preferred ? " preferred" : "") << '\n';
+            }
+            std::cout << "Registry only; not device discovery, permission or capture.\n"
+                         "No automatic fallback; hardware capture requires explicit opt-in.\n";
+            return 0;
+        }
         // Standalone informational command; never opens a photo, video or ONNX.
         // Check it BEFORE --help/--version to enforce alone in either order.
         for (int i = 1; i < argc; ++i) {

@@ -107,3 +107,14 @@ CI checks. Manually verify no `imgui.ini` created in a fresh working directory,
 clearing both populated workspaces during/between jobs, media/model close
 behavior and explicit opt-in exports. No new model weights or private media
 are introduced in this milestone.
+
+## M8.1 camera API addendum (no automatic access)
+
+The M8.1 core can **explicitly** open a physical camera via a future caller's
+`CameraSource::open` invocation. No GUI action or CLI command currently invokes
+this operation, and `--camera-backends` only queries the OpenCV API registry;
+it does **not** scan devices, request permissions, record frames or create files.
+Any future user-activated capture can expose sensitive personal imagery and
+will require an explicit permission/control and retention audit. This addendum
+does not claim that operating systems, drivers or third-party libraries never
+access networks or store diagnostic/device information.

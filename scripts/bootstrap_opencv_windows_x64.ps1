@@ -71,7 +71,7 @@ Invoke-Native cmake @(
     '-DBUILD_opencv_python2=OFF', '-DBUILD_opencv_python3=OFF',
     '-DWITH_IPP=OFF', '-DWITH_OPENCL=OFF',
     '-DWITH_FFMPEG=OFF', '-DWITH_GSTREAMER=OFF',
-    '-DWITH_MSMF=ON', '-DWITH_MSMF_DXVA=OFF',
+    '-DWITH_MSMF=ON', '-DWITH_MSMF_DXVA=OFF', '-DWITH_DSHOW=ON',
     '-DWITH_OPENEXR=OFF', '-DWITH_CUDA=OFF'
 )
 Invoke-Native cmake @('--build', $build, '--config', 'Release', '--parallel', "$Jobs")

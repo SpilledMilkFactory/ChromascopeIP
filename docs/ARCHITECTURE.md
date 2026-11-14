@@ -367,3 +367,12 @@ authorized bounded native backend probes. `CameraSource::open` applies and
 verifies optional strict format requests and raises typed hardware failures.
 Neither is connected to the recorded-file `VideoSource` or auto-run by GUI.
 See `docs/M8_2_CAMERA_DISCOVERY.md`.
+
+
+### M8.3 — bounded camera worker
+
+The opt-in `AsyncCameraCapture` owns `CameraSource` exclusively on one worker
+thread. Completed BGR8 packets enter a bounded latest-frame-wins queue with
+monotonic capture timestamps, generation-rejected stale results and explicit
+cooperative stop. It remains separate from recorded-video decode and GUI;
+see `docs/M8_3_CAMERA_CAPTURE.md`.

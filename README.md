@@ -757,3 +757,11 @@ of permission or usable capture. Explicit width/height, nominal FPS and MJPEG
 or YUYV requests must negotiate successfully or fail with a categorized
 `CameraError`. Nothing opens at GUI/CLI startup. See
 `docs/M8_2_CAMERA_DISCOVERY.md`.
+
+
+### M8.3 — bounded, opt-in camera capture
+
+`AsyncCameraCapture` adds a worker-owned, bounded (3 frames/64 MiB default)
+latest-frame queue with source-monotonic timestamps, generation-safe
+stop/restart and typed read errors. No GUI or CLI hardware activation is added;
+see [M8.3 capture notes](docs/M8_3_CAMERA_CAPTURE.md).

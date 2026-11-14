@@ -118,3 +118,11 @@ Any future user-activated capture can expose sensitive personal imagery and
 will require an explicit permission/control and retention audit. This addendum
 does not claim that operating systems, drivers or third-party libraries never
 access networks or store diagnostic/device information.
+
+### M8.2 camera listing privacy
+
+`--camera-devices` accesses only local Linux node metadata or produces a
+Windows explanatory report; it opens no camera and writes no media. Only an
+explicit C++ opt-in enables probing, which may trigger OS camera permissions.
+No live capture UI or automatic inference is introduced. See
+`docs/M8_2_CAMERA_DISCOVERY.md`.

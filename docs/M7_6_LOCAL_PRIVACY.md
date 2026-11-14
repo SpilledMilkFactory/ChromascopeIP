@@ -146,3 +146,13 @@ and session reset clear the preview and request worker shutdown, but native
 open/read operations may block device release. The visible indicator remains
 conservative until actual worker completion; old exports and OS caches are
 not erased. See `docs/M8_4_CAMERA_GUI.md`.
+
+### M8.5 explicitly authorized camera CLI
+
+`--camera INDEX` is an explicit opt-in local capture command with both finite
+frame/time poll limits. No camera media is persisted without
+`--camera-save-dir NEW_DIRECTORY`, which creates PNG files only on valid frame
+receipt. Capture does not imply person identification, remote transfer,
+audio, or inference; OS camera drivers and caches have separate behavior.
+The capture worker is cooperatively stopped and native driver operations
+may block beyond the wall-clock polling limit.

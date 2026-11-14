@@ -7,6 +7,7 @@
 #include "chromascope/ImageIO.hpp"
 #include "CliOutputPaths.hpp"
 #include "VideoCliContract.hpp"
+#include "CameraCliCapture.hpp"
 #include "chromascope/VideoSource.hpp"
 #include "chromascope/CameraSource.hpp"
 #include "chromascope/CameraDiscovery.hpp"
@@ -119,6 +120,11 @@ void usage(std::ostream& os) {
           "      --privacy-info    Explain local data handling; use alone (no media read)\n"
           "      --camera-backends  Report local camera API registry (no device opened; standalone)\n"
           "      --camera-devices   Passive camera-node list; never opens hardware (standalone)\n"
+          "      --camera INDEX    Explicitly capture local camera [0,255]; no implicit opening\n"
+          "      --camera-backend ID   default, v4l2, msmf, dshow; no fallback\n"
+          "      --camera-max-frames N  Stop after N frames [1,300], default 30\n"
+          "      --camera-max-seconds N Stop after N elapsed seconds [1,60], default 5\n"
+          "      --camera-save-dir DIR  Opt-in PNG output; must name a NEW directory\n"
           "  -h, --help            Show command reference\n"
           "      --version         Print version and OpenCV version\n"
           "\nPerson-only examples (ONNX is a local, SHA-256-verified NanoDet file):\n"
@@ -954,6 +960,12 @@ int run_video_object_command(Options options) {
 
 int main(int argc, char* argv[]) {
     try {
+        // M8.5: detect explicit capture BEFORE informational/help shortcuts so
+        // mixed invocations cannot bypass the camera-only argument contract.
+        for (int i = 1; i < argc; ++i) {
+            if (std::string_view(argv[i]) == "--camera")
+                return chromascope::cli::run_camera_cli(argc, argv);
+        }
         // M8.2 passive discovery never activates a camera. No opt-in probing
         // CLI exists yet: native calls can block or trigger OS permission UI.
         for (int i = 1; i < argc; ++i) {

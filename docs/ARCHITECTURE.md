@@ -359,3 +359,11 @@ A successful read returns independently owned bounded BGR8 pixels with
 No automatic fallback, networking, persistence, background capture, live
 preview or frame-based person inference is implemented. See
 `docs/M8_1_CAMERA_BACKENDS.md` for interface, selection and test gates.
+
+### M8.2 camera discovery, formats, and errors
+
+`CameraDiscovery` provides passive Linux V4L2 node listing or explicitly
+authorized bounded native backend probes. `CameraSource::open` applies and
+verifies optional strict format requests and raises typed hardware failures.
+Neither is connected to the recorded-file `VideoSource` or auto-run by GUI.
+See `docs/M8_2_CAMERA_DISCOVERY.md`.

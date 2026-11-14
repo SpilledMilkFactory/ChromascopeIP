@@ -718,3 +718,16 @@ add_test(NAME chromascope_cli_camera_backend_contract COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_camera_backends.cmake")
 set_tests_properties(chromascope_cli_camera_backend_contract PROPERTIES
     LABELS "cli;camera;videoio;security;negative;regression" TIMEOUT 25)
+
+# M8.2 (#54): bounded device discovery, requested format and typed failures.
+# All tests run WITHOUT webcam hardware or permission prompts.
+chromascope_add_cpp_test(chromascope_unit_camera_format_policy
+    unit/test_camera_format_policy.cpp "unit;camera;videoio;security;negative;regression" 20)
+chromascope_add_cpp_test(chromascope_integration_camera_discovery
+    integration/test_camera_discovery.cpp "integration;camera;videoio;security;negative;regression" 20)
+add_test(NAME chromascope_cli_camera_devices_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m8-2-camera-devices"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_camera_devices.cmake")
+set_tests_properties(chromascope_cli_camera_devices_contract PROPERTIES
+    LABELS "cli;camera;videoio;security;negative;regression" TIMEOUT 25)

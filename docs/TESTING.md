@@ -901,3 +901,13 @@ checks. The CLI command does not open devices or write files. Synthetic tests
 do not demonstrate webcam permission, driver, or live GUI functionality; see
 `docs/M8_1_CAMERA_BACKENDS.md`. Six hosted CI jobs and manual preexisting
 GUI/CLI regressions are mandatory for sign-off.
+
+### M8.2 (#54) device discovery and formats
+
+Expect **116 CTests** including `chromascope_unit_camera_format_policy`,
+`chromascope_integration_camera_discovery`, and
+`chromascope_cli_camera_devices_contract`; **47 Python quality tests**.
+Run `ctest --test-dir build/presets/linux-release -L camera --output-on-failure`
+and `chromascope-cli --camera-devices` (passive). No CI test opens a webcam.
+Run full GUI, CLI and sanitizer suites, static analysis, provenance and all
+six hosted CI checks; consult `docs/M8_2_CAMERA_DISCOVERY.md`.

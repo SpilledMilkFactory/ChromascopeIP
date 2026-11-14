@@ -121,3 +121,10 @@ Require all six hosted GitHub Actions checks before merging issue #53.
 Reference: OpenCV videoio backend registry and configuration documentation:
 https://docs.opencv.org/5.0/main_modules/videoio_registry.html
 https://docs.opencv.org/5.0/tutorials/introduction/config_reference/config_reference.html
+
+## M8.2 continuation
+
+The later camera discovery and format milestone now implements bounded
+passive Linux node listing, explicit opt-in probes, strict requested format
+verification and typed error categories. See `docs/M8_2_CAMERA_DISCOVERY.md`
+for current behavior and limits; M8.1 constraints remain as accepted.

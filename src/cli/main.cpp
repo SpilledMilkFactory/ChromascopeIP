@@ -9,6 +9,7 @@
 #include "VideoCliContract.hpp"
 #include "chromascope/VideoSource.hpp"
 #include "chromascope/CameraSource.hpp"
+#include "chromascope/CameraDiscovery.hpp"
 #include "chromascope/CpuDnnAdapter.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPreprocessing.hpp"
@@ -117,6 +118,7 @@ void usage(std::ostream& os) {
           "      --no-labels       Draw circles without text\n"
           "      --privacy-info    Explain local data handling; use alone (no media read)\n"
           "      --camera-backends  Report local camera API registry (no device opened; standalone)\n"
+          "      --camera-devices   Passive camera-node list; never opens hardware (standalone)\n"
           "  -h, --help            Show command reference\n"
           "      --version         Print version and OpenCV version\n"
           "\nPerson-only examples (ONNX is a local, SHA-256-verified NanoDet file):\n"
@@ -952,6 +954,21 @@ int run_video_object_command(Options options) {
 
 int main(int argc, char* argv[]) {
     try {
+        // M8.2 passive discovery never activates a camera. No opt-in probing
+        // CLI exists yet: native calls can block or trigger OS permission UI.
+        for (int i = 1; i < argc; ++i) {
+            if (std::string_view(argv[i]) != "--camera-devices") continue;
+            if (argc != 2)
+                throw std::invalid_argument("--camera-devices must be used alone");
+            const auto report = chromascope::discover_cameras();
+            std::cout << "Camera device listing (M8.2; no devices opened):\n";
+            for (const auto& device : report.devices)
+                std::cout << "  " << device.label << " index=" << device.index
+                          << " backend=" << chromascope::camera_backend_name(device.backend)
+                          << " state=unverified\n";
+            std::cout << report.notice << '\n';
+            return 0;
+        }
         // Camera backend inspection is local, read-only and hardware-free.
         // Check before --help/--version so mixed requests cannot bypass the guard.
         for (int i = 1; i < argc; ++i) {

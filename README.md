@@ -747,3 +747,13 @@ semantics from M7.2/M7.3. The CLI accepts `--person-only` as a convenience alias
 for `--profile person` for still JSON/PNG, video-frame JSON, streaming JSONL,
 and silent annotated AVI. No model is downloaded, bundled, or auto-loaded.
 See [M7.5 person workflow](docs/M7_5_PERSON_WORKFLOW.md).
+
+### M8.2 camera discovery and format negotiation
+
+Camera support includes a read-only `--camera-devices` listing (Linux `/dev/videoN`
+metadata, Windows explanatory empty report) and an explicitly opted-in C++
+probe API. OpenCV backend registry and Linux node presence are **not** proof
+of permission or usable capture. Explicit width/height, nominal FPS and MJPEG
+or YUYV requests must negotiate successfully or fail with a categorized
+`CameraError`. Nothing opens at GUI/CLI startup. See
+`docs/M8_2_CAMERA_DISCOVERY.md`.

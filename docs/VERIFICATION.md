@@ -1095,3 +1095,13 @@ registry report. Expected **113 CTests** and **45 Python quality tests**.
 Native build, real-device testing and hosted CI for M8.1 **not yet verified**.
 This milestone does not claim GUI webcam support or universal camera hardware
 compatibility. See `docs/M8_1_CAMERA_BACKENDS.md`.
+
+### M8.1 accepted / M8.2 (#54) pending verification
+
+The user reports **113/113 CTests** on GUI Release, CLI Release and ASan/UBSan,
+**45/45 Python quality tests**, successful clang-tidy and provenance checks,
+and all six GitHub Actions jobs green after M8.1. User confirms M8.1 merged.
+M8.2 introduces passive bounded discovery, strict requested camera format
+negotiation, categorized failures, three offline CTests and two Python guards.
+Expected: **116 CTests / 47 Python tests**. Native/hosted/manual M8.2
+acceptance is pending user verification. See `docs/M8_2_CAMERA_DISCOVERY.md`.

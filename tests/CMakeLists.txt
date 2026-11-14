@@ -696,3 +696,12 @@ add_test(NAME chromascope_cli_person_workflow_contract COMMAND "${CMAKE_COMMAND}
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_person_workflow.cmake")
 set_tests_properties(chromascope_cli_person_workflow_contract PROPERTIES
     LABELS "cli;person;gui-contract;model;dnn;security;negative;regression" TIMEOUT 35)
+
+# M7.6 (#52): privacy information must be available without media access,
+# reject mixed invocation, and produce no persistent files in an empty cwd.
+add_test(NAME chromascope_cli_privacy_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m7-6-privacy"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_privacy.cmake")
+set_tests_properties(chromascope_cli_privacy_contract PROPERTIES
+    LABELS "cli;privacy;security;negative;regression;person" TIMEOUT 25)

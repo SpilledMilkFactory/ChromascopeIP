@@ -446,6 +446,49 @@ struct App {
         }
     }
 
+    // M7.6: Explicit in-memory session reset. Cooperative workers may still be
+    // finishing OpenCV calls; generation invalidation blocks stale publication.
+    // No previously saved export is deleted by this UI action.
+    void clear_private_session() {
+        processing->cancel();
+        pending_ticket = 0;
+        detector_session.unload();
+        video_export_worker.request_stop();
+        video_detection.cancel();
+        video_player.close();
+        video_opened_path.clear();
+        video_texture.reset();
+        video_view.fit();
+        video_seek_target = 0;
+        video_scrubbing = false;
+        video_export_audio_ack = false;
+        video_status.clear();
+        input.release();
+        input_frame.reset();
+        still_opened_path.clear();
+        processed_image.release();
+        generalized_result.reset();
+        annotation_layer.reset();
+        original_texture.reset();
+        processed_texture.reset();
+        source_overlay_texture.reset();
+        processed_overlay_texture.reset();
+        have_result = false;
+        color_counts.fill(0);
+        analysis_elapsed_ms = 0.0;
+        input_width = input_height = 0;
+        overlay_options.selected_index.reset();
+        overlay_options.selected_only = false;
+        path.fill('\0');
+        video_path.fill('\0');
+        detector_model_path.fill('\0');
+        export_path.fill('\0');
+        video_export_path.fill('\0');
+        browser_directory.fill('\0');
+        status = "Session reset requested. Existing exports/files are not deleted; "
+                 "in-flight OpenCV work may finish before resources are released.";
+    }
+
     void save_person() {
         const auto snapshot = detector_session.snapshot();
         if (!input_frame || detector_profile == 0 ||
@@ -1191,6 +1234,23 @@ struct App {
             ImGui::TextDisabled("Select a people workflow; no automatic model loading");
         }
         ImGui::Separator();
+        // M7.6: local-only and retention controls are visible in both workspaces.
+        if (ImGui::CollapsingHeader("Local privacy and session controls", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::TextWrapped("This app's first-party runtime has no upload, "
+                "telemetry, face recognition, or identity matching feature. "
+                "Person boxes are COCO class 0 predictions, not identities.");
+            ImGui::TextWrapped("Images, model weights, decoded frames and caches "
+                "are processed locally. Saving an annotated image, AVI or "
+                "JSON/JSONL file is explicit. Video exports discard audio.");
+            ImGui::TextDisabled("No automatic GUI layout file is written.");
+            if (ImGui::Button("Clear loaded media, model and results"))
+                clear_private_session();
+            ImGui::TextWrapped("Clearing cancels pending work and releases displayed "
+                "resources, but in-flight OpenCV work can finish. "
+                "Previously saved files, terminal output and OS caches remain.");
+            ImGui::TextDisabled("Privacy details: docs/M7_6_LOCAL_PRIVACY.md");
+        }
+        ImGui::Separator();
         if (workspace_mode == 1) {
             draw_video_ui();
             ImGui::End();
@@ -1471,6 +1531,10 @@ int main(int argc, char* argv[]) {
     glfwSwapInterval(1);
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    // M7.6: do not create imgui.ini or an ImGui log in the working directory.
+    // This is a runtime default, not a promise to erase old copies or OS caches.
+    ImGui::GetIO().IniFilename = nullptr;
+    ImGui::GetIO().LogFilename = nullptr;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");

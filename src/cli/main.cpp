@@ -114,6 +114,7 @@ void usage(std::ostream& os) {
           "      --max-dimension N Processing resolution ceiling, default 1200\n"
           "      --min-confidence N Color confidence in [0,1], default 0.25\n"
           "      --no-labels       Draw circles without text\n"
+          "      --privacy-info    Explain local data handling; use alone (no media read)\n"
           "  -h, --help            Show command reference\n"
           "      --version         Print version and OpenCV version\n"
           "\nPerson-only examples (ONNX is a local, SHA-256-verified NanoDet file):\n"
@@ -949,6 +950,28 @@ int run_video_object_command(Options options) {
 
 int main(int argc, char* argv[]) {
     try {
+        // Standalone informational command; never opens a photo, video or ONNX.
+        // Check it BEFORE --help/--version to enforce alone in either order.
+        for (int i = 1; i < argc; ++i) {
+            if (std::string_view(argv[i]) != "--privacy-info") continue;
+            if (argc != 2)
+                throw std::invalid_argument("--privacy-info must be used alone");
+            std::cout
+                << "ChromascopeIP local privacy (M7.6)\n"
+                << "First-party runtime: no upload, telemetry or remote inference feature.\n"
+                << "Person detection: COCO class 0 boxes; no face recognition, "
+                   "identity matching or tracking.\n"
+                << "Input media and ONNX weights: local files, processed in local memory.\n"
+                << "Outputs: explicit image/JSON/JSONL/AVI exports or stdout; "
+                   "your shell may record stdout.\n"
+                << "Video export: MJPEG AVI with audio discarded.\n"
+                << "Cancellation is cooperative; existing saved files, temp/OS "
+                   "caches and backups are not securely erased.\n"
+                << "Third-party dependencies, build downloads, OS facilities and "
+                   "externally copied files are outside this runtime policy.\n"
+                << "Details: docs/M7_6_LOCAL_PRIVACY.md\n";
+            return 0;
+        }
         for (int i = 1; i < argc; ++i) {
             if (std::string_view(argv[i]) == "--help" || std::string_view(argv[i]) == "-h") {
                 usage(std::cout);

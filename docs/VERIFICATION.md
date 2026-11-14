@@ -1063,3 +1063,22 @@ alias with strict argument conflict guards. Expected suite **109 CTests**.
 Final native Release, CLI-only Release, sanitizer, static analysis, manual
 GUI/CLI, and six hosted checks remain pending until user verification. See
 `docs/M7_5_PERSON_WORKFLOW.md`.
+
+### M7.5 accepted / M7.6 (#52) privacy controls pending user verification
+
+The user reported all **109/109 CTests** passing in GUI Release, CLI-only
+Release and ASan/UBSan, plus static analysis and **40/40 Python quality
+tests**. Screenshot confirms all six hosted CI checks green; user confirmed
+M7.5 merged. M7.6 adds no person identification or new inference logic.
+
+M7.6 introduces an explicit GUI session reset, disables ImGui automatic
+layout/log file persistence, adds no-input CLI `--privacy-info`, and records
+the actual runtime, disk-export, dependency, media-rights, memory-cancellation
+and OS/third-party privacy boundaries. One CTest and three Python tests raise
+the expected counts to **110** and **43**, respectively. All three native
+configurations, six hosted checks, manual GUI reset/privacy validation,
+clang-tidy, and provenance remain **pending final user acceptance**.
+
+The documentation/contract tests do **not** establish comprehensive absence
+of all third-party or OS networking, forensic erasure, or approval to
+redistribute third-party people footage. See `docs/M7_6_LOCAL_PRIVACY.md`.

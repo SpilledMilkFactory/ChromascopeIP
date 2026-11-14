@@ -613,3 +613,13 @@ add_test(NAME chromascope_integration_video_confidence_parity
         "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m6-7-confidence-parity")
 set_tests_properties(chromascope_integration_video_confidence_parity PROPERTIES
     LABELS "integration;video;videoio;model;dnn;postprocessing;annotation;security;regression" TIMEOUT 90)
+
+# M7.1 (#44): pinned person-class/model/license audit and synthetic person
+# postprocessing boundaries. No ONNX weights, images, or Python runtime needed.
+add_test(NAME chromascope_person_model_evaluation_policy COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_SOURCE_ROOT=${PROJECT_SOURCE_DIR}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_person_model_policy.cmake")
+set_tests_properties(chromascope_person_model_evaluation_policy PROPERTIES
+    LABELS "person;model;license;security;regression;negative" TIMEOUT 15)
+chromascope_add_cpp_test(chromascope_unit_person_model_contract
+    unit/test_person_model_contract.cpp "unit;person;model;dnn;postprocessing;regression;negative" 25)

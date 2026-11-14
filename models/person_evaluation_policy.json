@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "evaluation_status": "protocol_prepared_no_project_accuracy_result",
+  "selected_model_id": "opencv-zoo-nanodet-plus-m-1.5x-416-fp32-2022nov",
+  "model_sha256": "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186",
+  "class_id": 0,
+  "class_name": "person",
+  "input_size_hw": [416, 416],
+  "license_spdx": "Apache-2.0",
+  "upstream_benchmark": {
+    "source_url": "https://github.com/opencv/opencv_zoo/blob/main/models/object_detection_nanodet/README.md",
+    "dataset": "COCO 2017 validation",
+    "person_ap50": 0.675,
+    "person_ap50_95": 0.418,
+    "reported_by": "upstream_not_reproduced_by_chromascopeip",
+    "metrics_not_equivalent_to_person_evaluator": true
+  },
+  "local_evaluation": {
+    "protocol": "scripts/evaluate_person_detections.py",
+    "annotation_schema": "docs/M7_1_PERSON_MODEL_EVALUATION.md",
+    "evaluation_metric": "one_to_one_person_box_iou_tp_fp_fn_precision_recall_f1",
+    "not_coco_map": true,
+    "requires_independently_reviewed_ground_truth": true,
+    "requires_local_media_sha256": true,
+    "requires_complete_jsonl": true,
+    "requires_exact_frame_coverage": true,
+    "bundle_media": false,
+    "bundle_model_weights": false
+  },
+  "limits": [
+    "person_class_only_not_person_identification",
+    "partial_occlusion_and_small_people_can_be_missed",
+    "crowds_and_edge_crops_may_reduce_recall",
+    "low_light_motion_blur_and_domain_shift_not_qualified",
+    "model_scores_not_calibrated_probabilities",
+    "no_temporal_tracking_or_identity_consistency",
+    "false_negatives_and_false_positives_not_bounded_without_labeled_data"
+  ],
+  "release_review": "model_attribution_license_and_weights_redistribution_review_remain_required"
+}

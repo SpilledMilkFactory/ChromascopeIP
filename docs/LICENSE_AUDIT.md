@@ -39,3 +39,17 @@ new components in M5.2's installed OpenCV package. Their exact compiled
 libraries, notices and transitive source licenses must be enumerated during
 binary release qualification. This milestone does not redistribute a NanoDet
 checkpoint and does not alter original fixture photo-rights restrictions.
+
+## M7.1 person model licensing research addendum — November 13, 2026
+
+The selected model's `person` output (COCO class ID 0) inherits the same
+OpenCV Zoo NanoDet-Plus-M 1.5x FP32 ONNX artifact provenance and **Apache-2.0**
+license already audited under M5.1/M5.7. OpenCV Zoo's model README explicitly
+covers all files in that model folder; original NanoDet separately uses
+Apache-2.0 (see upstream links in `M7_1_PERSON_MODEL_EVALUATION.md`). M7.1
+**does not ship model weights, training data, labeled person videos, or faces**.
+The exact ONNX SHA-256 remains unchanged and local evaluation media must be
+authorized separately. Apache-2.0 does not clear separate training/dataset,
+platform binary, codec, personal-data or historic Skittles photograph rights.
+Final per-artifact notice/licensing verification remains M11/M12 work.
+This addendum is not legal advice or an approval to distribute model binaries.

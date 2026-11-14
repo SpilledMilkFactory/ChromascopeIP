@@ -1,6 +1,7 @@
 #pragma once
 
 #include "chromascope/DnnPreprocessing.hpp"
+#include "chromascope/DnnPostprocessing.hpp"
 
 #include <chrono>
 #include <condition_variable>
@@ -45,11 +46,16 @@ struct DnnGuiSnapshot {
     std::filesystem::path model_path;
     std::vector<std::vector<int>> output_shapes;
     double elapsed_ms = 0.0;
+    // Immutable, source-pixel person boxes; nullptr for raw forward, failures,
+    // pending work, cancellation, and unloading. Shared ownership prevents
+    // dangling GUI pointers when the next worker generation publishes.
+    std::shared_ptr<const DetectionResult> person_detections;
+    DnnPostprocessSummary person_summary;
 };
 
 // One bounded worker performs model digest verification, ONNX loading,
-// preprocessing and raw forward(). No ImGui/OpenGL work happens on the worker.
-// This milestone does not decode NanoDet distributions or publish detections.
+// raw forward(), and (M7.3) the existing shared person-only NanoDet decode.
+// No ImGui/OpenGL work or unbounded frame queue runs on this worker.
 class DnnGuiSession final {
 public:
     explicit DnnGuiSession(std::string trusted_sha256 = std::string(kSelectedNanoDetSha256));
@@ -60,19 +66,25 @@ public:
     void load(std::filesystem::path path);
     // Can be called only when a verified model is ready; nonblocking.
     void run(std::shared_ptr<const ImageFrame> frame, DnnPreprocessOptions options = {});
+    // Same model and postprocessing as the CLI and recorded-video pipelines.
+    // Queues only an owned image and verified policy, never UI/GL state.
+    void run_person(std::shared_ptr<const ImageFrame> frame, DnnPostprocessOptions options);
+    // Invalidate stale result on a UI setting change, preserving a loaded model.
+    void clear_results();
     void cancel();
     void unload();
     [[nodiscard]] bool ready_for(const std::filesystem::path& path) const;
     [[nodiscard]] DnnGuiSnapshot snapshot() const;
 
 private:
-    enum class CommandKind { Load, Infer, Unload };
+    enum class CommandKind { Load, Infer, InferPerson, Unload };
     struct Command {
         CommandKind kind = CommandKind::Unload;
         std::uint64_t ticket = 0;
         std::filesystem::path path;
         std::shared_ptr<const ImageFrame> frame;
         DnnPreprocessOptions options;
+        DnnPostprocessOptions postprocess;
     };
     void worker_loop(std::stop_token stop);
     void publish(DnnGuiSnapshot next);

@@ -41,6 +41,7 @@
 #include <variant>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -91,6 +92,7 @@ struct Texture {
 
 struct App {
     std::array<char, 4096> path{};
+    std::filesystem::path still_opened_path;
     std::array<char, 4096> export_path{};
     std::array<char, 4096> video_path{};
     std::array<char, 4096> video_export_path{};
@@ -131,10 +133,11 @@ struct App {
     std::uint64_t video_seek_target = 0;
     bool video_scrubbing = false;
     int workspace_mode = 0; // 0 = still image; 1 = recorded video
-    int detector_profile = 0; // 0 = disabled; 1 = NanoDet raw CPU diagnostics
+    int detector_profile = 0; // 0 = disabled; 1 = verified NanoDet raw/person detection
     chromascope::DnnGuiSession detector_session;
     chromascope::DnnGuiOptions detector_options;
-    // These remain preview settings until a decoded-object GUI path exists.
+    float still_person_display_threshold = 0.50F;
+    // Per-class video settings are shared; still-image person uses class 0 only.
     int detector_selected_class = 0;
     std::array<std::optional<float>, chromascope::kNanoDetClassCount> detector_class_overrides{};
     bool picker_video = false;
@@ -307,7 +310,8 @@ struct App {
 
     bool draw_viewport_texture(const char* widget, const Texture& texture,
                                chromascope::ImageViewport& view,
-                               const chromascope::DetectionResult* video_detections = nullptr) {
+                               const chromascope::DetectionResult* video_detections = nullptr,
+                               bool detection_labels = true) {
         if (!texture.id || texture.source_width <= 0 || texture.source_height <= 0) {
             ImGui::TextDisabled("No image available.");
             return false;
@@ -378,14 +382,17 @@ struct App {
                 const ImVec2 b{a.x + static_cast<float>(box->width) * scale_x,
                                a.y + static_cast<float>(box->height) * scale_y};
                 draw->AddRect(a, b, IM_COL32(80, 220, 175, 255), 0.0f, 0, 2.0f);
-                const auto caption = chromascope::object_confidence_label(object);
-                draw->AddText(ImVec2(a.x, a.y - 16.0f), IM_COL32(100, 255, 200, 255),
-                              caption.c_str());
+                if (detection_labels) {
+                    const auto caption = chromascope::object_confidence_label(object);
+                    draw->AddText(ImVec2(a.x, a.y - 16.0f), IM_COL32(100, 255, 200, 255),
+                                  caption.c_str());
+                }
             }
-            // Measures ImGui draw-list CPU submission, not GPU execution.
-            video_overlay_draw_perf.add_ns(static_cast<std::uint64_t>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    std::chrono::steady_clock::now() - overlay_start).count()));
+            // Only video contributes to M6.6 overlay performance measurements.
+            if (std::string_view(widget) == "##video_canvas")
+                video_overlay_draw_perf.add_ns(static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::steady_clock::now() - overlay_start).count()));
         }
         draw->PopClipRect();
         if (hovered) {
@@ -415,6 +422,7 @@ struct App {
             input = std::move(loaded);
             input_frame = std::make_shared<const chromascope::ImageFrame>(
                 std::move(owned_frame));
+            still_opened_path = file;
             if (detector_profile != 0) detector_session.unload();
             input_width = input.cols;
             input_height = input.rows;
@@ -435,6 +443,33 @@ struct App {
             analyze();
         } catch (const std::exception& e) {
             status = std::string("Open failed: ") + e.what();
+        }
+    }
+
+    void save_person() {
+        const auto snapshot = detector_session.snapshot();
+        if (!input_frame || detector_profile == 0 ||
+            snapshot.stage != chromascope::DnnGuiStage::Completed ||
+            !snapshot.person_detections ||
+            snapshot.person_detections->width() != input.cols ||
+            snapshot.person_detections->height() != input.rows) {
+            status = "Run person detection on this image before exporting person boxes.";
+            return;
+        }
+        try {
+            const std::filesystem::path destination(export_path.data());
+            if (destination.empty() ||
+                std::filesystem::weakly_canonical(destination) ==
+                std::filesystem::weakly_canonical(still_opened_path))
+                throw std::invalid_argument("Choose an output path different from the input image");
+            const auto layer = chromascope::make_object_confidence_annotations(
+                *snapshot.person_detections);
+            chromascope::write_image(destination,
+                chromascope::render_annotations(input, layer,
+                    {.show_outlines = true, .show_labels = show_labels}));
+            status = "Saved person boxes: " + destination.string();
+        } catch (const std::exception& e) {
+            status = std::string("Person box export failed: ") + e.what();
         }
     }
 
@@ -569,7 +604,7 @@ struct App {
 
     void draw_detector_controls() {
         ImGui::Separator();
-        ImGui::TextUnformatted("OBJECT DETECTION (M5.8 confidence controls)");
+        ImGui::TextUnformatted("OBJECT DETECTION / PERSON BOXES (M7.3)");
         if (ImGui::Combo("Detector profile", &detector_profile,
                          "Disabled (classical profiles)\0NanoDet COCO-80 / CPU\0")) {
             detector_session.unload();
@@ -606,12 +641,21 @@ struct App {
                             std::string(chromascope::nanodet_class_label(id)).c_str());
         }
         float confidence = static_cast<float>(detector_options.confidence_threshold);
-        if (ImGui::SliderFloat("Confidence cutoff", &confidence, 0.0f, 1.0f, "%.2f"))
+        if (ImGui::SliderFloat("Confidence cutoff", &confidence, 0.0f, 1.0f, "%.2f")) {
             detector_options.confidence_threshold = confidence;
+            detector_session.clear_results();
+        }
         float iou = static_cast<float>(detector_options.nms_iou_threshold);
-        if (ImGui::SliderFloat("NMS IoU cutoff", &iou, 0.0f, 1.0f, "%.2f"))
+        if (ImGui::SliderFloat("NMS IoU cutoff", &iou, 0.0f, 1.0f, "%.2f")) {
             detector_options.nms_iou_threshold = iou;
-        ImGui::SliderInt("Max detections", &detector_options.max_detections, 1, 512);
+            detector_session.clear_results();
+        }
+        if (ImGui::SliderInt("Max detections", &detector_options.max_detections, 1, 512))
+            detector_session.clear_results();
+        if (ImGui::SliderFloat("Still-image person display threshold", &still_person_display_threshold,
+                               0.0F, 1.0F, "%.2f"))
+            detector_session.clear_results();
+        ImGui::TextDisabled("Person boxes require BOTH confidence and display thresholds.");
         if (ImGui::CollapsingHeader("Per-class thresholds (recorded-video detection)")) {
             ImGui::SliderInt("COCO class ID", &detector_selected_class, 0,
                              chromascope::kNanoDetClassCount - 1);
@@ -620,27 +664,47 @@ struct App {
             auto& override_score = detector_class_overrides[
                 static_cast<std::size_t>(detector_selected_class)];
             bool enabled = override_score.has_value();
-            if (ImGui::Checkbox("Video override", &enabled)) {
+            if (ImGui::Checkbox("Class override", &enabled)) {
                 if (enabled) override_score = 0.75F;
                 else override_score.reset();
+                if (detector_selected_class == 0) detector_session.clear_results();
             }
             if (override_score.has_value()) {
                 float score = *override_score;
                 if (ImGui::SliderFloat("Class confidence", &score,
-                                       0.0F, 1.0F, "%.2f")) override_score = score;
+                                       0.0F, 1.0F, "%.2f")) {
+                    override_score = score;
+                    if (detector_selected_class == 0) detector_session.clear_results();
+                }
             }
-            ImGui::TextDisabled("Overrides apply when starting video analysis; CLI also supports them.");
+            ImGui::TextDisabled("Class 0 override also applies to still-image person boxes.");
         }
-        ImGui::TextDisabled("Raw still-image inference ignores these settings; video analysis uses them.");
-        ImGui::TextDisabled("CLI --profile object performs decoded filtering and exports.");
+        ImGui::TextDisabled("Raw tensor diagnostics ignore the confidence sliders.");
+        ImGui::TextDisabled("Person boxes use the M7.2 postprocessor shared by CLI and video.");
         const bool ready = detector_session.ready_for(detector_model_path.data());
         ImGui::BeginDisabled(!ready || !input_frame || busy);
-        if (ImGui::Button("Run raw CPU inference", ImVec2(-1, 0))) {
+        if (ImGui::Button("Detect people in still image", ImVec2(-1, 0))) {
+            try {
+                chromascope::validate_dnn_gui_options(detector_options);
+                chromascope::DnnPostprocessOptions policy;
+                policy.person_only = true;
+                policy.person_display_threshold = static_cast<double>(still_person_display_threshold);
+                policy.confidence_threshold = detector_options.confidence_threshold;
+                policy.nms_iou_threshold = detector_options.nms_iou_threshold;
+                policy.max_detections = static_cast<std::size_t>(detector_options.max_detections);
+                if (const auto score = detector_class_overrides[0])
+                    policy.class_thresholds.push_back({0, static_cast<double>(*score)});
+                detector_session.run_person(input_frame, policy);
+            } catch (const std::exception& e) {
+                status = std::string("Person detection rejected: ") + e.what();
+            }
+        }
+        if (ImGui::Button("Run raw CPU inference (diagnostics)", ImVec2(-1, 0))) {
             try {
                 chromascope::validate_dnn_gui_options(detector_options);
                 detector_session.run(input_frame);
             } catch (const std::exception& e) {
-                status = std::string("CPU inference rejected: ") + e.what();
+                status = std::string("Raw CPU inference rejected: ") + e.what();
             }
         }
         ImGui::EndDisabled();
@@ -649,7 +713,13 @@ struct App {
         if (!busy && ImGui::Button("Unload model", ImVec2(-1, 0)))
             detector_session.unload();
         if (state.stage == chromascope::DnnGuiStage::Completed) {
-            ImGui::Text("Raw inference: %.1f ms", state.elapsed_ms);
+            if (state.person_detections) {
+                ImGui::Text("Person detection: %.1f ms", state.elapsed_ms);
+                ImGui::Text("Accepted people: %zu", state.person_detections->objects().size());
+                ImGui::Text("Weak person candidates (diagnostic): %zu",
+                            state.person_summary.weak_candidates);
+                ImGui::TextDisabled("Only COCO class 0; scores are not probabilities.");
+            } else ImGui::Text("Raw inference: %.1f ms", state.elapsed_ms);
             for (std::size_t i = 0; i < state.output_shapes.size(); ++i) {
                 std::string shape;
                 for (int dim : state.output_shapes[i]) {
@@ -659,8 +729,8 @@ struct App {
                 ImGui::Text("Tensor %zu: [%s]", i + 1, shape.c_str());
             }
         }
-        ImGui::TextWrapped("Raw ONNX outputs only. No decoded object boxes, "
-                           "classification overlays or detector exports yet.");
+        ImGui::TextWrapped("Boxes are original-image coordinates with percent confidence. "
+                           "Uncertain and other-class predictions are not person detections.");
     }
 
     void start_video_detection() {
@@ -1223,6 +1293,13 @@ struct App {
                      "As configured\0Original pixels\0Processed pixels\0");
         ImGui::InputText("##export", export_path.data(), export_path.size());
         if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
+        const auto still_person_snapshot = detector_session.snapshot();
+        const bool person_available = detector_profile != 0 &&
+            still_person_snapshot.stage == chromascope::DnnGuiStage::Completed &&
+            still_person_snapshot.person_detections && input_frame;
+        ImGui::BeginDisabled(!person_available);
+        if (ImGui::Button("Export person boxes on original", ImVec2(-1, 0))) save_person();
+        ImGui::EndDisabled();
         ImGui::Separator();
         ImGui::TextUnformatted("RESULTS");
         if (pending_ticket != 0) {
@@ -1266,6 +1343,12 @@ struct App {
         ImGui::SameLine();
         ImGui::TextDisabled("Wheel: zoom | Middle/right drag: pan | Double-click: fit");
         ImGui::Separator();
+        const auto person_snapshot = detector_session.snapshot();
+        const chromascope::DetectionResult* still_people =
+            detector_profile != 0 && show_overlay &&
+            person_snapshot.stage == chromascope::DnnGuiStage::Completed &&
+            person_snapshot.person_detections
+            ? person_snapshot.person_detections.get() : nullptr;
         if (!original_texture.id) {
             ImGui::TextWrapped("Open one of the four supplied sample images to begin.");
         } else if (preview_mode == 2 && have_result) {
@@ -1277,7 +1360,8 @@ struct App {
                               ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
             ImGui::TextUnformatted("Original (unmodified)");
             const bool original_changed = draw_viewport_texture(
-                "##original_canvas", original_texture, comparison_original_view);
+                "##original_canvas", original_texture, comparison_original_view,
+                still_people, show_labels);
             if (synchronize_comparison && original_changed)
                 comparison_processed_view.synchronize_from(comparison_original_view);
             ImGui::EndChild();
@@ -1293,8 +1377,10 @@ struct App {
                 comparison_original_view.synchronize_from(comparison_processed_view);
             ImGui::EndChild();
         } else {
-            draw_viewport_texture("##result_canvas", preview_mode == 1 || !have_result
-                ? original_texture : result_preview_texture(), result_view);
+            draw_viewport_texture("##result_canvas",
+                still_people || preview_mode == 1 || !have_result
+                    ? original_texture : result_preview_texture(),
+                result_view, still_people, show_labels);
         }
         ImGui::EndChild();
         if (browse_requested) {

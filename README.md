@@ -668,6 +668,19 @@ requires an authorized, independently labeled dataset and a completed local
 analysis. The selected checkpoint remains optional and unbundled.
 
 
+### M7.3 — Person boxes in the still-image and recorded-video GUI
+
+The recorded-video GUI and person-only CLI already supported COCO class-0
+bounding boxes as of M7.2. M7.3 adds the missing **still-image GUI** workflow:
+verify/load the pinned local NanoDet model, **Detect people in still image**,
+draw original-pixel boxes with `person (NN%)` labels in the zoom/pan viewport,
+and **Export person boxes on original** as an annotated image. Confidence,
+class-0 override, NMS and the new still-image-specific display cutoff reuse
+the M7.2 postprocessor. Changing controls or images invalidates stale boxes;
+raw tensor diagnostics and classical Skittles processing stay separate. Two
+new synthetic CTests raise the target from **105 to 107**. See
+[`docs/M7_3_PERSON_BOXES.md`](docs/M7_3_PERSON_BOXES.md).
+
 ### M7.2 — Person-only NanoDet profile and display threshold
 
 The `person` profile uses the same pinned NanoDet CPU inference engine but

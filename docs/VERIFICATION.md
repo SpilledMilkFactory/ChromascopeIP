@@ -1019,3 +1019,21 @@ Native OpenCV 5.1.0 Release/CLI/sanitizer tests, clang-tidy, provenance,
 manual GUI/CLI/video/AVI regressions, and all six hosted checks are required
 before accepting M7.2. The synthetic test fixture is not an accuracy
 benchmark; person precision and recall still require independent ground truth.
+
+## M7.3 (#49) — Person boxes in still-image GUI (pending native acceptance)
+
+M7.2 baseline accepted with **105/105** native GUI/CLI/sanitizer CTests,
+**36/36** Python quality tests, and six hosted jobs according to the user's
+report and screenshot. M7.3 closes the GUI gap without changing the pinned
+model, shared class-0 postprocessor, CLI contracts, video/AVI pipeline, or
+historical-media rights.
+
+New CTests: `chromascope_integration_person_still_boxes` and
+`chromascope_integration_person_still_gui_session` (expected total **107**).
+Before merging: all three Linux configurations must report 107/107,
+quality scripts and all six GitHub checks must pass. Manual GUI testing must
+verify load/verification, person-only box labels and source-pixel alignment,
+confidence/display thresholds, stale-result clearing on setting/image/model
+changes and cancellation, zero-person result, PNG export and classical/video
+regression. No claim of measured recognition accuracy is made. See
+`docs/M7_3_PERSON_BOXES.md`.

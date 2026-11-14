@@ -298,3 +298,16 @@ snapshots the same options into asynchronous analyzer/export jobs, canceling
 stale results when the profile or cutoff changes. Core frame timing, owner
 identity, source timestamp, NMS, class map, pinned model, codec and audio
 policies remain unchanged. See `docs/M7_2_PERSON_PROFILE.md`.
+
+## M7.3 — GUI person boxes from the shared NanoDet frame pipeline
+
+The existing DnnGuiSession bounded worker now optionally runs the exact
+`infer_object_frame()` → `finalize_object_frame()` person-only NanoDet path
+already used by CLI/video. Source-coordinate detections are published in an
+immutable shared snapshot with generation checks; UI setting changes revoke
+stale results without changing the verified model. The still-image viewport
+uses its existing source-image zoom/pan transform to draw person rectangles
+and confidence labels. Export rasterizes the same detection snapshot onto an
+independent BGR8 source copy. The video GUI/CLI retain their original paths
+and timings. No GPU work is done on the model thread; no additional worker or
+network dependency is introduced. See `docs/M7_3_PERSON_BOXES.md`.

@@ -147,7 +147,8 @@ def parse_jsonl(path):
                 require(start is not None and end is None, 'frame outside stream')
                 record = entry.get('record')
                 require(isinstance(record, dict) and record.get('processor') == 'nanodet-coco80' and
-                        record.get('profile') == 'object' and
+                        record.get('profile') in ('object', 'person') and
+                        record.get('profile') == start.get('profile', 'object') and
                         record.get('model_sha256') == EXPECTED_MODEL_SHA256 and
                         record.get('source_kind') == 'recorded_video', 'frame identity mismatch')
                 idx = record.get('frame_index')
@@ -163,6 +164,12 @@ def parse_jsonl(path):
                         is_int(record.get('width'), 1, 32768) and is_int(record.get('height'), 1, 32768),
                         'frame metadata invalid')
                 require(number(record.get('confidence_threshold'), 0.0, 1.0), 'invalid confidence policy')
+                if record['profile'] == 'person':
+                    require(number(record.get('display_threshold'), 0.0, 1.0),
+                            'invalid person display threshold')
+                    require(number(start.get('display_threshold'), 0.0, 1.0) and
+                            record['display_threshold'] == start['display_threshold'],
+                            'person display threshold disagrees with stream start')
                 require(number(record.get('nms_iou_threshold'), 0.0, 1.0), 'invalid NMS policy')
                 require(isinstance(record.get('detections'), list) and
                         len(record['detections']) <= MAX_PERSONS_PER_FRAME and
@@ -172,6 +179,8 @@ def parse_jsonl(path):
                     require(isinstance(obj, dict), 'invalid detection record')
                     cls = obj.get('class_id')
                     require(is_int(cls, 0, 79), 'invalid detected class')
+                    require(record['profile'] != 'person' or cls == 0,
+                            'person-only stream contains a non-person detection')
                     score = obj.get('score')
                     require(number(score, 0.0, 1.0), 'invalid detected score')
                     require(isinstance(obj.get('label'), str), 'invalid detected label')

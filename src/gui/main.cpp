@@ -114,6 +114,8 @@ struct App {
     chromascope::AsyncRecordedVideoDetection video_detection;
     std::filesystem::path video_opened_path;
     bool video_show_detections = true;
+    int video_detection_profile = 0; // 0: COCO-80, 1: person class 0 only.
+    float video_person_display_threshold = 0.50F;
     bool video_export_audio_ack = false;
     bool video_export_override_fps = false;
     float video_export_fps = 25.0F;
@@ -670,6 +672,8 @@ struct App {
             policy.nms_iou_threshold = detector_options.nms_iou_threshold;
             policy.max_detections = static_cast<std::size_t>(detector_options.max_detections);
             policy.uncertainty_floor = static_cast<double>(video_uncertainty_floor);
+            policy.person_only = video_detection_profile == 1;
+            policy.person_display_threshold = static_cast<double>(video_person_display_threshold);
             for (int i = 0; i < chromascope::kNanoDetClassCount; ++i) {
                 if (const auto value = detector_class_overrides[static_cast<std::size_t>(i)])
                     policy.class_thresholds.push_back({i, *value});
@@ -697,6 +701,8 @@ struct App {
             policy.nms_iou_threshold = detector_options.nms_iou_threshold;
             policy.max_detections = static_cast<std::size_t>(detector_options.max_detections);
             policy.uncertainty_floor = static_cast<double>(video_uncertainty_floor);
+            policy.person_only = video_detection_profile == 1;
+            policy.person_display_threshold = static_cast<double>(video_person_display_threshold);
             for (int i = 0; i < chromascope::kNanoDetClassCount; ++i)
                 if (const auto value = detector_class_overrides[static_cast<std::size_t>(i)])
                     policy.class_thresholds.push_back({i, *value});
@@ -852,7 +858,21 @@ struct App {
         }
         ImGui::EndDisabled();
         ImGui::Separator();
-        ImGui::TextUnformatted("RECORDED-VIDEO OBJECT DETECTION (M6.7)");
+        ImGui::TextUnformatted("RECORDED-VIDEO DETECTION (M7.2)");
+        if (ImGui::Combo("Video detection profile", &video_detection_profile,
+                "COCO-80 objects\0Person only (COCO ID 0)\0")) {
+            video_detection.cancel();
+            video_export_worker.request_stop();
+        }
+        if (video_detection_profile == 1) {
+            if (ImGui::SliderFloat("Person display threshold", &video_person_display_threshold,
+                                   0.0F, 1.0F, "%.2f")) {
+                video_detection.cancel();
+                video_export_worker.request_stop();
+            }
+            ImGui::TextDisabled("A person must pass BOTH its confidence and display thresholds.");
+            ImGui::TextDisabled("Other classes are excluded from boxes AND weak-candidate diagnostics.");
+        }
         ImGui::TextWrapped("NanoDet COCO-80 CPU (416 x 416). Model weights are not bundled. "
                            "Only the 80 listed classes can be named. Unsupported objects "
                            "may be missed or misidentified; scores are not calibrated probabilities.");
@@ -902,6 +922,8 @@ struct App {
         for (const auto& item : detector_class_overrides)
             if (item) ++active_overrides;
         ImGui::TextDisabled("%zu per-class override(s) configured (next run).", active_overrides);
+        if (video_detection_profile == 1)
+            ImGui::TextDisabled("Only the person (ID 0) override affects person-only results.");
         ImGui::Checkbox("Show matched-frame overlays", &video_show_detections);
         ImGui::BeginDisabled(!has_source);
         if (ImGui::Button("Analyze recording", ImVec2(-1, 0))) start_video_detection();

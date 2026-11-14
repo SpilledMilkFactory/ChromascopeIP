@@ -997,3 +997,25 @@ six hosted CI workflows. No model weights or video data in Git/patch. Actual
 model inference against independently labeled representative media is a
 separate future evaluation gate; no pass/fail accuracy targets have been
 established in this M7.1 research-only milestone.
+
+
+## M7.1 accepted / M7.2 (#45) pending native acceptance
+
+The user verified **102/102 CTests** in GUI Release, CLI Release and
+ASan/UBSan and **34/34 Python quality tests**. Six hosted Debian/Ubuntu/
+quality/Windows checks passed before the M7.1 merge.
+
+M7.2 adds the `person` detection profile and its independent display cutoff
+(default 0.50) to the existing verified NanoDet COCO-80 backend. The shared
+postprocessor suppresses non-person boxes/weak evidence before recording
+results, but continues validating malformed non-person candidates. It changes
+no object-profile thresholds, codec, model, frame lifecycle or media rights.
+Recorded-video GUI chooses person-only or general detection and cancels stale
+overlays when profile/cutoff changes. CLI supports still images, indexed video
+frames, JSONL and AVI exports in person mode. See `docs/M7_2_PERSON_PROFILE.md`.
+
+**Expected suite after M7.2: 105 CTests and 36 Python quality tests.**
+Native OpenCV 5.1.0 Release/CLI/sanitizer tests, clang-tidy, provenance,
+manual GUI/CLI/video/AVI regressions, and all six hosted checks are required
+before accepting M7.2. The synthetic test fixture is not an accuracy
+benchmark; person precision and recall still require independent ground truth.

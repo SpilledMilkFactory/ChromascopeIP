@@ -623,3 +623,25 @@ set_tests_properties(chromascope_person_model_evaluation_policy PROPERTIES
     LABELS "person;model;license;security;regression;negative" TIMEOUT 15)
 chromascope_add_cpp_test(chromascope_unit_person_model_contract
     unit/test_person_model_contract.cpp "unit;person;model;dnn;postprocessing;regression;negative" 25)
+
+# M7.2 (#45): person-only NanoDet class-0 profile, bounded display cutoff,
+# and offline recorded-video/AVI parity. No pretrained ONNX or external video.
+chromascope_add_cpp_test(chromascope_unit_person_profile
+    unit/test_person_profile.cpp "unit;person;model;dnn;postprocessing;security;negative;regression" 25)
+add_executable(chromascope_integration_person_profile_video
+    integration/test_person_profile_video.cpp)
+target_link_libraries(chromascope_integration_person_profile_video PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_integration_person_profile_video)
+target_include_directories(chromascope_integration_person_profile_video PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_integration_person_profile_video
+    COMMAND chromascope_integration_person_profile_video
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m7-2-person-video")
+set_tests_properties(chromascope_integration_person_profile_video PROPERTIES
+    LABELS "integration;person;model;dnn;video;videoio;export;seeking;regression" TIMEOUT 90)
+add_test(NAME chromascope_cli_person_profile_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_INPUT=${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m7-2-cli"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_person_profile.cmake")
+set_tests_properties(chromascope_cli_person_profile_contract PROPERTIES
+    LABELS "cli;person;model;dnn;security;negative;regression" TIMEOUT 25)

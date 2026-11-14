@@ -43,6 +43,12 @@ struct DnnPostprocessOptions {
     // The policy never declares an unknown class or object from weak evidence.
     double uncertainty_floor = 0.35;
     std::vector<DnnClassThreshold> class_thresholds{};
+    // M7.2: restrict accepted and weak-candidate results to COCO class 0.
+    // NanoDet remains a top-1 COCO-80 model; this is NOT a new network.
+    bool person_only = false;
+    // Effective person acceptance/display cutoff is max(class threshold,
+    // display threshold). No effect in the general object profile.
+    double person_display_threshold = 0.50;
 };
 
 struct DnnPostprocessSummary {

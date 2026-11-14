@@ -74,7 +74,7 @@ void usage(std::ostream& os) {
           "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n"
           "       chromascope-cli --detect-video-frame INDEX --input VIDEO --profile object --model ONNX [--json FILE|-]\n"
           "       chromascope-cli --analyze-video --input VIDEO --profile object --model ONNX --jsonl FILE|- [options]\n"
-          "       chromascope-cli --export-annotated-video --input VIDEO --profile object --model ONNX\n"
+          "       chromascope-cli --export-annotated-video --input VIDEO --profile object|person --model ONNX\n"
           "                         --output RESULT.avi --video-codec mjpeg --audio-policy drop [options]\n\n"
           "  -i, --input FILE       Input image or recorded-video file (required)\n"
           "      --video-probe     Inspect video metadata and first decoded frame\n"
@@ -98,7 +98,9 @@ void usage(std::ostream& os) {
           "      --profile ID      Select a registered processing profile\n"
           "      --set KEY=VALUE   Override a named numeric processor option (repeatable)\n"
           "      --profile object   NanoDet COCO-80 CPU object detection\n"
-          "      --model FILE      Required pinned NanoDet ONNX for --profile object\n"
+          "      --profile person   NanoDet person-only (COCO ID 0) CPU detection\n"
+          "      --display-threshold N  Person-only visible-box cutoff [0,1], default 0.50\n"
+          "      --model FILE      Required pinned NanoDet ONNX for object/person profiles\n"
           "      --confidence N    Object score threshold in [0,1], default 0.50\n"
           "      --class-threshold CLASS=N  Per-class cutoff (repeatable; exact name or 0..79)\n"
           "      --uncertain-floor N  Diagnostic-only weak candidate floor (default 0.35)\n"
@@ -234,6 +236,9 @@ Options parse(int argc, char* argv[]) {
         } else if (flag == "--confidence" || flag == "--confidence-threshold") {
             once(flag, "object-confidence");
             o.object_options.confidence_threshold = parse_real(next(i, argc, argv, flag));
+        } else if (flag == "--display-threshold") {
+            once(flag, "person-display");
+            o.object_options.person_display_threshold = parse_real(next(i, argc, argv, flag));
         } else if (flag == "--nms-iou" || flag == "--nms") {
             once(flag, "object-nms");
             o.object_options.nms_iou_threshold = parse_real(next(i, argc, argv, flag));
@@ -295,18 +300,27 @@ Options parse(int argc, char* argv[]) {
     const bool video_object = o.detect_video_frame.has_value();
     const bool video = o.video_probe || o.extract_frame.has_value() || video_object ||
                        o.analyze_video || o.export_annotated_video;
-    const bool object = o.profile_id == "object";
+    const bool person = o.profile_id == "person";
+    const bool object = o.profile_id == "object" || person;
+    o.object_options.person_only = person;
     const bool object_arguments = single_use.contains("model") ||
         single_use.contains("object-confidence") || single_use.contains("object-nms") ||
-        single_use.contains("object-max") ||
+        single_use.contains("object-max") || single_use.contains("person-display") ||
         single_use.contains("uncertain-floor") || !o.object_options.class_thresholds.empty();
     if (object) {
-        if (o.model.empty()) throw std::invalid_argument("--profile object requires --model FILE");
+        if (o.model.empty()) throw std::invalid_argument("--profile object/person requires --model FILE");
+        if (!person && single_use.contains("person-display"))
+            throw std::invalid_argument("--display-threshold requires --profile person");
+        if (person) {
+            for (const auto& item : o.object_options.class_thresholds)
+                if (item.class_id != 0)
+                    throw std::invalid_argument("--profile person permits only person class thresholds");
+        }
         if (!o.profile_options.empty() || o.legacy_settings_changed || !o.mask_output.empty())
             throw std::invalid_argument("Object detection does not accept --set, legacy, or --mask-output options");
         chromascope::validate_dnn_postprocess_options(o.object_options);
     } else if (object_arguments) {
-        throw std::invalid_argument("--model and object thresholds require --profile object");
+        throw std::invalid_argument("--model and detection thresholds require --profile object or person");
     }
     if (!o.analyze_video && (single_use.contains("jsonl") ||
                              (!o.export_annotated_video && single_use.contains("video-max")) ||
@@ -318,7 +332,7 @@ Options parse(int argc, char* argv[]) {
     if (video) {
         if (o.analyze_video) {
             if (!object || o.model.empty())
-                throw std::invalid_argument("--analyze-video requires --profile object and --model");
+                throw std::invalid_argument("--analyze-video requires --profile object or person and --model");
             if (o.jsonl.empty() && !o.jsonl_stdout)
                 throw std::invalid_argument("--analyze-video requires --jsonl FILE|-");
             if ((!o.jsonl.empty() && o.jsonl.extension() != ".jsonl") ||
@@ -330,11 +344,11 @@ Options parse(int argc, char* argv[]) {
                 o.output.empty() || o.output.extension() != ".avi" || !o.json.empty() ||
                 o.json_stdout || !o.jsonl.empty() || o.jsonl_stdout || !o.mask_output.empty())
                 throw std::invalid_argument(
-                    "--export-annotated-video requires --profile object --model ONNX --output FILE.avi "
+                    "--export-annotated-video requires --profile object|person --model ONNX --output FILE.avi "
                     "--video-codec mjpeg --audio-policy drop (no --json or --jsonl)");
         } else if (video_object) {
             if (!object)
-                throw std::invalid_argument("--detect-video-frame requires --profile object and --model");
+                throw std::invalid_argument("--detect-video-frame requires --profile object or person and --model");
             if (!o.output.empty()) chromascope::cli::validate_video_png_path(o.output);
         } else {
             if (single_use.contains("profile") || object_arguments || !o.profile_options.empty() ||
@@ -573,7 +587,7 @@ void write_object_json(std::ostream& stream, const Options& options,
     stream << std::fixed << std::setprecision(6);
     stream << "{\n  \"schema_version\": 1,\n"
               "  \"application\": \"ChromascopeIP\",\n"
-              "  \"profile\": \"object\",\n"
+              "  \"profile\": \"" << options.profile_id << "\",\n"
               "  \"processor\": \"nanodet-coco80\",\n"
            << "  \"input\": \"" << escape_json(options.input.string()) << "\",\n";
     if (video) {
@@ -601,6 +615,9 @@ void write_object_json(std::ostream& stream, const Options& options,
            << "  \"width\": " << result.width() << ", \"height\": " << result.height() << ",\n"
            << "  \"elapsed_ms\": " << elapsed_ms << ",\n"
            << "  \"confidence_threshold\": " << options.object_options.confidence_threshold << ",\n"
+           << (options.object_options.person_only
+               ? "  \"display_threshold\": " + std::to_string(options.object_options.person_display_threshold) + ",\n"
+               : "")
            << "  \"nms_iou_threshold\": " << options.object_options.nms_iou_threshold << ",\n"
            << "  \"max_detections\": " << options.object_options.max_detections << ",\n"
            << "  \"uncertainty\": {\"status\": \"" << summary.status()
@@ -672,7 +689,7 @@ int run_object_command(Options options) {
     if (options.json_stdout) {
         write_object_json(std::cout, options, detected, elapsed, detection_summary);
     } else {
-        std::cout << "Profile: object (NanoDet COCO-80)\nInput: " << options.input.string()
+        std::cout << "Profile: " << options.profile_id << " (NanoDet COCO-80)\nInput: " << options.input.string()
                   << "\nModel: " << options.model.string()
                   << "\nDetected: " << detected.objects().size()
                   << "\nWeak candidates (not recognized objects): " << detection_summary.weak_candidates
@@ -779,8 +796,12 @@ int run_analyze_video_command(Options options) {
     write_jsonl_line(sink,
         "{\"type\":\"start\",\"schema_version\":1,\"operation\":\"video_analyze\",\"input\":\"" +
         escape_json(options.input.string()) + "\",\"model_sha256\":\"" +
-        std::string(chromascope::kSelectedNanoDetSha256) +
-        "\",\"max_video_frames\":" + std::to_string(options.video_analysis.max_decoded_frames) +
+        std::string(chromascope::kSelectedNanoDetSha256) + "\"" +
+        (options.object_options.person_only
+            ? ",\"profile\":\"person\",\"display_threshold\":" +
+              std::to_string(options.object_options.person_display_threshold)
+            : std::string{}) +
+        ",\"max_video_frames\":" + std::to_string(options.video_analysis.max_decoded_frames) +
         ",\"frame_step\":" + std::to_string(options.video_analysis.frame_step) + "}");
 
     chromascope::VideoFrameTiming last_sample{};
@@ -897,7 +918,7 @@ int run_video_object_command(Options options) {
                           result.elapsed_ms, result.inference.summary, &result);
     } else {
         std::cout << "Recorded frame: " << result.frame_index
-                  << "\nProfile: object (NanoDet COCO-80)\nDetected: "
+                  << "\nProfile: " << options.profile_id << " (NanoDet COCO-80)\nDetected: "
                   << result.inference.detections.objects().size()
                   << "\nWeak candidates: " << result.inference.summary.weak_candidates
                   << "\nElapsed inference: " << result.elapsed_ms << " ms\n";
@@ -956,7 +977,10 @@ int main(int argc, char* argv[]) {
                 }
                 std::cout << "object - NanoDet COCO-80 CPU detections (requires --model ONNX)\n"
                              "  --confidence=0.50 [0,1]\n  --nms-iou=0.60 [0,1]\n"
-                             "  --max-detections=100 [1,512] integer\n";
+                             "  --max-detections=100 [1,512] integer\n"
+                             "person - COCO class 0 only, same pinned NanoDet CPU model\n"
+                             "  --confidence=0.50 [0,1]\n  --display-threshold=0.50 [0,1]\n"
+                             "  --nms-iou=0.60 [0,1]\n";
                 return 0;
             }
         }
@@ -969,7 +993,7 @@ int main(int argc, char* argv[]) {
             return run_video_object_command(std::move(options));
         if (options.video_probe || options.extract_frame)
             return run_video_command(std::move(options));
-        if (options.profile_id == "object")
+        if (options.profile_id == "object" || options.profile_id == "person")
             return run_object_command(std::move(options));
         // Resolve and validate profile settings before touching image data or outputs.
         chromascope::ProcessorProfile profile = options.profile_id == "skittles"

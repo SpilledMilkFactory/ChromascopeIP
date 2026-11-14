@@ -70,6 +70,37 @@ class PersonEvaluationTests(unittest.TestCase):
         self.write()
         return evaluator.perform(self.annotation, self.jsonl, self.media)
 
+    def test_person_profile_evaluation_uses_same_independent_ground_truth(self):
+        self.records[0]['profile'] = 'person'
+        self.records[0]['display_threshold'] = .65
+        for frame in self.records[1:3]:
+            frame['record']['profile'] = 'person'
+            frame['record']['display_threshold'] = .65
+            frame['record']['detections'] = [d for d in frame['record']['detections']
+                                              if d['class_id'] == 0]
+            frame['record']['total'] = len(frame['record']['detections'])
+        metrics = self.result()['metrics']
+        self.assertEqual((metrics['tp'], metrics['fp'], metrics['fn']), (1, 2, 1))
+
+    def test_person_profile_identity_and_nonperson_contamination_rejected(self):
+        self.records[0]['profile'] = 'person'
+        self.records[0]['display_threshold'] = .65
+        self.records[1]['record']['profile'] = 'person'
+        self.records[1]['record']['display_threshold'] = .65
+        self.records[2]['record']['profile'] = 'person'
+        self.records[2]['record']['display_threshold'] = .65
+        with self.assertRaisesRegex(evaluator.EvaluationError, 'non-person detection'):
+            self.result()
+        self.records[2]['record']['detections'] = [detection(30,20,.8)]
+        self.records[2]['record']['total'] = 1
+        self.records[2]['record']['display_threshold'] = .9
+        with self.assertRaisesRegex(evaluator.EvaluationError, 'display threshold disagrees'):
+            self.result()
+        self.records[2]['record']['display_threshold'] = .65
+        self.records[2]['record']['profile'] = 'object'
+        with self.assertRaisesRegex(evaluator.EvaluationError, 'frame identity mismatch'):
+            self.result()
+
     def test_true_false_positives_and_negatives_no_map_claim(self):
         m = self.result()['metrics']
         self.assertEqual((m['tp'], m['fp'], m['fn']), (1, 2, 1))

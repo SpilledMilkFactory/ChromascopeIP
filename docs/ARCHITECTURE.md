@@ -322,3 +322,10 @@ fail-closed rules and adds per-tag `scenario_metrics` based on the *same*
 greedy per-frame matcher. The synthetic MJPEG CTest checks decoder and
 source-space postprocessing without changing the NanoDet model, GUI, CLI or
 inference runtime. See `docs/M7_4_PERSON_SCENARIOS.md`.
+
+### M7.5 person-workflow entry points
+
+The GUI has two top-level actions that only select the existing class-0
+NanoDet still-image/recorded-video workflows. No new inference adapter,
+processor or cache exists. The CLI `--person-only` aliases the already
+validated `--profile person` parser branch. See `docs/M7_5_PERSON_WORKFLOW.md`.

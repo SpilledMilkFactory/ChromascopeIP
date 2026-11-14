@@ -862,3 +862,11 @@ or tampered source rejection, and missed/false person accounting. The
 synthetic numbers are arithmetic test vectors, not NanoDet accuracy. See
 `docs/M7_4_PERSON_SCENARIOS.md` and the independent annotation procedure in
 `docs/M7_1_PERSON_MODEL_EVALUATION.md`.
+
+### M7.5 person-workflow CLI and GUI
+
+Expected **109 CTests** (one additional offline CLI alias policy test),
+**40 Python quality tests**. Run `ctest --test-dir build/presets/linux-release
+-R person_workflow --output-on-failure`, followed by all suites and the
+manual GUI quick-entry/overlay/export checks described in
+`docs/M7_5_PERSON_WORKFLOW.md`. No ONNX weights are needed by the CTest.

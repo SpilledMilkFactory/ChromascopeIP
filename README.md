@@ -647,3 +647,22 @@ all original M5.8 model postprocessing remain unchanged: a weak model score
 is **not** proof of an identifiable unknown object. Two new offline CTests
 raise the expected suite to **100**; Python quality remains at **25**.
 See [`docs/M6_7_VIDEO_CONFIDENCE.md`](docs/M6_7_VIDEO_CONFIDENCE.md).
+
+### M7.1 — Person-class model and license evaluation research
+
+The pinned OpenCV Zoo NanoDet-Plus-M 1.5x FP32 model already contains **COCO
+class 0 (`person`)**. M7.1 preserves the existing model, CPU DNN backend,
+confidence/uncertainty policy and GUI/CLI/video functions. It documents the
+upstream **COCO 2017 val** person figures (AP50 67.5%; AP50:95 41.8%) as
+**upstream results only**, not project-specific accuracy, and audits the
+Apache-2.0 license/notices and outstanding packaging review. A new offline,
+stdlib-only `scripts/evaluate_person_detections.py` computes person-box
+TP/FP/FN, precision, recall and F1 for independently labeled **complete**
+video JSONL output, with strict model/media hashes and frame coverage.
+No training/media/ONNX assets are added; it does **not** calculate COCO mAP,
+identify people, or provide a new accuracy claim. See
+[`docs/M7_1_PERSON_MODEL_EVALUATION.md`](docs/M7_1_PERSON_MODEL_EVALUATION.md).
+Two offline CTests extend the suite from 100 to **102**; the Python quality
+suite extends from 25 to **34** tests. Actual person accuracy evaluation
+requires an authorized, independently labeled dataset and a completed local
+analysis. The selected checkpoint remains optional and unbundled.

@@ -69,3 +69,13 @@ synthetic object fixture manifest. These tests neither load nor distribute
 weights. `tests/fixtures/object_detection/` contains only original test
 patterns and malicious-format samples; no semantically labeled COCO data.
 See `docs/M5_7_MODEL_SECURITY.md` for residual ONNX parser risks.
+
+## M7.1 person-class research policy
+
+The pinned model's **COCO ID 0 is `person`**; see
+[`person_evaluation_policy.json`](person_evaluation_policy.json) and
+[`../docs/M7_1_PERSON_MODEL_EVALUATION.md`](../docs/M7_1_PERSON_MODEL_EVALUATION.md)
+for upstream person performance evidence, limitations, Apache-2.0 conditions
+and the offline, independently labeled local evaluation protocol. No additional
+weights or user media are bundled. The project has **not** yet demonstrated its
+own quantitative person-detection accuracy or legal release clearance.

@@ -264,3 +264,20 @@ cache eviction does not change previously recorded cumulative counts.
 `uncertainty_floor` influences weak candidate diagnostics only and never fabricates
 an unknown class, a box, or a second-best prediction. No audio, video timing,
 codec, or NanoDet model behavior changes. See `docs/M6_7_VIDEO_CONFIDENCE.md`.
+
+## M7.1 person-class research and independent accuracy boundary
+
+The existing NanoDet postprocessor maps COCO class ID `0` to `person`.
+M7.1 does not change the CPU DNN backend or frame-processing implementation.
+It adds `models/person_evaluation_policy.json` plus offline evidence gates and
+an independent `scripts/evaluate_person_detections.py` evaluation tool.
+The evaluator **does not execute inference**: it consumes complete M6.3 JSONL
+frames, requires independent person-box ground truth with equal source-frame
+indexes and dimensions, and checks the model/video file SHA-256s. It uses
+score-descending one-to-one IoU matching on accepted person boxes only.
+Unaccepted weak candidates remain diagnostics, never persons or unknown
+objects. Results are per-operating-point precision/recall/F1, **not COCO mAP**.
+This prevents upstream benchmark numbers or synthetic unit tests from being
+misrepresented as locally validated real-world person accuracy. License and
+release conditions remain unchanged. See
+`docs/M7_1_PERSON_MODEL_EVALUATION.md`.

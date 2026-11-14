@@ -973,3 +973,27 @@ confidence captions, per-class override effects, uncertain-only versus no-
 evidence frames, cancellation/reset, and existing GUI/CLI regressions. Require
 all six hosted checks before merge. No official GitHub issue number is assigned
 for this supplemental milestone. See `docs/M6_7_VIDEO_CONFIDENCE.md`.
+
+## M7.1 (#44) — Person model evaluation and license, pending native acceptance
+
+**Prior accepted baseline:** User verified M6.7 with **100/100 CTests** in GUI
+Release, CLI Release, and ASan/UBSan; all six hosted Debian/Ubuntu/quality/
+Windows checks passed and M6.7 was merged. Existing model, audio, video,
+confidence policies and sample rights are unchanged by this research milestone.
+
+M7.1 records upstream OpenCV Zoo person class `0`, reported COCO 2017 val
+person AP50 `0.675` and AP50:95 `0.418` **as third-party benchmarks only**,
+and Apache-2.0 terms; no measured ChromascopeIP person precision/recall is
+claimed. The stdlib-only tool `scripts/evaluate_person_detections.py` supports
+future, locally authorized, independently labeled person data. It refuses
+truncated JSONL, incomplete/misaligned frame labels, mismatched model/media
+hashes, invalid rectangles and unreviewed data. These are engineering policy
+and unit tests, not runtime accuracy measurements or legal release clearance.
+
+**Expected after M7.1: 102 CTests; 34 Python quality tests.** Run both focused
+`-L person` tests and all three full native CTest configurations, the regular
+clang-tidy and CI/provenance scripts, original GUI/CLI regression checks, and
+six hosted CI workflows. No model weights or video data in Git/patch. Actual
+model inference against independently labeled representative media is a
+separate future evaluation gate; no pass/fail accuracy targets have been
+established in this M7.1 research-only milestone.

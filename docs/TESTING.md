@@ -778,3 +778,25 @@ COCO-80 reference and override count, inspect a frame with weak-only evidence,
 seek/replace videos, and check GUI/CLI AVI cumulative weak diagnostics. Check
 still-image behavior, JSONL, video timing, and all six hosted CI checks.
 See `docs/M6_7_VIDEO_CONFIDENCE.md` for semantics and caveats.
+
+## M7.1 — Person-model research and offline evaluation contract
+
+Two independent headless CTests extend the M6.7 100-test suite to **102**:
+
+- `chromascope_person_model_evaluation_policy`: pure CMake, no Python/ONNX;
+  cross-checks person class ID, pinned M5.1/M5.7 SHA, Apache-2.0 license,
+  recorded upstream metrics and no locally asserted accuracy.
+- `chromascope_unit_person_model_contract`: C++ no pretrained model;
+  verifies COCO-80 `person` mapping, conservative default, threshold tradeoffs
+  and diagnostic-only weak person predictions.
+
+Run `ctest --test-dir build/presets/linux-release -L person --output-on-failure`
+for these two tests. `tests/quality/test_person_evaluation.py` adds **9**
+Python tests for the independent evaluator, raising the default Python quality
+suite from 25 to **34**. Verify with
+`python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
+The evaluator itself is not run automatically against user media in CI:
+there is no distributable, independently labeled person dataset in the repo.
+Native full Release/CLI/sanitizer builds, clang-tidy, security/provenance
+checks and six hosted CI checks remain required for acceptance. See the
+M7.1 document for input format, media rights and quantitative limitations.

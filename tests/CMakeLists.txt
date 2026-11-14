@@ -740,3 +740,9 @@ chromascope_add_cpp_test(chromascope_unit_async_camera_capture_policy
 chromascope_add_cpp_test(chromascope_integration_async_camera_capture
     integration/test_async_camera_capture.cpp
     "integration;camera;async;videoio;frame;timing;security;negative;regression;lifecycle" 25)
+
+# M8.4 (#56): hardware-free state/visible-indicator privacy contract.
+# Opening cameras and GUI pixels remain explicitly manual acceptance checks.
+chromascope_add_cpp_test(chromascope_unit_camera_preview_policy
+    unit/test_camera_preview_policy.cpp
+    "unit;camera;gui-contract;privacy;security;negative;regression;lifecycle" 20)

@@ -135,3 +135,14 @@ camera frames, requires explicit `start()` before any driver access, and
 does not persist or network-transmit captured frames. `stop()` invalidates
 queued data but does not securely erase OS/driver buffers; see
 `docs/M8_3_CAMERA_CAPTURE.md`.
+
+
+### M8.4 preview extension
+
+The Live camera GUI workspace requires an explicit Start button. Frames remain
+transient in bounded CPU buffers and an OpenGL preview texture; no automatic
+recording, export, transmission or inference is added. Stop, workspace switch
+and session reset clear the preview and request worker shutdown, but native
+open/read operations may block device release. The visible indicator remains
+conservative until actual worker completion; old exports and OS caches are
+not erased. See `docs/M8_4_CAMERA_GUI.md`.

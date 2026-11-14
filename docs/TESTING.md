@@ -919,3 +919,20 @@ six hosted CI checks; consult `docs/M8_2_CAMERA_DISCOVERY.md`.
 `chromascope_integration_async_camera_capture` are hardware-free synthetic
 CTest cases for queue bounds, frame ownership/timestamps, stop/restart and
 typed error paths. Expect 118 native CTests and 49 Python quality tests.
+
+
+### M8.4 (#56) local GUI camera acceptance
+
+Run `ctest --test-dir build/presets/linux-release -L camera --output-on-failure`
+for nine expected camera tests, plus the full 119 CTests in GUI Release,
+CLI Release and CLI ASan/UBSan configurations. Run all Python quality tests
+(51 expected), static analysis, provenance and policy scripts, then six hosted
+CI jobs. `chromascope_unit_camera_preview_policy` is hardware-free.
+
+Manual hardware acceptance: launch GUI, select **Live camera**, verify OFF and
+no permission request; choose V4L2 or MSMF and an index, Start explicitly,
+confirm LIVE indicator and changing pixels; Stop and confirm STOPPING until
+OFF; repeat start/stop, switch workspaces during capture, reset privacy
+session, and test disconnection / denied permission with a clear error. Confirm
+recorded and still media remain functional and no camera frames are saved.
+Hardware behavior is not demonstrated by CTests/CI alone.

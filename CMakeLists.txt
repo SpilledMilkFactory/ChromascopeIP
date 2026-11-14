@@ -73,7 +73,7 @@ target_link_libraries(chromascope_core PUBLIC ${OpenCV_LIBS} Threads::Threads)
 target_compile_features(chromascope_core PUBLIC cxx_std_20)
 chromascope_apply_quality(chromascope_core)
 
-add_executable(chromascope-cli src/cli/main.cpp)
+add_executable(chromascope-cli src/cli/main.cpp src/cli/CameraCliCapture.cpp)
 target_link_libraries(chromascope-cli PRIVATE ChromascopeIP::Core)
 chromascope_apply_quality(chromascope-cli)
 

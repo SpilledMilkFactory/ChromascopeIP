@@ -1113,3 +1113,14 @@ Run the GUI Release, CLI Release and CLI ASan/UBSan presets, and `ctest`
 with `-L camera`; expect 118 native CTests, including both new async camera
 checks. Run Python quality suite (49), clang-tidy and provenance/CI policy
 checks. No automated test opens real camera hardware.
+
+### M8.5 (#57) CLI opt-in camera capture acceptance
+
+Run all CTests in GUI Release, CLI Release, and CLI ASan/UBSan; run camera
+label CTests, Python quality, clang-tidy and provenance. Expect 122 native
+CTests and 53 Python tests when tests are enabled. Then manually verify an
+authorized real camera with `--camera 0 --camera-max-frames 10
+--camera-max-seconds 5`, optional create-only PNG directory, and invalid
+indices/permission/error behavior. Verify all six hosted CI jobs. The CI
+contract never opens hardware and driver calls are not guaranteed to return
+by the application polling deadline. See `docs/M8_5_CAMERA_CLI.md`.

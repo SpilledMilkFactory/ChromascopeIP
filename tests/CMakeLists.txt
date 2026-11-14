@@ -746,3 +746,23 @@ chromascope_add_cpp_test(chromascope_integration_async_camera_capture
 chromascope_add_cpp_test(chromascope_unit_camera_preview_policy
     unit/test_camera_preview_policy.cpp
     "unit;camera;gui-contract;privacy;security;negative;regression;lifecycle" 20)
+
+# M8.5 (#57): explicit, bounded CLI-only capture; tests never open hardware.
+chromascope_add_cpp_test(chromascope_unit_camera_cli_policy
+    unit/test_camera_cli_policy.cpp
+    "unit;camera;cli;security;negative;regression;timing" 20)
+target_include_directories(chromascope_unit_camera_cli_policy PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/cli")
+add_test(NAME chromascope_cli_camera_capture_contract COMMAND "${CMAKE_COMMAND}"
+    "-DCHROMASCOPE_CLI=$<TARGET_FILE:chromascope-cli>"
+    "-DCHROMASCOPE_EXPORT_DIR=${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m8-5-camera-cli"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_cli_camera_capture.cmake")
+set_tests_properties(chromascope_cli_camera_capture_contract PROPERTIES
+    LABELS "cli;camera;security;negative;regression;privacy" TIMEOUT 30)
+chromascope_add_cpp_test(chromascope_integration_camera_cli_capture
+    integration/test_camera_cli_capture.cpp
+    "integration;camera;cli;async;security;regression;timing" 25)
+target_sources(chromascope_integration_camera_cli_capture PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/cli/CameraCliCapture.cpp")
+target_include_directories(chromascope_integration_camera_cli_capture PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/cli")

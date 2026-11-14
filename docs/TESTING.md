@@ -936,3 +936,14 @@ OFF; repeat start/stop, switch workspaces during capture, reset privacy
 session, and test disconnection / denied permission with a clear error. Confirm
 recorded and still media remain functional and no camera frames are saved.
 Hardware behavior is not demonstrated by CTests/CI alone.
+
+### M8.5 (#57) camera CLI
+
+`chromascope_unit_camera_cli_policy` validates numeric bounds and frame/time
+termination without camera hardware; `chromascope_cli_camera_capture_contract`
+rejects invalid camera requests before any hardware access or output changes.
+`chromascope_integration_camera_cli_capture` tests the positive bounded loop,
+create-only PNG outputs, and synthetic errors without any camera hardware.
+`tests/quality/test_camera_cli_policy.py` guards the explicit and bounded
+source contract. Physical device tests are deliberately manual; see
+`docs/M8_5_CAMERA_CLI.md`.

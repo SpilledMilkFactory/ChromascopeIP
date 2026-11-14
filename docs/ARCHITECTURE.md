@@ -388,3 +388,12 @@ frame. The capture indicator is conservative through Starting/Stopping/Failed,
 and leaving the camera view or clearing the session stops and clears the
 preview without modifying recorded-video or still-image media. See
 `docs/M8_4_CAMERA_GUI.md`.
+
+### M8.5 camera CLI boundary
+
+`src/cli/CameraCliContract.hpp` parses an isolated `--camera INDEX` command
+with finite frame/time limits and rejects file-video/DNN flags before device
+access. `src/cli/CameraCliCapture.cpp` consumes owned M8.3 worker packets; it
+writes PNGs only after an explicit create-only `--camera-save-dir` request.
+This does not change `VideoSource` or GUI camera preview. Driver calls are
+cooperatively cancelled, not time-bounded. See `docs/M8_5_CAMERA_CLI.md`.

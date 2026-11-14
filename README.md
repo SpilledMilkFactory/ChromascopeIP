@@ -775,3 +775,13 @@ or clearing the private session requests camera shutdown. Native driver calls
 can block; STOPPING does not mean that the device has already closed. There is
 no automatic media storage or live inference. See
 [the M8.4 GUI camera contract](docs/M8_4_CAMERA_GUI.md).
+
+### M8.5 explicit CLI camera capture
+
+`chromascope-cli --camera 0 --camera-max-frames 30 --camera-max-seconds 5`
+activates the local camera only when requested and stops its polling loop at the first
+finite frame/time limit. By default no captured image is written. Add
+`--camera-save-dir NEW_DIRECTORY` to explicitly save PNG frames into a
+create-only directory. `--camera-backend default|v4l2|msmf|dshow` controls
+backend selection without fallback. Drivers can block during open/read even
+after an elapsed-time ceiling; see [M8.5 camera CLI](docs/M8_5_CAMERA_CLI.md).

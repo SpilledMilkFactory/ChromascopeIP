@@ -40,7 +40,7 @@ class LiveInferenceSchedulingQualityTests(unittest.TestCase):
         self.assertIn("live_state.dropped_pacing_frames", gui)
         self.assertIn("live_state.dropped_busy_frames", gui)
         self.assertIn("live_state.replaced_pending_frames", gui)
-        self.assertIn("if (!live_inference_active || !live_displayed) {\n                    const auto image = chromascope::to_cv_mat_copy(newest->image);", gui)
+        self.assertIn("if (!live_paused && (!live_inference_active || !live_displayed)) {\n                    const auto image = chromascope::to_cv_mat_copy(newest->image);", gui)
         self.assertNotIn("live_inference.start(", gui.split("App() {")[1].split("    void analyze()", 1)[0])
 
 

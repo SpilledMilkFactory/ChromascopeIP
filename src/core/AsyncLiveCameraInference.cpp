@@ -72,6 +72,7 @@ std::uint64_t AsyncLiveCameraInference::start(
     validate_live_inference_scheduling(scheduling);
     std::lock_guard lock(mutex_);
     const auto session = ++next_session_;
+    ++pause_epoch_;
     pending_.reset();
     last_accepted_frame_index_.reset();
     last_accepted_capture_time_.reset();
@@ -97,7 +98,7 @@ bool AsyncLiveCameraInference::submit(std::uint64_t camera_generation,
         std::lock_guard lock(mutex_);
         if ((snapshot_.stage != LiveInferenceStage::Loading &&
              snapshot_.stage != LiveInferenceStage::Running) ||
-            snapshot_.camera_generation != camera_generation)
+            snapshot_.camera_generation != camera_generation || snapshot_.paused)
             return false;
         const auto index = frame.index;
         const auto stamp = frame.image.metadata().timestamp->value;
@@ -129,9 +130,33 @@ bool AsyncLiveCameraInference::submit(std::uint64_t camera_generation,
     return true;
 }
 
+bool AsyncLiveCameraInference::set_paused(bool paused) noexcept {
+    // Release an owned pending frame outside the mutex, as in submit().
+    std::optional<Pending> discarded;
+    {
+        std::lock_guard lock(mutex_);
+        if (snapshot_.stage != LiveInferenceStage::Loading &&
+            snapshot_.stage != LiveInferenceStage::Running) return false;
+        if (snapshot_.paused == paused) return true;
+        ++pause_epoch_; // invalidate even an in-flight forward that finishes AFTER resume
+        snapshot_.paused = paused;
+        if (paused) {
+            discarded = std::move(pending_);
+            pending_.reset();
+            snapshot_.has_pending_frame = false;
+            snapshot_.latest.reset(); // UI keeps its separately owned frozen result
+        }
+        snapshot_.message = paused ? "Live inference paused; camera remains active." :
+                                     "Live inference resumed; waiting for a fresh frame.";
+    }
+    cv_.notify_one();
+    return true;
+}
+
 void AsyncLiveCameraInference::cancel() noexcept {
     std::lock_guard lock(mutex_);
     ++next_session_;
+    ++pause_epoch_;
     pending_.reset();
     last_accepted_frame_index_.reset();
     last_accepted_capture_time_.reset();
@@ -177,6 +202,7 @@ void AsyncLiveCameraInference::run(std::stop_token token) noexcept {
             }
             while (current(job.session, token)) {
                 std::optional<Pending> input;
+                std::uint64_t input_epoch = 0;
                 {
                     std::unique_lock lock(mutex_);
                     cv_.wait(lock, [&] {
@@ -184,6 +210,7 @@ void AsyncLiveCameraInference::run(std::stop_token token) noexcept {
                                pending_.has_value() || job_.has_value();
                     });
                     if (token.stop_requested() || snapshot_.session != job.session || job_) break;
+                    input_epoch = pause_epoch_;
                     input = std::move(pending_);
                     pending_.reset();
                     snapshot_.has_pending_frame = false;
@@ -200,8 +227,11 @@ void AsyncLiveCameraInference::run(std::stop_token token) noexcept {
                                         std::move(input->frame), std::move(inference), elapsed});
                 std::lock_guard lock(mutex_);
                 if (snapshot_.session != job.session) break;
-                snapshot_.latest = std::move(result);
                 snapshot_.inference_busy = false;
+                // Late results from before pause must remain private even if
+                // the operator has already resumed during the CPU forward.
+                if (snapshot_.paused || input_epoch != pause_epoch_) continue;
+                snapshot_.latest = std::move(result);
                 ++snapshot_.processed_frames;
             }
         } catch (const std::exception& error) {

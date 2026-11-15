@@ -64,6 +64,7 @@ struct LiveInferenceSnapshot {
     std::uint64_t dropped_stale_frames = 0;
     bool has_pending_frame = false;
     bool inference_busy = false;
+    bool paused = false; // M9.5: no admission or late publication while paused
     LiveInferenceScheduling scheduling;
     std::string message = "Live inference is OFF.";
     std::shared_ptr<const LiveInferenceResult> latest;
@@ -92,6 +93,10 @@ public:
                         LiveInferenceScheduling scheduling = {});
     // Returns false when stopped/superseded. Frame is moved into a bounded slot.
     bool submit(std::uint64_t camera_generation, CameraFramePacket frame);
+    // Pause is independent of camera capture. Keep the model loaded, discard
+    // pending frames, and invalidate in-flight results across pause/resume.
+    // False means there is no active inference session to pause/resume.
+    bool set_paused(bool paused) noexcept;
     void cancel() noexcept;
     [[nodiscard]] LiveInferenceSnapshot snapshot() const;
 
@@ -118,6 +123,7 @@ private:
     std::optional<std::uint64_t> last_accepted_frame_index_;
     std::optional<std::chrono::nanoseconds> last_accepted_capture_time_;
     std::uint64_t next_session_ = 0;
+    std::uint64_t pause_epoch_ = 0;
     std::jthread worker_; // destroyed before synchronization members
 };
 

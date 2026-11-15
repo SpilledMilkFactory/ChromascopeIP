@@ -1204,3 +1204,12 @@ Final sign-off requires complete local builds, ASan/UBSan, static analysis,
 provenance checks, webcam tracking and lifecycle manual acceptance, and six
 GitHub Actions successes on the M9.4 commit. Until verified: NOT ACCEPTED.
 See docs/M9_4_TEMPORARY_TRACKING.md.
+
+### M9.5 (#64) acceptance — pending local verification
+
+M9.4 baseline accepted: 132 native CTests, 22 camera CTests and 67 quality
+checks; user confirmed manual GUI and six hosted Actions passing. M9.5 adds
+2 native CTests and 2 Python quality tests: expected 134 / 24 / 69.
+Headless tests cannot certify physical camera, GUI controls, model latency or
+actual FPS. Full native Release/sanitizer, local hardware, privacy and hosted
+CI acceptance remain required; see docs/M9_5_LIVE_GUI_CONTROLS.md.

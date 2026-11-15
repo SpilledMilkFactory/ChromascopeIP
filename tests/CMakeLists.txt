@@ -812,3 +812,11 @@ chromascope_add_cpp_test(chromascope_unit_live_object_tracker
 chromascope_add_cpp_test(chromascope_integration_live_object_tracking
     integration/test_live_object_tracking.cpp
     "integration;camera;live;tracking;lifecycle;timing;privacy;regression" 20)
+
+# M9.5 (#64): hardware-independent live controls and real async pause/resume.
+chromascope_add_cpp_test(chromascope_unit_live_gui_controls
+    unit/test_live_gui_controls.cpp
+    "unit;camera;live;gui-contract;performance;negative;regression" 20)
+chromascope_add_cpp_test(chromascope_integration_live_inference_pause
+    integration/test_live_inference_pause.cpp
+    "integration;camera;live;async;lifecycle;privacy;performance;regression" 35)

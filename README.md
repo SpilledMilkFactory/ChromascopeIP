@@ -841,3 +841,11 @@ using bounded, class-aware IoU matching across analyzed frames. Tracking is
 state. All state clears on inference/camera/session shutdown. Frame-locked M9.3
 annotations and M9.2 scheduling remain unchanged. See
 [temporary tracking contract](docs/M9_4_TEMPORARY_TRACKING.md).
+
+### M9.5 — explicit live inference GUI controls
+
+Live camera now supports Pause/Resume inference (camera remains active),
+separate model and overlay confidence settings, and a bounded inference
+submission FPS cap. Object/person mode is selected before starting inference.
+M9.4 temporary track associations reset on resume. See
+[the M9.5 live control contract](docs/M9_5_LIVE_GUI_CONTROLS.md).

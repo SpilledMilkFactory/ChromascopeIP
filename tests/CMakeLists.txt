@@ -766,3 +766,13 @@ target_sources(chromascope_integration_camera_cli_capture PRIVATE
     "${PROJECT_SOURCE_DIR}/src/cli/CameraCliCapture.cpp")
 target_include_directories(chromascope_integration_camera_cli_capture PRIVATE
     "${PROJECT_SOURCE_DIR}/src/cli")
+
+# M8.6 (#58): deterministic reusable mock, open/read fault injection, and
+# cooperative lifecycle regression. No device enumeration, physical cameras,
+# model weights, persistent media, or external assets required.
+chromascope_add_cpp_test(chromascope_unit_mock_camera
+    unit/test_mock_camera.cpp
+    "unit;camera;mock;negative;security;regression;frame;timing" 20)
+chromascope_add_cpp_test(chromascope_integration_mock_camera_failures
+    integration/test_mock_camera_failure_injection.cpp
+    "integration;camera;mock;async;lifecycle;negative;security;regression;timing" 30)

@@ -1124,3 +1124,13 @@ authorized real camera with `--camera 0 --camera-max-frames 10
 indices/permission/error behavior. Verify all six hosted CI jobs. The CI
 contract never opens hardware and driver calls are not guaranteed to return
 by the application polling deadline. See `docs/M8_5_CAMERA_CLI.md`.
+
+## M8.6 (#58) mock camera failure-injection preparation
+
+Created a reusable, test-only `CameraFrameReader` mock and two new native
+CTest targets for exact frame/timestamp generation, injected open/read faults,
+invalid frame packets, worker thread ownership, stop/restart and queue bounds.
+Expected totals are **124 native CTests** and **55 Python quality tests**.
+Mock tests are hardware-independent and do not prove real driver behavior;
+full native/OpenCV and hosted CI acceptance must be recorded after running
+on supported systems. See `docs/M8_6_CAMERA_MOCK.md`.

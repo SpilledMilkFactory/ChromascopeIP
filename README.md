@@ -785,3 +785,11 @@ finite frame/time limit. By default no captured image is written. Add
 create-only directory. `--camera-backend default|v4l2|msmf|dshow` controls
 backend selection without fallback. Drivers can block during open/read even
 after an elapsed-time ceiling; see [M8.5 camera CLI](docs/M8_5_CAMERA_CLI.md).
+
+### M8.6 — reusable camera mocks and deterministic failures
+
+M8.6 adds hardware-free `camera;mock` CTests for explicit permission/open
+failures, typed and untyped reads, invalid frames/timestamps, bounded
+asynchronous buffers, and stop/restart isolation. The shared mock is strictly
+test-only; production camera and GUI/CLI behavior is unchanged. See
+[the mock-camera testing contract](docs/M8_6_CAMERA_MOCK.md).

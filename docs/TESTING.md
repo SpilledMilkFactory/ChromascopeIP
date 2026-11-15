@@ -947,3 +947,15 @@ create-only PNG outputs, and synthetic errors without any camera hardware.
 `tests/quality/test_camera_cli_policy.py` guards the explicit and bounded
 source contract. Physical device tests are deliberately manual; see
 `docs/M8_5_CAMERA_CLI.md`.
+
+### M8.6 (#58) mock camera and failure injection
+
+The test-only `tests/support/MockCamera.hpp` supports deterministic, explicitly
+scripted frames and injected open/read faults. Two new CTests,
+`chromascope_unit_mock_camera` and `chromascope_integration_mock_camera_failures`,
+run without a physical camera. Use `ctest --test-dir build/presets/linux-release
+-L mock --output-on-failure` and `-L camera`. Expect **124 native CTests**
+(14 camera-related) and **55 Python quality tests**. Run full Release,
+CLI Release and sanitizer suites, static analysis and CI/provenance checks.
+The mock cannot qualify actual driver timeouts or hardware permissions; see
+`docs/M8_6_CAMERA_MOCK.md` and retain manual M8.4/M8.5 device checks.

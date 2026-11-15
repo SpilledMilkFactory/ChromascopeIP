@@ -820,3 +820,26 @@ chromascope_add_cpp_test(chromascope_unit_live_gui_controls
 chromascope_add_cpp_test(chromascope_integration_live_inference_pause
     integration/test_live_inference_pause.cpp
     "integration;camera;live;async;lifecycle;privacy;performance;regression" 35)
+
+# M9.6 (#65): opt-in streamed CLI live detections and graceful interruption.
+chromascope_add_cpp_test(chromascope_unit_camera_live_cli_contract
+    unit/test_camera_live_cli_contract.cpp
+    "unit;camera;live;cli;privacy;negative;regression" 20)
+chromascope_add_cpp_test(chromascope_integration_camera_live_jsonl
+    integration/test_camera_live_jsonl.cpp
+    "integration;camera;live;cli;streaming;lifecycle;privacy;regression" 30)
+# CLI-only headers and streaming adapter are not part of the Core library.
+target_include_directories(chromascope_unit_camera_live_cli_contract PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/cli")
+target_include_directories(chromascope_integration_camera_live_jsonl PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/cli")
+target_sources(chromascope_integration_camera_live_jsonl PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/cli/CameraCliDetection.cpp")
+add_test(NAME chromascope_cli_live_requires_camera COMMAND chromascope-cli
+    --camera-detect --profile person --model nonexistent.onnx --jsonl -)
+set_tests_properties(chromascope_cli_live_requires_camera PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;camera;live;negative;privacy" TIMEOUT 15)
+add_test(NAME chromascope_cli_live_rejects_mixed_input COMMAND chromascope-cli
+    --camera-detect --camera 0 --profile object --model nonexistent.onnx --jsonl - --input video.mp4)
+set_tests_properties(chromascope_cli_live_rejects_mixed_input PROPERTIES
+    WILL_FAIL TRUE LABELS "cli;camera;live;negative;privacy" TIMEOUT 15)

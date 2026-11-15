@@ -849,3 +849,12 @@ separate model and overlay confidence settings, and a bounded inference
 submission FPS cap. Object/person mode is selected before starting inference.
 M9.4 temporary track associations reset on resume. See
 [the M9.5 live control contract](docs/M9_5_LIVE_GUI_CONTROLS.md).
+
+### M9.6 — Opt-in live detection JSONL in CLI
+
+Use `chromascope-cli --camera-detect --camera INDEX --profile object|person
+--model MODEL.onnx --jsonl FILE|-` for bounded local live NanoDet detections.
+Default limits are 30 frames or 5 seconds; Ctrl-C requests cooperative shutdown
+and a final JSONL status record. Only an explicitly selected native camera
+backend is opened. This mode never records media or performs identity matching.
+See [live CLI JSONL protocol](docs/M9_6_CLI_LIVE_JSONL.md).

@@ -1022,3 +1022,11 @@ verify all 134 native CTests (24 camera-labeled) and 69 Python quality tests.
 Manual GUI qualification must test pause/resume, object/person profile, live
 display confidence, effective FPS admission cap, track reset, and historic
 regressions. See `docs/M9_5_LIVE_GUI_CONTROLS.md`.
+
+### M9.6 (#65) — opt-in live CLI JSONL / Ctrl-C
+
+Two headless C++ tests exercise explicit argument contracts and synthetic camera
+frames, including the graceful interrupt pathway. Two negative CLI CTests
+reject missing explicit camera selection and mixed file inputs. Expected native
+suite: 138 CTests (28 camera-labeled); Python quality suite: 71. The hardware
+qualification requires an authorized webcam; see docs/M9_6_CLI_LIVE_JSONL.md.

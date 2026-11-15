@@ -8,6 +8,7 @@
 #include "CliOutputPaths.hpp"
 #include "VideoCliContract.hpp"
 #include "CameraCliCapture.hpp"
+#include "CameraCliDetection.hpp"
 #include "chromascope/VideoSource.hpp"
 #include "chromascope/CameraSource.hpp"
 #include "chromascope/CameraDiscovery.hpp"
@@ -77,6 +78,7 @@ void usage(std::ostream& os) {
           "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n"
           "       chromascope-cli --detect-video-frame INDEX --input VIDEO --profile object|person --model ONNX [--json FILE|-]\n"
           "       chromascope-cli --analyze-video --input VIDEO --profile object|person --model ONNX --jsonl FILE|- [options]\n"
+          "       chromascope-cli --camera-detect --camera INDEX --profile object|person --model ONNX --jsonl FILE|- [limits]\n"
           "       chromascope-cli --export-annotated-video --input VIDEO --profile object|person --model ONNX\n"
           "                         --output RESULT.avi --video-codec mjpeg --audio-policy drop [options]\n\n"
           "  -i, --input FILE       Input image or recorded-video file (required)\n"
@@ -125,6 +127,9 @@ void usage(std::ostream& os) {
           "      --camera-max-frames N  Stop after N frames [1,300], default 30\n"
           "      --camera-max-seconds N Stop after N elapsed seconds [1,60], default 5\n"
           "      --camera-save-dir DIR  Opt-in PNG output; must name a NEW directory\n"
+          "      --camera-detect   Explicit live camera inference; requires --camera, --profile, --model and --jsonl\n"
+          "      --jsonl FILE|-    With --camera-detect: stream JSONL (new file or stdout)\n"
+          "      Ctrl-C requests cooperative shutdown; emits an end record (exit 130)\n"
           "  -h, --help            Show command reference\n"
           "      --version         Print version and OpenCV version\n"
           "\nPerson-only examples (ONNX is a local, SHA-256-verified NanoDet file):\n"
@@ -960,6 +965,12 @@ int run_video_object_command(Options options) {
 
 int main(int argc, char* argv[]) {
     try {
+        // M9.6: route opt-in camera detection before the legacy camera-only CLI.
+        // Validation rejects mixed --help, media files, and unbounded arguments.
+        for (int i = 1; i < argc; ++i) {
+            if (std::string_view(argv[i]) == "--camera-detect")
+                return chromascope::cli::run_camera_detection_cli(argc, argv);
+        }
         // M8.5: detect explicit capture BEFORE informational/help shortcuts so
         // mixed invocations cannot bypass the camera-only argument contract.
         for (int i = 1; i < argc; ++i) {

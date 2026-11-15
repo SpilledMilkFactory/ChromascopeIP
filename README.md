@@ -793,3 +793,12 @@ failures, typed and untyped reads, invalid frames/timestamps, bounded
 asynchronous buffers, and stop/restart isolation. The shared mock is strictly
 test-only; production camera and GUI/CLI behavior is unchanged. See
 [the mock-camera testing contract](docs/M8_6_CAMERA_MOCK.md).
+
+### M8.7 — native Linux webcam smoke qualification
+
+M8.7 provides the strictly opt-in `scripts/linux_camera_smoke.py` workflow
+for documented real V4L2 capture, repeated start/stop, bounded CLI output,
+optional private PNG checks and sanitized create-only reports. Default mode
+is passive and cannot qualify hardware. GUI indicator, release and permission
+observations require a human operator on an authorized Linux webcam; CI
+remains camera-free. See [Linux camera smoke protocol](docs/M8_7_LINUX_CAMERA_SMOKE.md).

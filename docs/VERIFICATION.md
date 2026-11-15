@@ -1134,3 +1134,17 @@ Expected totals are **124 native CTests** and **55 Python quality tests**.
 Mock tests are hardware-independent and do not prove real driver behavior;
 full native/OpenCV and hosted CI acceptance must be recorded after running
 on supported systems. See `docs/M8_6_CAMERA_MOCK.md`.
+
+### M8.7 (#59) documented Linux webcam hardware qualification (pending)
+
+M8.6 baseline: GUI Release, CLI Release and ASan/UBSan **124/124**, camera
+**14/14**, Python quality **55/55**, static analysis/provenance checks and six
+hosted Actions passed, per local log and user confirmation of M8.6 merge.
+M8.7 adds an opt-in Linux V4L2 hardware smoke runner, four hardware-free
+Python quality regressions (expected **59**), and an operator checklist.
+Run passive mode separately, then explicit `--run-hardware` to observe two
+actual bounded captures; optionally persist PNGs and sanitized JSON via
+create-only paths. A report alone cannot certify device release or GUI LIVE
+status. Real webcam evidence and manual GUI/error scenarios are required for
+M8.7 acceptance; **do not record hardware PASS without that evidence**.
+See `docs/M8_7_LINUX_CAMERA_SMOKE.md`.

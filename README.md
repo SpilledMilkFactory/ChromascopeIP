@@ -858,3 +858,11 @@ Default limits are 30 frames or 5 seconds; Ctrl-C requests cooperative shutdown
 and a final JSONL status record. Only an explicitly selected native camera
 backend is opened. This mode never records media or performs identity matching.
 See [live CLI JSONL protocol](docs/M9_6_CLI_LIVE_JSONL.md).
+
+### M9.7 — Real-device live performance, tracking and recovery qualification
+
+The opt-in [M9.7 qualification workflow](docs/M9_7_LIVE_DEVICE_QUALIFICATION.md)
+validates existing M9.6 JSONL files offline and can explicitly supervise bounded
+Linux V4L2 object/person/restart/Ctrl-C runs. Reports contain **aggregate-only**
+performance metrics, with manual tracking/recovery/GUI checks always marked
+`NOT_VERIFIED`. No production camera, inference or tracking behavior changes.

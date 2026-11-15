@@ -1030,3 +1030,13 @@ frames, including the graceful interrupt pathway. Two negative CLI CTests
 reject missing explicit camera selection and mixed file inputs. Expected native
 suite: 138 CTests (28 camera-labeled); Python quality suite: 71. The hardware
 qualification requires an authorized webcam; see docs/M9_6_CLI_LIVE_JSONL.md.
+
+### M9.7 (#66) — real-device performance and recovery qualification
+
+Use `python3 scripts/qualify_live_detection.py --jsonl PRIVATE.jsonl` for
+passive schema/latency/cadence validation. Only `--run-hardware` opens a real
+Linux V4L2 camera through an existing CLI; see
+`docs/M9_7_LIVE_DEVICE_QUALIFICATION.md` for bounded supervisor commands and
+manual device/GUI/tracking recovery matrix. Native CTests stay **138** (28
+camera-labeled), Python quality suite becomes **87**. Automated metrics never
+certify physical tracking stability or OS device recovery.

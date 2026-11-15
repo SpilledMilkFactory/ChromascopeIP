@@ -24,26 +24,16 @@ void run() {
     rejects([] { validate_live_inference_scheduling({LiveInferenceDropStrategy::KeepNewest, 1001ms}); });
     rejects([] { validate_live_inference_scheduling({static_cast<LiveInferenceDropStrategy>(255), 0ms}); });
 
-    AsyncLiveCameraInference inference([](const std::filesystem::path&, const DnnPostprocessOptions&) -> LiveFrameDetector {
-        throw std::runtime_error("test-only model should never load before valid start");
-    });
-    rejects([&] { (void)inference.start(2, "test.onnx", {},
-                                      {LiveInferenceDropStrategy::KeepOldest, -2ms}); });
-    check(inference.snapshot().stage == LiveInferenceStage::Idle &&
-          inference.snapshot().session == 0, "rejected scheduling changed session state");
-    const auto session = inference.start(2, "test.onnx", {},
-                                        {LiveInferenceDropStrategy::KeepOldest, 20ms});
-    const auto snap = inference.snapshot();
-    check(snap.session == session &&
-          snap.scheduling.drop_strategy == LiveInferenceDropStrategy::KeepOldest &&
-          snap.scheduling.minimum_capture_spacing == 20ms &&
-          snap.accepted_frames == 0 && snap.processed_frames == 0 &&
-          snap.dropped_pacing_frames == 0 && snap.dropped_busy_frames == 0 &&
-          snap.dropped_stale_frames == 0 && !snap.has_pending_frame &&
-          !snap.inference_busy, "initial scheduler telemetry not reset");
-    inference.cancel();
-    check(inference.snapshot().stage == LiveInferenceStage::Canceled &&
-          inference.snapshot().accepted_frames == 0, "cancel failed to clear scheduler counts");
+    // A pure policy unit test must not race a worker that loads a deliberately
+    // failing detector while this test exits. The integration test exercises
+    // real start/reject/cancel/restart and checks the initial telemetry.
+    const LiveInferenceScheduling defaults{};
+    check(defaults.drop_strategy == LiveInferenceDropStrategy::KeepNewest &&
+          defaults.minimum_capture_spacing == 0ms,
+          "default live scheduling changed");
+    rejects([] { validate_live_inference_scheduling({LiveInferenceDropStrategy::KeepOldest, -2ms}); });
+    rejects([] { validate_live_inference_scheduling({LiveInferenceDropStrategy::KeepNewest, 2000ms}); });
+    rejects([] { validate_live_inference_scheduling({static_cast<LiveInferenceDropStrategy>(254), 5ms}); });
 }
 }
 

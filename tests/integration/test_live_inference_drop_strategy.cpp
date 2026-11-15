@@ -60,7 +60,27 @@ void exercise(LiveInferenceDropStrategy strategy) {
             return detect(image);
         });
     });
+    // Exercise invalid start / initial telemetry in the integration fixture,
+    // where the injected detector remains controlled for the entire lifetime.
+    check(worker.snapshot().stage == LiveInferenceStage::Idle &&
+          worker.snapshot().session == 0, "inference started without opt-in");
+    bool rejected = false;
+    try {
+        (void)worker.start(40, "synthetic.onnx", {}, {strategy, -2ms});
+    } catch (const std::invalid_argument&) {
+        rejected = true;
+    }
+    check(rejected && worker.snapshot().stage == LiveInferenceStage::Idle &&
+          worker.snapshot().session == 0, "invalid scheduling changed worker state");
+
     const auto session = worker.start(40, "synthetic.onnx", {}, {strategy, 10ms});
+    const auto initial = worker.snapshot();
+    check(initial.session == session && initial.scheduling.drop_strategy == strategy &&
+          initial.scheduling.minimum_capture_spacing == 10ms &&
+          initial.accepted_frames == 0 && initial.processed_frames == 0 &&
+          initial.dropped_pacing_frames == 0 && initial.dropped_busy_frames == 0 &&
+          initial.dropped_stale_frames == 0 && !initial.has_pending_frame &&
+          !initial.inference_busy, "initial inference telemetry was not reset");
     check(worker.submit(40, frame(1, 10ms)), "first submit rejected");
     until([&] { std::lock_guard lock(gate->mutex); return gate->entered; },
           "first CPU inference did not enter");

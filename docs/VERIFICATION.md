@@ -1176,3 +1176,15 @@ Actual OpenCV GUI builds, CPU/ASan tests, webcam and ONNX behavior, manual
 regressions and hosted CI must be reverified before acceptance. Synthetic
 queue tests do not establish device-side frame drops or real-time inference
 performance. See `docs/M9_2_LIVE_INFERENCE_SCHEDULING.md`.
+
+### M9.3 (#62) synchronized live detection overlay — acceptance pending
+
+M9.2 was accepted after local sanitizer 128/128 and 50 consecutive focused
+runs per test, full GUI/CLI Release 128/128, Python quality 63/63, manual
+functional regressions and six hosted CI checks. M9.3 adds testable exact
+frame-to-overlay identity, original-space clipping, canvas zoom/pan projection,
+label placement and independent presentation toggles. Expected acceptance:
+130 GUI/CLI/sanitizer native tests, 20 camera CTests, 65 Python quality tests,
+full static analysis and provenance, manual webcam NanoDet boxes/labels,
+existing GUI/CLI regressions and six GitHub Actions checks. Do not record
+hardware PASS from synthetic tests. Details: docs/M9_3_LIVE_OVERLAY.md.

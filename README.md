@@ -821,3 +821,14 @@ pacing. Per-session accepted, completed, replaced, busy-dropped, paced and
 stale-frame counts are shown in the Live camera workspace. Capture remains
 independent and inference never queues unbounded frames. See
 [the M9.2 scheduling contract](docs/M9_2_LIVE_INFERENCE_SCHEDULING.md).
+
+### M9.3 — synchronized live bounding boxes and confidence labels
+
+Live NanoDet detection overlays are now source-locked to camera generation,
+worker session, capture index, capture-monotonic timestamp and source pixels.
+The Live camera workspace offers separate **Show live bounding boxes** and
+**Show live confidence labels** toggles. Original-source rectangles are clipped
+through the same zoom/pan viewport as the displayed analyzed frame; confidence
+is model output, not a calibrated probability. Recorded-video overlays and
+capture/inference activation remain unchanged. See
+[the M9.3 overlay contract](docs/M9_3_LIVE_OVERLAY.md).

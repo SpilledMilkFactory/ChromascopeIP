@@ -843,3 +843,9 @@ add_test(NAME chromascope_cli_live_rejects_mixed_input COMMAND chromascope-cli
     --camera-detect --camera 0 --profile object --model nonexistent.onnx --jsonl - --input video.mp4)
 set_tests_properties(chromascope_cli_live_rejects_mixed_input PROPERTIES
     WILL_FAIL TRUE LABELS "cli;camera;live;negative;privacy" TIMEOUT 15)
+
+# M10.1: pure presentation policies, runnable even in CLI-only CI and ASan.
+chromascope_add_cpp_test(chromascope_unit_gui_experience
+    unit/test_gui_experience.cpp "unit;gui-contract;ux;dpi;shortcuts;negative" 20)
+chromascope_add_cpp_test(chromascope_regression_gui_layout
+    regression/test_gui_layout.cpp "regression;gui-contract;ux;dpi;resize" 20)

@@ -1040,3 +1040,22 @@ Linux V4L2 camera through an existing CLI; see
 manual device/GUI/tracking recovery matrix. Native CTests stay **138** (28
 camera-labeled), Python quality suite becomes **87**. Automated metrics never
 certify physical tracking stability or OS device recovery.
+
+## M10.1 — GUI experience contract (#67)
+
+`chromascope_unit_gui_experience` and `chromascope_regression_gui_layout`
+cover pure responsive layout, DPI, supported browser extensions and shortcut
+safety with **no GUI, OpenCV or camera dependencies** at test-execution time.
+Python quality adds `tests/quality/test_gui_experience.py` (two tests). Expected
+counts are **140 native CTests**, **28 camera**, **89 Python quality** until
+validated in the full native/sanitizer build and hosted CI.
+
+Focused verification:
+
+```sh
+ctest --test-dir build/presets/linux-release -R 'gui_experience|gui_layout' --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_gui_experience.py' -v
+```
+
+Complete operator acceptance and platform/DPI matrix:
+`docs/M10_1_GUI_EXPERIENCE.md`.

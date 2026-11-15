@@ -1059,3 +1059,12 @@ python3 -m unittest discover -s tests/quality -p 'test_gui_experience.py' -v
 
 Complete operator acceptance and platform/DPI matrix:
 `docs/M10_1_GUI_EXPERIENCE.md`.
+
+### M10.2 — versioned preferences
+
+Run `ctest -R 'gui_preferences|gui_preference_storage'` for the two new native
+hardware-free tests; the complete expected suite is 142 native CTests, 28
+camera-labeled CTests and 91 Python quality tests. Verify interactive Save,
+Reload and Delete, restart roundtrip, corrupt schema/unknown field rejection,
+profile option validation, owner-only permissions and no automatic camera/model
+activation. See `docs/M10_2_VERSIONED_PREFERENCES.md`.

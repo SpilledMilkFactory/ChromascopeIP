@@ -19,6 +19,8 @@
 #include "chromascope/LiveObjectTracker.hpp"
 #include "chromascope/LiveGuiControlPolicy.hpp"
 #include "chromascope/GuiExperiencePolicy.hpp"
+#include "chromascope/GuiPreferences.hpp"
+#include "chromascope/GuiPreferenceStorage.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
 
@@ -202,6 +204,7 @@ struct App {
     float ui_content_scale = 1.0F;
     float sidebar_width_logical = 345.0F;
     bool help_requested = false;
+    std::string preferences_status = "Preferences are not saved automatically.";
     bool browser_show_hidden = false;
     std::filesystem::path browser_selected;
     std::string browser_status_message;
@@ -223,6 +226,141 @@ struct App {
         std::snprintf(detector_model_path.data(), detector_model_path.size(), "%s",
                       "models/object_detection_nanodet_2022nov.onnx");
         std::snprintf(browser_directory.data(), browser_directory.size(), "%s", ".");
+    }
+
+    // M10.2: only explicitly selected, non-sensitive values may be saved.
+    // Never persist open file paths, model paths, camera selections, loaded
+    // media, active camera/inference states, or tracking history.
+    [[nodiscard]] chromascope::GuiPreferences collect_preferences() const {
+        auto prefs = chromascope::default_gui_preferences();
+        prefs.selected_profile = selected_profile;
+        auto& ui = prefs.ui;
+        ui["workspace"] = workspace_mode;
+        ui["preview"] = preview_mode;
+        ui["sidebar_width"] = sidebar_width_logical;
+        ui["show_overlay"] = show_overlay;
+        ui["show_labels"] = show_labels;
+        ui["synchronize_comparison"] = synchronize_comparison;
+        ui["show_mask_preview"] = show_mask_preview;
+        ui["video_show_detections"] = video_show_detections;
+        ui["video_detection_profile"] = video_detection_profile;
+        ui["video_person_display_threshold"] = video_person_display_threshold;
+        ui["live_detection_profile"] = live_detection_profile;
+        ui["live_confidence_threshold"] = live_confidence_threshold;
+        ui["live_person_display_threshold"] = live_person_display_threshold;
+        ui["live_show_bounding_boxes"] = live_show_bounding_boxes;
+        ui["live_show_confidence_labels"] = live_show_confidence_labels;
+        ui["live_drop_strategy"] = live_drop_strategy;
+        ui["live_min_capture_spacing_ms"] = live_min_capture_spacing_ms;
+        ui["live_max_inference_fps"] = live_max_inference_fps;
+        ui["live_display_confidence_threshold"] = live_display_confidence_threshold;
+        prefs.profiles["skittles"] =
+            chromascope::skittles_profile_from_settings(settings).numeric_options;
+        for (const auto& [id, profile] : filter_profiles)
+            prefs.profiles[id] = profile.numeric_options;
+        return prefs;
+    }
+
+    void save_gui_preferences() {
+        try {
+            const auto file = chromascope::gui_preferences_path();
+            if (!file) throw std::runtime_error("No valid OS configuration directory");
+            const auto prefs = collect_preferences();
+            chromascope::validate_gui_preferences(prefs);
+            (void)processors.default_profile(prefs.selected_profile);
+            for (const auto& [id, options] : prefs.profiles)
+                (void)processors.create({id, options});
+            chromascope::write_gui_preferences_file(
+                *file, chromascope::serialize_gui_preferences(prefs));
+            preferences_status = "Preferences explicitly saved. No media/model paths stored.";
+        } catch (const std::exception& error) {
+            preferences_status = std::string("Preferences not saved: ") + error.what();
+        }
+    }
+
+    void load_gui_preferences() {
+        try {
+            const auto file = chromascope::gui_preferences_path();
+            if (!file) throw std::runtime_error("No valid OS configuration directory");
+            const auto input = chromascope::read_gui_preferences_file(*file);
+            if (!input) {
+                preferences_status = "No saved preferences. Using defaults.";
+                return;
+            }
+            const auto prefs = chromascope::parse_gui_preferences(*input);
+            // Validate *everything* before altering a running GUI. Registered
+            // processors enforce option bounds, relationships and unknown keys.
+            (void)processors.default_profile(prefs.selected_profile);
+            std::map<std::string, chromascope::ProcessorProfile, std::less<>> checked;
+            for (const auto& [id, values] : prefs.profiles) {
+                auto profile = processors.default_profile(id);
+                for (const auto& [key, value] : values)
+                    profile.numeric_options[key] = value;
+                (void)processors.create(profile);
+                checked.emplace(id, std::move(profile));
+            }
+            auto next_settings = settings;
+            if (const auto it = checked.find("skittles"); it != checked.end()) {
+                const auto& values = it->second.numeric_options;
+                next_settings.max_dimension = static_cast<int>(values.at("max_dimension"));
+                next_settings.accumulator_threshold = values.at("accumulator_threshold");
+                next_settings.edge_threshold = values.at("edge_threshold");
+                next_settings.min_distance_fraction = values.at("min_distance_fraction");
+                next_settings.min_radius_fraction = values.at("min_radius_fraction");
+                next_settings.max_radius_fraction = values.at("max_radius_fraction");
+                next_settings.minimum_confidence = values.at("minimum_confidence");
+                chromascope::validate_settings(next_settings);
+            }
+            // Commit validated values only. No side-effectful Start/Open call.
+            settings = next_settings;
+            selected_profile = prefs.selected_profile;
+            checked.erase("skittles");
+            filter_profiles = std::move(checked);
+            if (selected_profile != "skittles" && !filter_profiles.contains(selected_profile))
+                filter_profiles.emplace(selected_profile, processors.default_profile(selected_profile));
+            const auto& ui = prefs.ui;
+            workspace_mode = static_cast<int>(ui.at("workspace"));
+            preview_mode = static_cast<int>(ui.at("preview"));
+            sidebar_width_logical = static_cast<float>(ui.at("sidebar_width"));
+            show_overlay = ui.at("show_overlay") != 0;
+            show_labels = ui.at("show_labels") != 0;
+            synchronize_comparison = ui.at("synchronize_comparison") != 0;
+            show_mask_preview = ui.at("show_mask_preview") != 0;
+            video_show_detections = ui.at("video_show_detections") != 0;
+            video_detection_profile = static_cast<int>(ui.at("video_detection_profile"));
+            video_person_display_threshold = static_cast<float>(ui.at("video_person_display_threshold"));
+            live_detection_profile = static_cast<int>(ui.at("live_detection_profile"));
+            live_confidence_threshold = static_cast<float>(ui.at("live_confidence_threshold"));
+            live_person_display_threshold = static_cast<float>(ui.at("live_person_display_threshold"));
+            live_show_bounding_boxes = ui.at("live_show_bounding_boxes") != 0;
+            live_show_confidence_labels = ui.at("live_show_confidence_labels") != 0;
+            live_drop_strategy = static_cast<int>(ui.at("live_drop_strategy"));
+            live_min_capture_spacing_ms = static_cast<int>(ui.at("live_min_capture_spacing_ms"));
+            live_max_inference_fps = static_cast<int>(ui.at("live_max_inference_fps"));
+            live_display_confidence_threshold = static_cast<float>(ui.at("live_display_confidence_threshold"));
+            // Do not restore runtime opt-ins or session state.
+            live_enable_tracking = false;
+            live_inference_active = false;
+            live_paused = false;
+            preferences_status = "Validated schema v1 preferences loaded (no hardware activated).";
+        } catch (const std::exception& error) {
+            preferences_status = std::string("Preferences rejected; current values retained: ") + error.what();
+        }
+    }
+
+    void delete_saved_gui_preferences() {
+        try {
+            const auto file = chromascope::gui_preferences_path();
+            if (!file) throw std::runtime_error("No valid OS configuration directory");
+            chromascope::validate_preferences_path(*file);
+            std::error_code error;
+            const bool removed = std::filesystem::remove(*file, error);
+            if (error) throw std::runtime_error("Could not remove preferences file");
+            preferences_status = removed ? "Saved preferences deleted; current values unchanged." :
+                                           "No saved preferences to delete.";
+        } catch (const std::exception& error) {
+            preferences_status = std::string("Preferences deletion failed: ") + error.what();
+        }
     }
 
     void analyze() {
@@ -1953,7 +2091,18 @@ struct App {
                 "preview pixels and caches stay local. Live inference requires "
                 "a separate Start action; no recording or uploads. "
                 "File exports are explicit; AVI exports discard audio.");
-            ImGui::TextDisabled("No automatic GUI layout file is written.");
+            ImGui::TextDisabled("No automatic ImGui layout/log file is written.");
+            ImGui::TextWrapped("Schema v1 preferences: saved only on request. Profile and "
+                "non-sensitive display settings only; no file paths, model paths, "
+                "camera activation, images or tracking IDs are stored.");
+            if (ImGui::Button("Save preferences")) save_gui_preferences();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(camera_capture.state() == chromascope::CameraCaptureState::Capturing ||
+                                 live_inference_active || video_export_busy.load());
+            if (ImGui::Button("Reload saved preferences")) load_gui_preferences();
+            ImGui::EndDisabled();
+            if (ImGui::Button("Delete saved preferences")) delete_saved_gui_preferences();
+            ImGui::TextWrapped("%s", preferences_status.c_str());
             if (ImGui::Button("Clear loaded media, model and results"))
                 clear_private_session();
             ImGui::TextWrapped("Clearing cancels pending work and releases displayed "
@@ -2260,6 +2409,7 @@ int main(int argc, char* argv[]) {
     ImGui_ImplOpenGL3_Init("#version 330");
     {
         App app;
+        app.load_gui_preferences(); // local config only; never starts device or inference
         if (argc > 1) app.load(argv[1]);
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();

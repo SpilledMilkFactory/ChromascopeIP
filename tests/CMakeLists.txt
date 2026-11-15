@@ -849,3 +849,9 @@ chromascope_add_cpp_test(chromascope_unit_gui_experience
     unit/test_gui_experience.cpp "unit;gui-contract;ux;dpi;shortcuts;negative" 20)
 chromascope_add_cpp_test(chromascope_regression_gui_layout
     regression/test_gui_layout.cpp "regression;gui-contract;ux;dpi;resize" 20)
+
+# M10.2 (#68): strict schema validation and local, explicit preferences storage.
+chromascope_add_cpp_test(chromascope_unit_gui_preferences
+    unit/test_gui_preferences.cpp "unit;gui-contract;preferences;security;negative;regression" 20)
+chromascope_add_cpp_test(chromascope_integration_gui_preference_storage
+    integration/test_gui_preference_storage.cpp "integration;gui-contract;preferences;privacy;security;regression" 20)

@@ -1246,3 +1246,13 @@ scaling, browser interactions, shortcuts and contextual help require manual
 DPI/monitor/OS verification; CI alone cannot certify their actual appearance.
 No production inference, video, camera, tracking or CLI behavior is changed.
 See `docs/M10_1_GUI_EXPERIENCE.md`. Acceptance pending local and hosted checks.
+
+### M10.2 (#68) — acceptance pending
+
+M10.1 accepted baseline: user reported 140 native CTests across GUI Release,
+CLI Release and CLI ASan/UBSan, 89 Python quality tests, manual GUI regressions,
+and six hosted GitHub Actions checks. M10.2 adds two native tests and two Python
+quality tests (expected 142 / 28 camera / 91 quality). Real Linux and Windows
+GUI preferences roundtrip, corruption/permission tests, privacy boundaries,
+full build suites and hosted CI remain final acceptance requirements.
+See `docs/M10_2_VERSIONED_PREFERENCES.md`.

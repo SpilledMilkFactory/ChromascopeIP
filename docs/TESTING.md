@@ -959,3 +959,15 @@ run without a physical camera. Use `ctest --test-dir build/presets/linux-release
 CLI Release and sanitizer suites, static analysis and CI/provenance checks.
 The mock cannot qualify actual driver timeouts or hardware permissions; see
 `docs/M8_6_CAMERA_MOCK.md` and retain manual M8.4/M8.5 device checks.
+
+### M8.7 (#59) local Linux V4L2 smoke tests — physical device opt-in
+
+Run `python3 scripts/linux_camera_smoke.py --cli
+build/presets/linux-release/chromascope-cli` for *passive-only* checks, or
+add `--device 0 --frames 10 --seconds 5 --run-hardware` for two actual
+bounded V4L2 capture runs. Saving frames and a JSON evidence report are
+independent, explicit create-only options. Do not put live camera capture in
+CTest, CI or default checks. Four new Python tests use only synthetic mock
+subprocesses, bringing the Python quality suite to **59**; CTests remain
+**124** (14 camera). See `docs/M8_7_LINUX_CAMERA_SMOKE.md` for manual GUI,
+permission, privacy and recorded-video regression sign-off requirements.

@@ -1068,3 +1068,17 @@ camera-labeled CTests and 91 Python quality tests. Verify interactive Save,
 Reload and Delete, restart roundtrip, corrupt schema/unknown field rejection,
 profile option validation, owner-only permissions and no automatic camera/model
 activation. See `docs/M10_2_VERSIONED_PREFERENCES.md`.
+
+
+### M10.3 — unified annotation output and GUI projection
+
+The expected suite adds `chromascope_unit_structured_annotations` and
+`chromascope_regression_structured_projection` (144 native CTests total,
+28 camera-labeled), plus two Python quality tests (93 total). New contracts
+cover confidence-label formatting, RGB colors, boxes/circles/polygons, JSON
+escaping, stored-image geometry, optional caption hiding and canvas clipping.
+Run `ctest -R 'structured_annotations|structured_projection' --output-on-failure`
+and `python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
+Manually verify existing JSON/JSONL compatibility without the flag and new
+per-frame `annotations` with `--include-annotations`.
+See `docs/M10_3_UNIFIED_ANNOTATIONS.md`.

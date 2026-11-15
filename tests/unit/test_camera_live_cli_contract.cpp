@@ -27,6 +27,12 @@ void exercise() {
         parsed.camera.max_seconds == 5 && parsed.postprocess.person_only && parsed.jsonl.empty(),
         "camera detection CLI defaults changed");
     check(parsed.camera.backend == chromascope::CameraBackend::V4L2, "backend not explicit");
+    check(!parsed.include_annotations, "structured annotations must default off");
+    auto annotated_args = base;
+    annotated_args.push_back("--include-annotations");
+    check(parse(annotated_args).include_annotations, "explicit annotation mode not accepted");
+    annotated_args.push_back("--include-annotations");
+    rejects([&]{ (void)parse(annotated_args); });
     auto capped = base;
     capped.insert(capped.end(), {"--camera-max-frames", "3", "--camera-max-seconds", "4",
         "--display-threshold", "0.70", "--class-threshold", "person=0.75"});

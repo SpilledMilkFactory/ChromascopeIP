@@ -18,6 +18,7 @@
 #include "chromascope/LiveOverlayPolicy.hpp"
 #include "chromascope/LiveObjectTracker.hpp"
 #include "chromascope/LiveGuiControlPolicy.hpp"
+#include "chromascope/GuiExperiencePolicy.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
 
@@ -197,6 +198,13 @@ struct App {
     bool show_mask_preview = false;
     bool have_result = false;
     bool browse_requested = false;
+    // M10.1: presentation-only settings. No imgui.ini or other UI state file.
+    float ui_content_scale = 1.0F;
+    float sidebar_width_logical = 345.0F;
+    bool help_requested = false;
+    bool browser_show_hidden = false;
+    std::filesystem::path browser_selected;
+    std::string browser_status_message;
     // Last field: on App destruction jthread requests stop and joins before
     // callback-accessed status, mutex, and atomics are destroyed.
     std::jthread video_export_worker;
@@ -852,90 +860,269 @@ struct App {
 
     std::string video_status;
 
+    static bool set_path_buffer(std::array<char, 4096>& target,
+                                const std::filesystem::path& source) {
+        const std::string string = source.string();
+        if (string.empty() || string.size() >= target.size()) return false;
+        std::snprintf(target.data(), target.size(), "%s", string.c_str());
+        return true;
+    }
+
+    [[nodiscard]] chromascope::GuiPanelLayout panel_layout() const {
+        const ImVec2 area = ImGui::GetContentRegionAvail();
+        return chromascope::gui_panel_layout(area.x, area.y,
+            ui_content_scale, sidebar_width_logical);
+    }
+
+    static ImVec2 panel_controls_size(const chromascope::GuiPanelLayout& layout) {
+        return layout.stacked ? ImVec2(0.0F, layout.controls_height) :
+                                ImVec2(layout.controls_width, 0.0F);
+    }
+
+    void next_panel(const chromascope::GuiPanelLayout& layout) {
+        if (layout.stacked) return; // Child below, not beside, the controls.
+        ImGui::SameLine(0.0F, 0.0F);
+        const float height = layout.content_height;
+        ImGui::InvisibleButton("##workspace_splitter", ImVec2(layout.splitter_width, height));
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        const ImU32 color = ImGui::GetColorU32(ImGui::IsItemHovered() || ImGui::IsItemActive()
+            ? ImGuiCol_SeparatorHovered : ImGuiCol_Separator);
+        const ImVec2 lo = ImGui::GetItemRectMin(), hi = ImGui::GetItemRectMax();
+        const float middle = (lo.x + hi.x) * 0.5F;
+        ImGui::GetWindowDrawList()->AddLine(ImVec2(middle, lo.y), ImVec2(middle, hi.y),
+                                            color, std::max(1.0F, ui_content_scale));
+        if (ImGui::IsItemActive())
+            sidebar_width_logical = chromascope::gui_sidebar_drag(sidebar_width_logical,
+                ImGui::GetIO().MouseDelta.x, ui_content_scale);
+        ImGui::SameLine(0.0F, 0.0F);
+    }
+
+    void handle_shortcuts() {
+        const ImGuiIO& io = ImGui::GetIO();
+        const bool text_input = io.WantTextInput || ImGui::IsAnyItemActive();
+        const bool popup = ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId);
+        const auto apply = [this, &io, text_input, popup](
+            ImGuiKey key, chromascope::GuiShortcutKey symbol) {
+            return ImGui::IsKeyPressed(key, false) ? chromascope::gui_shortcut(
+                io.KeyCtrl, io.KeyShift, io.KeyAlt, io.KeySuper,
+                text_input, popup, symbol) : chromascope::GuiShortcut::None;
+        };
+        using chromascope::GuiShortcut;
+        const GuiShortcut actions[] = {
+            apply(ImGuiKey_F1, chromascope::GuiShortcutKey::F1),
+            apply(ImGuiKey_O, chromascope::GuiShortcutKey::O),
+            apply(ImGuiKey_F, chromascope::GuiShortcutKey::F),
+            apply(ImGuiKey_1, chromascope::GuiShortcutKey::One),
+            apply(ImGuiKey_2, chromascope::GuiShortcutKey::Two),
+            apply(ImGuiKey_3, chromascope::GuiShortcutKey::Three),
+        };
+        for (auto action : actions) {
+            switch (action) {
+            case GuiShortcut::Help: help_requested = true; break;
+            case GuiShortcut::Browse:
+                if (workspace_mode != 2) open_file_picker(workspace_mode == 1);
+                break; // Ctrl+O never starts camera capture or model inference.
+            case GuiShortcut::Fit:
+                if (workspace_mode == 2) camera_view.fit();
+                else if (workspace_mode == 1) video_view.fit();
+                else {
+                    result_view.fit(); comparison_original_view.fit();
+                    comparison_processed_view.fit();
+                }
+                break;
+            case GuiShortcut::Still: switch_workspace(0); break;
+            case GuiShortcut::Video: switch_workspace(1); break;
+            case GuiShortcut::Camera: switch_workspace(2); break;
+            case GuiShortcut::None: break;
+            }
+        }
+    }
+
+    void draw_help() {
+        if (help_requested) {
+            ImGui::OpenPopup("ChromascopeIP Help");
+            help_requested = false;
+        }
+        const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
+        ImGui::SetNextWindowSize(ImVec2(std::min(590.0F * ui_content_scale, work.x * 0.94F),
+                                        std::min(490.0F * ui_content_scale, work.y * 0.92F)),
+                                 ImGuiCond_Appearing);
+        if (!ImGui::BeginPopupModal("ChromascopeIP Help", nullptr,
+                                    ImGuiWindowFlags_NoSavedSettings)) return;
+        ImGui::TextUnformatted("KEYBOARD & WORKSPACE HELP (M10.1)");
+        ImGui::Separator();
+        if (workspace_mode == 0) {
+            ImGui::TextWrapped("STILL IMAGE: Browse/Open loads a local image and runs the "
+                "selected classical profile. ONNX detection requires explicit model verification "
+                "and the Detect people action. Preview and exports remain separate.");
+        } else if (workspace_mode == 1) {
+            ImGui::TextWrapped("RECORDED VIDEO: Open a local video, then Play/Pause or seek. "
+                "CPU detection and exports are separate explicit actions; AVI output has no audio.");
+        } else {
+            ImGui::TextWrapped("LIVE CAMERA: Navigating here does not open a device. "
+                "Select backend/device, press Start camera, and separately start CPU inference. "
+                "Stop/leave workspace requests camera release. Pause freezes analysis, not capture.");
+        }
+        ImGui::Separator();
+        ImGui::TextWrapped("Ctrl+1: Still images | Ctrl+2: Recorded video | Ctrl+3: Live camera");
+        ImGui::TextWrapped("Ctrl+O: Browse still images or recorded videos (not camera)");
+        ImGui::TextWrapped("Ctrl+F: Fit the current image/video/camera preview");
+        ImGui::TextWrapped("F1: Open this help. Shortcuts do not run while editing text or in a modal dialog.");
+        ImGui::Separator();
+        ImGui::TextWrapped("Resize the application window or drag the separator between controls "
+            "and preview. On narrow windows, controls stack above the preview. "
+            "Controls scroll independently. DPI scale follows the active monitor.");
+        ImGui::TextWrapped("Browser: choose a folder, single-click a compatible file to select; "
+            "double-click it or press Open selected to load. Models require explicit SHA-256 "
+            "verification and a separate Load action.");
+        ImGui::TextWrapped("View navigation: mouse wheel zoom; middle/right-drag pan; "
+            "double-click preview to fit. Camera selection never starts capture or inference.");
+        ImGui::Separator();
+        ImGui::TextWrapped("Local-only first-party workflows: no telemetry or automatic camera "
+            "access. Session clearing does not delete previously exported files. "
+            "See docs/M10_1_GUI_EXPERIENCE.md and docs/M7_6_LOCAL_PRIVACY.md.");
+        if (ImGui::Button("Close help")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+
     void open_file_picker(bool for_video = false, bool for_model = false) {
         picker_video = for_video;
         picker_model = for_model;
+        browser_selected.clear();
+        browser_status_message.clear();
         const std::filesystem::path selected(for_model ? detector_model_path.data() :
             (for_video ? video_path.data() : path.data()));
         const auto dir = selected.has_parent_path() ? selected.parent_path()
                                                     : std::filesystem::path(".");
-        std::snprintf(browser_directory.data(), browser_directory.size(), "%s",
-                      dir.string().c_str());
+        if (!set_path_buffer(browser_directory, dir))
+            browser_status_message = "Directory path too long for the picker.";
         browse_requested = true;
     }
 
+    void accept_browser_selection(const std::filesystem::path& selected) {
+        const auto kind = picker_model ? chromascope::GuiPickerKind::Model :
+            (picker_video ? chromascope::GuiPickerKind::Video : chromascope::GuiPickerKind::Image);
+        auto extension = selected.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        std::error_code error;
+        if (!chromascope::gui_picker_extension(extension, kind) ||
+            std::filesystem::is_symlink(selected, error) || error ||
+            !std::filesystem::is_regular_file(selected, error) || error) {
+            browser_status_message = "Select an existing, regular supported file (not a symlink).";
+            return;
+        }
+        if (picker_model) {
+            if (!set_path_buffer(detector_model_path, selected)) {
+                browser_status_message = "Model path is too long.";
+                return;
+            }
+            detector_session.unload();
+            video_detection.cancel();
+        } else if (picker_video) open_video(selected);
+        else load(selected);
+        ImGui::CloseCurrentPopup();
+    }
+
     void draw_file_picker() {
-        ImGui::SetNextWindowSize(ImVec2(740, 560), ImGuiCond_Appearing);
+        const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
+        ImGui::SetNextWindowSize(ImVec2(std::min(760.0F * ui_content_scale, work.x * 0.95F),
+                                        std::min(560.0F * ui_content_scale, work.y * 0.93F)),
+                                 ImGuiCond_Appearing);
         if (!ImGui::BeginPopupModal("Select media", nullptr,
                                    ImGuiWindowFlags_NoSavedSettings)) return;
-        ImGui::TextUnformatted(picker_model ? "Choose a local ONNX model (.onnx)" :
-            (picker_video ? "Choose a recorded video (AVI, MP4, MOV, MKV, WEBM, MPEG, WMV)"
-                          : "Choose a photograph (JPG, PNG, BMP, TIFF, WEBP)"));
-        ImGui::InputText("Directory", browser_directory.data(), browser_directory.size());
+        ImGui::TextWrapped("%s", picker_model ? "Choose a local ONNX model (.onnx)" :
+            (picker_video ? "Choose a recorded video" : "Choose a photograph"));
+        ImGui::SetNextItemWidth(-1.0F);
+        ImGui::InputText("##directory", browser_directory.data(), browser_directory.size());
+        const auto navigate = [this](const std::filesystem::path& next) {
+            if (!set_path_buffer(browser_directory, next)) {
+                browser_status_message = "Directory path is too long.";
+                return;
+            }
+            browser_selected.clear();
+            browser_status_message.clear();
+        };
+        if (ImGui::Button("Go to directory"))
+            navigate(std::filesystem::path(browser_directory.data()));
         ImGui::SameLine();
         if (ImGui::Button("Up")) {
-            const auto dir = std::filesystem::path(browser_directory.data()).parent_path();
-            const auto next = dir.empty() ? std::filesystem::path(".") : dir;
-            std::snprintf(browser_directory.data(), browser_directory.size(), "%s",
-                          next.string().c_str());
+            const auto parent = std::filesystem::path(browser_directory.data()).parent_path();
+            navigate(parent.empty() ? std::filesystem::path(".") : parent);
         }
+        ImGui::SameLine();
+        if (ImGui::Button("Current folder")) navigate(std::filesystem::path("."));
+        ImGui::SameLine();
+        ImGui::Checkbox("Show hidden", &browser_show_hidden);
         ImGui::Separator();
+
         const auto dir = std::filesystem::path(browser_directory.data());
+        const auto kind = picker_model ? chromascope::GuiPickerKind::Model :
+            (picker_video ? chromascope::GuiPickerKind::Video : chromascope::GuiPickerKind::Image);
         std::error_code error;
         std::filesystem::directory_iterator cursor(dir, error);
-        if (error) {
-            ImGui::TextWrapped("Directory unavailable: %s", error.message().c_str());
-        } else {
-            std::vector<std::filesystem::directory_entry> entries;
-            for (const auto& entry : cursor) entries.push_back(entry);
-            std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b) {
-                std::error_code ea, eb;
-                const bool ad = a.is_directory(ea), bd = b.is_directory(eb);
-                if (ad != bd) return ad > bd;
-                return a.path().filename().string() < b.path().filename().string();
-            });
-            ImGui::BeginChild("Files", ImVec2(0, -48), ImGuiChildFlags_Borders);
-            for (const auto& entry : entries) {
-                std::error_code stat_error;
-                const bool is_dir = entry.is_directory(stat_error);
-                if (stat_error) continue;
+        constexpr std::size_t maximum_entries = 1024;
+        std::vector<std::pair<std::filesystem::path, bool>> entries;
+        if (!error) {
+            const std::filesystem::directory_iterator end;
+            std::size_t examined = 0;
+            for (; cursor != end && entries.size() < maximum_entries &&
+                   examined < 4096; cursor.increment(error), ++examined) {
+                if (error) break;
+                const auto& entry = *cursor;
                 const auto filename = entry.path().filename().string();
-                if (!is_dir) {
+                if (filename.empty() || (!browser_show_hidden && filename[0] == '.')) continue;
+                std::error_code entry_error;
+                if (entry.is_symlink(entry_error) || entry_error) continue;
+                const bool directory = entry.is_directory(entry_error);
+                if (entry_error) continue;
+                if (!directory) {
+                    if (!entry.is_regular_file(entry_error) || entry_error) continue;
                     auto extension = entry.path().extension().string();
                     std::transform(extension.begin(), extension.end(), extension.begin(),
                         [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-                    const bool valid_image = extension == ".jpg" || extension == ".jpeg" ||
-                        extension == ".png" || extension == ".bmp" || extension == ".tif" ||
-                        extension == ".tiff" || extension == ".webp";
-                    const bool valid_video = extension == ".avi" || extension == ".mp4" ||
-                        extension == ".mov" || extension == ".mkv" || extension == ".webm" ||
-                        extension == ".m4v" || extension == ".mpg" || extension == ".mpeg" ||
-                        extension == ".wmv";
-                    if (picker_model ? extension != ".onnx" :
-                        (picker_video ? !valid_video : !valid_image)) continue;
+                    if (!chromascope::gui_picker_extension(extension, kind)) continue;
                 }
-                const std::string label = (is_dir ? "[Folder] " :
-                    (picker_model ? "[ONNX] " : (picker_video ? "[Video] " : "[Image] "))) + filename;
-                if (ImGui::Selectable(label.c_str())) {
-                    if (is_dir) {
-                        const std::string next = entry.path().string();
-                        std::snprintf(browser_directory.data(), browser_directory.size(),
-                                      "%s", next.c_str());
-                    } else {
-                        if (picker_model) {
-                            detector_session.unload();
-                            video_detection.cancel();
-                            std::snprintf(detector_model_path.data(), detector_model_path.size(),
-                                          "%s", entry.path().string().c_str());
-                        } else if (picker_video) open_video(entry.path());
-                        else load(entry.path());
-                        ImGui::CloseCurrentPopup();
+                entries.emplace_back(entry.path(), directory);
+            }
+        }
+        std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b) {
+            if (a.second != b.second) return a.second > b.second;
+            return a.first.filename().string() < b.first.filename().string();
+        });
+        if (error) ImGui::TextWrapped("Directory unavailable: %s", error.message().c_str());
+        else if (entries.size() == maximum_entries)
+            ImGui::TextDisabled("Showing at most 1024 supported entries; narrow the directory.");
+        if (ImGui::BeginChild("Files", ImVec2(0.0F, -94.0F * ui_content_scale),
+                               ImGuiChildFlags_Borders)) {
+            for (const auto& item : entries) {
+                const auto& entry = item.first;
+                const std::string label = std::string(item.second ? "[Folder] " : "[File] ") +
+                    entry.filename().string();
+                if (ImGui::Selectable(label.c_str(), browser_selected == entry)) {
+                    if (item.second) {
+                        navigate(entry);
+                        break;
                     }
-                    break;
+                    browser_selected = entry;
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        accept_browser_selection(entry);
+                        break;
+                    }
                 }
             }
-            ImGui::EndChild();
         }
+        ImGui::EndChild();
+        if (!browser_status_message.empty())
+            ImGui::TextWrapped("%s", browser_status_message.c_str());
+        else if (!browser_selected.empty())
+            ImGui::TextWrapped("Selected: %s", browser_selected.filename().string().c_str());
+        else ImGui::TextDisabled("Single-click to select; double-click or Open selected to load.");
+        ImGui::BeginDisabled(browser_selected.empty());
+        if (ImGui::Button("Open selected")) accept_browser_selection(browser_selected);
+        ImGui::EndDisabled();
+        ImGui::SameLine();
         if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
@@ -1177,11 +1364,11 @@ struct App {
     }
 
     void draw_video_ui() {
-        const float sidebar_width = 345.0f;
-        ImGui::BeginChild("Video controls", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders);
+        const auto layout = panel_layout();
+        ImGui::BeginChild("Video controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("RECORDED VIDEO");
         ImGui::InputText("##video_path", video_path.data(), video_path.size());
-        if (ImGui::Button("Open video", ImVec2(159, 0))) open_video(video_path.data());
+        if (ImGui::Button("Open video", ImVec2(159.0F * ui_content_scale, 0.0F))) open_video(video_path.data());
         ImGui::SameLine();
         if (ImGui::Button("Browse video...", ImVec2(-1, 0))) open_file_picker(true);
         ImGui::TextDisabled("Decoder runs on a bounded background worker.");
@@ -1189,21 +1376,21 @@ struct App {
 
         const bool has_source = video_player.has_source();
         ImGui::BeginDisabled(!has_source);
-        if (ImGui::Button(video_player.playing() ? "Pause" : "Play", ImVec2(108, 0))) {
+        if (ImGui::Button(video_player.playing() ? "Pause" : "Play", ImVec2(108.0F * ui_content_scale, 0.0F))) {
             if (video_player.playing()) video_player.pause();
             else video_player.play();
         }
         ImGui::SameLine();
-        if (ImGui::Button("< Frame", ImVec2(99, 0))) {
+        if (ImGui::Button("< Frame", ImVec2(99.0F * ui_content_scale, 0.0F))) {
             try { video_player.step_backward(); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Frame >", ImVec2(99, 0))) {
+        if (ImGui::Button("Frame >", ImVec2(99.0F * ui_content_scale, 0.0F))) {
             try { video_player.step_forward(); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
-        if (ImGui::Button("Beginning", ImVec2(159, 0))) {
+        if (ImGui::Button("Beginning", ImVec2(159.0F * ui_content_scale, 0.0F))) {
             try { video_player.seek(0); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
@@ -1435,7 +1622,7 @@ struct App {
         ImGui::TextWrapped("%s", video_player.status().c_str());
         if (!video_status.empty()) ImGui::TextWrapped("%s", video_status.c_str());
         ImGui::EndChild();
-        ImGui::SameLine();
+        next_panel(layout);
         ImGui::BeginChild("Video preview", ImVec2(0, 0), ImGuiChildFlags_Borders,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         ImGui::TextUnformatted("VIDEO PREVIEW");
@@ -1473,8 +1660,8 @@ struct App {
     }
 
     void draw_camera_ui() {
-        const float sidebar_width = 345.0F;
-        ImGui::BeginChild("Camera controls", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders);
+        const auto layout = panel_layout();
+        ImGui::BeginChild("Camera controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("LOCAL LIVE CAMERA");
         ImGui::TextWrapped("Camera and CPU detection are separately opt-in. "
                            "Nothing is recorded, uploaded, or inferred automatically.");
@@ -1627,7 +1814,7 @@ struct App {
         ImGui::TextWrapped("Stop or switch workspaces to request device release. "
                            "Session reset also stops the preview and clears pixels.");
         ImGui::EndChild();
-        ImGui::SameLine();
+        next_panel(layout);
         ImGui::BeginChild("Live camera preview", ImVec2(0, 0), ImGuiChildFlags_Borders,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         ImGui::TextUnformatted("LIVE PREVIEW");
@@ -1691,6 +1878,7 @@ struct App {
     }
 
     void draw_ui() {
+        handle_shortcuts();
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
         ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -1699,7 +1887,7 @@ struct App {
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
         ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP");
-        ImGui::SameLine();
+        if (viewport->WorkSize.x >= 960.0F * ui_content_scale) ImGui::SameLine();
         ImGui::TextDisabled("v0.1.3  |  Images, video & local camera  |  OpenCV 5.1.0 / ImGui 1.93.0");
         ImGui::Separator();
         if (ImGui::RadioButton("Still images", workspace_mode == 0))
@@ -1707,14 +1895,18 @@ struct App {
         ImGui::SameLine();
         if (ImGui::RadioButton("Recorded video", workspace_mode == 1))
             switch_workspace(1);
-        ImGui::SameLine();
+        if (viewport->WorkSize.x >= 660.0F * ui_content_scale) ImGui::SameLine();
         if (ImGui::RadioButton("Live camera", workspace_mode == 2))
             switch_workspace(2); // no implicit device opening
-        ImGui::SameLine();
+        if (viewport->WorkSize.x >= 850.0F * ui_content_scale) ImGui::SameLine();
         const auto camera_badge = chromascope::camera_preview_badge(camera_capture.state());
         ImGui::TextColored(camera_badge.may_be_active
             ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
             : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", camera_badge.label);
+        ImGui::SetItemTooltip("The camera opens only after Start camera. Leaving Live Camera requests Stop.");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Help (F1)")) help_requested = true;
+        draw_help();
         ImGui::Separator();
         // M7.5 person quick-entry actions select the existing, verified
         // person-only policies; they never load weights or run inference.
@@ -1727,7 +1919,7 @@ struct App {
                 detector_session.clear_results();
             }
         }
-        ImGui::SameLine();
+        if (viewport->WorkSize.x >= 560.0F * ui_content_scale) ImGui::SameLine();
         if (ImGui::SmallButton("People in video")) {
             switch_workspace(1);
             video_show_detections = true;
@@ -1781,11 +1973,11 @@ struct App {
             return;
         }
 
-        const float sidebar_width = 345.0f;
-        ImGui::BeginChild("Controls", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders);
+        const auto layout = panel_layout();
+        ImGui::BeginChild("Controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("INPUT IMAGE");
         ImGui::InputText("##path", path.data(), path.size());
-        if (ImGui::Button("Open image", ImVec2(159, 0))) load(path.data());
+        if (ImGui::Button("Open image", ImVec2(159.0F * ui_content_scale, 0.0F))) load(path.data());
         ImGui::SameLine();
         if (ImGui::Button("Browse...", ImVec2(-1, 0))) open_file_picker();
         ImGui::TextDisabled("Browse folders or paste an absolute image path.");
@@ -1914,7 +2106,7 @@ struct App {
                 if (overlay_options.selected_index) {
                     changed |= ImGui::Checkbox("Only selected", &overlay_options.selected_only);
                 }
-                if (ImGui::BeginChild("Geometry items", ImVec2(0, 120),
+                if (ImGui::BeginChild("Geometry items", ImVec2(0.0F, 120.0F * ui_content_scale),
                                       ImGuiChildFlags_Borders)) {
                     for (std::size_t i = 0; i < annotation_layer->items().size(); ++i) {
                         const auto& item = annotation_layer->items()[i];
@@ -1971,7 +2163,7 @@ struct App {
         ImGui::Separator();
         ImGui::TextWrapped("%s", status.c_str());
         ImGui::EndChild();
-        ImGui::SameLine();
+        next_panel(layout);
 
         ImGui::BeginChild("Preview", ImVec2(0, 0), ImGuiChildFlags_Borders,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -2053,13 +2245,17 @@ int main(int argc, char* argv[]) {
     if (!window) { glfwTerminate(); return 1; }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
+    glfwSetWindowSizeLimits(window, 500, 420, GLFW_DONT_CARE, GLFW_DONT_CARE);
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     // M7.6: do not create imgui.ini or an ImGui log in the working directory.
     // This is a runtime default, not a promise to erase old copies or OS caches.
     ImGui::GetIO().IniFilename = nullptr;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::GetIO().LogFilename = nullptr;
     ImGui::StyleColorsDark();
+    const ImGuiStyle base_style = ImGui::GetStyle();
+    float previous_scale = 0.0F;
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
     {
@@ -2067,6 +2263,18 @@ int main(int argc, char* argv[]) {
         if (argc > 1) app.load(argv[1]);
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+            // GLFW reports content scale for the current monitor, including
+            // when a running window is moved between differently scaled screens.
+            float xscale = 1.0F, yscale = 1.0F;
+            glfwGetWindowContentScale(window, &xscale, &yscale);
+            const float current_scale = chromascope::gui_content_scale(xscale, yscale);
+            if (std::abs(current_scale - previous_scale) > 0.01F) {
+                ImGui::GetStyle() = base_style; // never compound scaling each frame
+                ImGui::GetStyle().ScaleAllSizes(current_scale);
+                ImGui::GetStyle().FontScaleDpi = current_scale;
+                previous_scale = current_scale;
+            }
+            app.ui_content_scale = current_scale;
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();

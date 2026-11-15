@@ -4,7 +4,13 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **Current stage (M8.4 implementation):** M8.1–M8.3 established native backend selection, passive discovery, validated formats, typed errors and bounded asynchronous capture. M8.4 adds a **user-activated local live-camera GUI workspace** with device selection, a visible capture indicator and Stop/session-reset cleanup. Still-image and recorded-video workflows remain intact. No automatic camera activation, recording, upload, face recognition or identity tracking is introduced. See [M8.4 camera preview](docs/M8_4_CAMERA_GUI.md) and [privacy controls](docs/M7_6_LOCAL_PRIVACY.md).
+> **M10.1 (#67) candidate:** Resizable still/video/camera workspaces, monitor DPI
+> handling, bounded local file browser, guarded keyboard shortcuts and F1
+> contextual help. No automatic camera/model activation or GUI persistence.
+> Final desktop/DPI verification pending. See
+> [M10.1 GUI experience](docs/M10_1_GUI_EXPERIENCE.md).
+
+> **Historical M8.4 foundation:** M8.1–M8.3 established native backend selection, passive discovery, validated formats, typed errors and bounded asynchronous capture. M8.4 adds a **user-activated local live-camera GUI workspace** with device selection, a visible capture indicator and Stop/session-reset cleanup. Still-image and recorded-video workflows remain intact. No automatic camera activation, recording, upload, face recognition or identity tracking is introduced. See [M8.4 camera preview](docs/M8_4_CAMERA_GUI.md) and [privacy controls](docs/M7_6_LOCAL_PRIVACY.md).
 
 ## Current capabilities (M8.1 preparation; M7.6 accepted)
 

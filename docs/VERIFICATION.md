@@ -1235,3 +1235,14 @@ opt-in Linux hardware supervisor, and 15 Python quality regressions; expected
 permission handling, real tracking IDs, GUI performance or Windows hardware.
 Record manual PASS/FAIL/NOT_TESTED per platform as specified in
 `docs/M9_7_LIVE_DEVICE_QUALIFICATION.md`. Until operator sign-off: **NOT ACCEPTED**.
+
+### M10.1 (#67) — responsive GUI usability (PENDING local acceptance)
+
+M9.7 baseline was operator-accepted after 138 native CTests, 28 camera CTests,
+87 Python checks, Linux V4L2 hardware qualification, manual GUI/CLI work and
+six hosted green CI checks. M10.1 adds two headless native presentation-policy
+CTests and two Python quality checks; expected 140/28/89. GUI sizing, style
+scaling, browser interactions, shortcuts and contextual help require manual
+DPI/monitor/OS verification; CI alone cannot certify their actual appearance.
+No production inference, video, camera, tracking or CLI behavior is changed.
+See `docs/M10_1_GUI_EXPERIENCE.md`. Acceptance pending local and hosted checks.

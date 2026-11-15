@@ -1224,3 +1224,14 @@ Ctrl-C response, JSONL start/frame/end completeness, limits, model integrity,
 privacy, stdout and create-only destinations on real webcam hardware. Local
 Release and ASan/UBSan, static analysis and six Actions jobs must pass before
 acceptance. See docs/M9_6_CLI_LIVE_JSONL.md.
+
+### M9.7 (#66) — real-device performance/recovery/tracking acceptance (PENDING)
+
+M9.6 baseline accepted with 138 native CTests, 28 camera CTests, 71 quality
+tests, real Linux CLI JSONL and graceful SIGINT, plus operator GUI checks and
+six green hosted workflows. M9.7 adds a passive JSONL verifier, explicitly
+opt-in Linux hardware supervisor, and 15 Python quality regressions; expected
+138 / 28 / 87. Headless verification does **not** certify device disconnect,
+permission handling, real tracking IDs, GUI performance or Windows hardware.
+Record manual PASS/FAIL/NOT_TESTED per platform as specified in
+`docs/M9_7_LIVE_DEVICE_QUALIFICATION.md`. Until operator sign-off: **NOT ACCEPTED**.

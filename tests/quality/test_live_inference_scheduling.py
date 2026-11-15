@@ -36,7 +36,7 @@ class LiveInferenceSchedulingQualityTests(unittest.TestCase):
         self.assertIn("live_inference.start(camera_generation", gui)
         self.assertIn("live_inference.submit(camera_generation", gui)
         self.assertIn("snapshot.latest->frame.index", gui)
-        self.assertIn("live_displayed->frame.index == camera_frame_index", gui)
+        self.assertIn("live_overlay_matches(", gui)
         self.assertIn("live_state.dropped_pacing_frames", gui)
         self.assertIn("live_state.dropped_busy_frames", gui)
         self.assertIn("live_state.replaced_pending_frames", gui)

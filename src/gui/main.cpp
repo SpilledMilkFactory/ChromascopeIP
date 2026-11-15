@@ -15,6 +15,7 @@
 #include "chromascope/AsyncLiveCameraInference.hpp"
 #include "chromascope/CameraDiscovery.hpp"
 #include "chromascope/CameraPreviewPolicy.hpp"
+#include "chromascope/LiveOverlayPolicy.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
 
@@ -146,6 +147,8 @@ struct App {
     int live_detection_profile = 0; // COCO objects / class-0 person only
     float live_confidence_threshold = 0.50F;
     float live_person_display_threshold = 0.50F;
+    bool live_show_bounding_boxes = true;
+    bool live_show_confidence_labels = true;
     int live_drop_strategy = 0; // 0: Keep newest (default); 1: Keep oldest queued
     int live_min_capture_spacing_ms = 0; // capture-monotonic pacing
     chromascope::CameraBackend camera_backend = chromascope::CameraBackend::PlatformDefault;
@@ -506,7 +509,8 @@ struct App {
     bool draw_viewport_texture(const char* widget, const Texture& texture,
                                chromascope::ImageViewport& view,
                                const chromascope::DetectionResult* video_detections = nullptr,
-                               bool detection_labels = true) {
+                               bool detection_labels = true,
+                               bool live_overlay = false) {
         if (!texture.id || texture.source_width <= 0 || texture.source_height <= 0) {
             ImGui::TextDisabled("No image available.");
             return false;
@@ -569,18 +573,47 @@ struct App {
             const float scale_y = (bottom_right.y - top_left.y) /
                 static_cast<float>(texture.source_height);
             const auto overlay_start = std::chrono::steady_clock::now();
-            for (const auto& object : video_detections->objects()) {
-                const auto* box = std::get_if<chromascope::BoxGeometry>(&object.geometry);
-                if (!box) continue;
-                const ImVec2 a{top_left.x + static_cast<float>(box->x) * scale_x,
-                               top_left.y + static_cast<float>(box->y) * scale_y};
-                const ImVec2 b{a.x + static_cast<float>(box->width) * scale_x,
-                               a.y + static_cast<float>(box->height) * scale_y};
-                draw->AddRect(a, b, IM_COL32(80, 220, 175, 255), 0.0f, 0, 2.0f);
-                if (detection_labels) {
-                    const auto caption = chromascope::object_confidence_label(object);
-                    draw->AddText(ImVec2(a.x, a.y - 16.0f), IM_COL32(100, 255, 200, 255),
-                                  caption.c_str());
+            if (live_overlay) {
+                // Source-clipped, canvas-clipped, immutable boxes. Only the exact
+                // analyzed image reaches this branch (checked at call site).
+                for (const auto& projected : chromascope::make_live_overlay_boxes(
+                         *video_detections, view, {size.x, size.y})) {
+                    const ImVec2 a{origin.x + static_cast<float>(projected.canvas.minimum.x),
+                                   origin.y + static_cast<float>(projected.canvas.minimum.y)};
+                    const ImVec2 b{origin.x + static_cast<float>(projected.canvas.maximum.x),
+                                   origin.y + static_cast<float>(projected.canvas.maximum.y)};
+                    draw->AddRect(a, b, IM_COL32(55, 234, 191, 255), 0.0f, 0, 2.0f);
+                    if (detection_labels) {
+                        const auto caption = chromascope::object_confidence_label(
+                            video_detections->objects()[projected.detection_index]);
+                        const ImVec2 measured = ImGui::CalcTextSize(caption.c_str());
+                        const auto at = chromascope::live_overlay_label_origin(
+                            projected.canvas.minimum, {measured.x + 8.0, measured.y + 4.0},
+                            {size.x, size.y});
+                        const ImVec2 label_at{origin.x + static_cast<float>(at.x),
+                                              origin.y + static_cast<float>(at.y)};
+                        const ImVec2 label_end{
+                            label_at.x + measured.x + 8.0F, label_at.y + measured.y + 4.0F};
+                        draw->AddRectFilled(label_at, label_end, IM_COL32(8, 35, 31, 230), 3.0F);
+                        draw->AddText({label_at.x + 4.0F, label_at.y + 2.0F},
+                                      IM_COL32(218, 255, 241, 255), caption.c_str());
+                    }
+                }
+            } else {
+                // Preserve established recorded-video drawing and performance metrics.
+                for (const auto& object : video_detections->objects()) {
+                    const auto* box = std::get_if<chromascope::BoxGeometry>(&object.geometry);
+                    if (!box) continue;
+                    const ImVec2 a{top_left.x + static_cast<float>(box->x) * scale_x,
+                                   top_left.y + static_cast<float>(box->y) * scale_y};
+                    const ImVec2 b{a.x + static_cast<float>(box->width) * scale_x,
+                                   a.y + static_cast<float>(box->height) * scale_y};
+                    draw->AddRect(a, b, IM_COL32(80, 220, 175, 255), 0.0f, 0, 2.0f);
+                    if (detection_labels) {
+                        const auto caption = chromascope::object_confidence_label(object);
+                        draw->AddText(ImVec2(a.x, a.y - 16.0f), IM_COL32(100, 255, 200, 255),
+                                      caption.c_str());
+                    }
                 }
             }
             // Only video contributes to M6.6 overlay performance measurements.
@@ -1487,6 +1520,11 @@ struct App {
                 ? "Keep newest" : "Keep oldest",
             live_state.has_pending_frame ? "yes" : "no",
             live_state.inference_busy ? "busy" : "idle");
+        ImGui::Checkbox("Show live bounding boxes", &live_show_bounding_boxes);
+        ImGui::BeginDisabled(!live_show_bounding_boxes);
+        ImGui::Checkbox("Show live confidence labels", &live_show_confidence_labels);
+        ImGui::EndDisabled();
+        ImGui::TextDisabled("Labels report model confidence (not calibrated probability).");
         ImGui::TextDisabled("One pending frame + one worker. Spacing uses capture timestamps, not wall time.");
         ImGui::TextDisabled("In-flight CPU forward cannot be forcibly interrupted.");
         ImGui::Separator();
@@ -1526,14 +1564,33 @@ struct App {
                 std::string(live_displayed->inference.summary.status()).c_str());
             ImGui::TextDisabled("Preview shows analyzed pixels (not the newest captured frame).");
         }
+        // M9.3: fail closed on any session, generation, timestamp/domain,
+        // frame-index or source-geometry mismatch. Never paint a cached result
+        // over pixels from another live camera frame or inference session.
+        const chromascope::DetectionResult* synchronized_boxes = nullptr;
+        if (live_show_bounding_boxes && live_inference_active && live_displayed &&
+            live_state.stage == chromascope::LiveInferenceStage::Running &&
+            live_state.camera_generation == camera_generation && camera_frame_visible) {
+            const auto& frame = live_displayed->frame;
+            const auto stamp = frame.image.metadata().timestamp;
+            const auto result_stamp = live_displayed->inference.detections.timestamp();
+            if (stamp && result_stamp &&
+                stamp->domain == chromascope::TimestampDomain::CaptureMonotonic &&
+                result_stamp->domain == chromascope::TimestampDomain::CaptureMonotonic &&
+                result_stamp->value == stamp->value &&
+                live_displayed->inference.detections.width() == frame.image.width() &&
+                live_displayed->inference.detections.height() == frame.image.height() &&
+                chromascope::live_overlay_matches(
+                    {camera_generation, live_state.session, camera_frame_index,
+                     camera_texture.source_width, camera_texture.source_height, camera_frame_time},
+                    {live_displayed->camera_generation, live_displayed->session,
+                     frame.index, frame.image.width(), frame.image.height(), stamp->value}))
+                synchronized_boxes = &live_displayed->inference.detections;
+        }
         if (camera_frame_visible && camera_texture.id &&
             camera_capture.state() == chromascope::CameraCaptureState::Capturing)
             draw_viewport_texture("##camera_canvas", camera_texture, camera_view,
-                live_inference_active && live_displayed &&
-                live_displayed->camera_generation == camera_generation &&
-                live_displayed->frame.index == camera_frame_index &&
-                live_displayed->frame.image.metadata().timestamp->value == camera_frame_time
-                    ? &live_displayed->inference.detections : nullptr);
+                synchronized_boxes, live_show_confidence_labels, true);
         else
             ImGui::TextWrapped("No live camera frame. Choose a camera and press Start camera. "
                                "An OS permission prompt may appear.");

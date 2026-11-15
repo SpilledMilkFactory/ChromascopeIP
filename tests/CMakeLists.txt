@@ -794,3 +794,12 @@ chromascope_add_cpp_test(chromascope_unit_live_inference_scheduling_policy
 chromascope_add_cpp_test(chromascope_integration_live_inference_drop_strategy
     integration/test_live_inference_drop_strategy.cpp
     "integration;camera;live;dnn;async;performance;lifecycle;timing;regression" 35)
+
+# M9.3 (#62): source-locked GUI overlay frame identities, clipping, and labels.
+# Hardware-free pure contracts; no ONNX weights, webcam or ImGui required.
+chromascope_add_cpp_test(chromascope_unit_live_overlay_policy
+    unit/test_live_overlay_policy.cpp
+    "unit;camera;live;overlay;gui-contract;security;regression" 20)
+chromascope_add_cpp_test(chromascope_integration_live_overlay_geometry
+    integration/test_live_overlay_geometry.cpp
+    "integration;camera;live;overlay;gui-contract;coordinate;regression" 20)

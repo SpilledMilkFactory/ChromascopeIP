@@ -994,3 +994,13 @@ No camera or ONNX weights are required for these tests. Expected totals:
 Run `ctest --test-dir build/presets/linux-release -R 'live_inference_(scheduling|drop)' --output-on-failure`
 followed by normal full builds/tests and physical GUI validation. See
 `docs/M9_2_LIVE_INFERENCE_SCHEDULING.md`.
+
+### M9.3 (#62) synchronized live boxes and label placement
+
+Two hardware-free native CTests validate exact live frame/session/generation
+matching and source/canvas geometry clipping under fit, zoom and pan. Two
+additional Python quality guards ensure GUI presentation remains source-locked,
+separately opt-in and distinct from recorded-video annotations. Expected
+**130 native CTests**, **20 camera CTests**, and **65 Python quality tests**.
+Full local camera/model GUI acceptance and six hosted CI checks remain required.
+See `docs/M9_3_LIVE_OVERLAY.md` for the acceptance checklist.

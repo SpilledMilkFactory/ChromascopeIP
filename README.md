@@ -832,3 +832,12 @@ through the same zoom/pan viewport as the displayed analyzed frame; confidence
 is model output, not a calibrated probability. Recorded-video overlays and
 capture/inference activation remain unchanged. See
 [the M9.3 overlay contract](docs/M9_3_LIVE_OVERLAY.md).
+
+### M9.4 — Temporary cross-frame live track IDs
+
+Live object/person inference can optionally show short-lived numeric box IDs
+using bounded, class-aware IoU matching across analyzed frames. Tracking is
+**off by default**, never identifies individuals, and never persists track
+state. All state clears on inference/camera/session shutdown. Frame-locked M9.3
+annotations and M9.2 scheduling remain unchanged. See
+[temporary tracking contract](docs/M9_4_TEMPORARY_TRACKING.md).

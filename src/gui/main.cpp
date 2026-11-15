@@ -16,6 +16,7 @@
 #include "chromascope/CameraDiscovery.hpp"
 #include "chromascope/CameraPreviewPolicy.hpp"
 #include "chromascope/LiveOverlayPolicy.hpp"
+#include "chromascope/LiveObjectTracker.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
 
@@ -143,6 +144,9 @@ struct App {
     chromascope::AsyncCameraCapture camera_capture;
     chromascope::AsyncLiveCameraInference live_inference;
     std::shared_ptr<const chromascope::LiveInferenceResult> live_displayed;
+    chromascope::LiveObjectTracker live_tracker; // GUI-thread only, no media stored
+    std::optional<chromascope::LiveTrackFrame> live_track_frame;
+    bool live_enable_tracking = false; // default OFF; one session at a time
     bool live_inference_active = false;
     int live_detection_profile = 0; // COCO objects / class-0 person only
     float live_confidence_threshold = 0.50F;
@@ -244,6 +248,8 @@ struct App {
         live_inference.cancel();
         live_inference_active = false;
         live_displayed.reset();
+        live_track_frame.reset();
+        live_tracker.reset(); // IDs never cross camera/inference/session boundaries
     }
 
     void stop_camera() noexcept {
@@ -290,8 +296,11 @@ struct App {
                 : chromascope::LiveInferenceDropStrategy::KeepOldest;
             scheduling.minimum_capture_spacing =
                 std::chrono::milliseconds(live_min_capture_spacing_ms);
-            (void)live_inference.start(camera_generation, detector_model_path.data(),
-                                       policy, scheduling);
+            const auto session = live_inference.start(camera_generation, detector_model_path.data(),
+                                                      policy, scheduling);
+            live_tracker.reset();
+            live_track_frame.reset();
+            if (live_enable_tracking) live_tracker.begin(camera_generation, session);
             live_displayed.reset();
             live_inference_active = true;
             camera_status = "Live camera analysis requested (local, opt-in).";
@@ -396,14 +405,32 @@ struct App {
                     camera_frame_index = snapshot.latest->frame.index;
                     camera_frame_time = snapshot.latest->frame.image.metadata().timestamp->value;
                     camera_frame_visible = true;
+                    live_track_frame.reset();
+                    if (live_enable_tracking) {
+                        const auto& packet = snapshot.latest->frame;
+                        const auto stamp = packet.image.metadata().timestamp;
+                        const auto& detections = snapshot.latest->inference.detections;
+                        if (stamp && detections.timestamp() &&
+                            stamp->domain == chromascope::TimestampDomain::CaptureMonotonic &&
+                            detections.timestamp()->domain == stamp->domain &&
+                            detections.timestamp()->value == stamp->value) {
+                            const chromascope::LiveOverlayFrameKey key{
+                                camera_generation, snapshot.session, packet.index,
+                                packet.image.width(), packet.image.height(), stamp->value};
+                            live_track_frame = live_tracker.update(key, detections);
+                        }
+                    }
                     live_displayed = snapshot.latest;
                 } catch (const std::exception& error) {
                     cancel_live_inference();
                     camera_status = std::string("Live analysis preview failed: ") + error.what();
                 }
             }
-            if (snapshot.stage == chromascope::LiveInferenceStage::Failed)
+            if (snapshot.stage == chromascope::LiveInferenceStage::Failed) {
                 live_displayed.reset();
+                live_track_frame.reset();
+                live_tracker.reset();
+            }
         }
     }
 
@@ -510,7 +537,8 @@ struct App {
                                chromascope::ImageViewport& view,
                                const chromascope::DetectionResult* video_detections = nullptr,
                                bool detection_labels = true,
-                               bool live_overlay = false) {
+                               bool live_overlay = false,
+                               const std::vector<std::uint64_t>* live_track_ids = nullptr) {
         if (!texture.id || texture.source_width <= 0 || texture.source_height <= 0) {
             ImGui::TextDisabled("No image available.");
             return false;
@@ -584,8 +612,12 @@ struct App {
                                    origin.y + static_cast<float>(projected.canvas.maximum.y)};
                     draw->AddRect(a, b, IM_COL32(55, 234, 191, 255), 0.0f, 0, 2.0f);
                     if (detection_labels) {
-                        const auto caption = chromascope::object_confidence_label(
+                        auto caption = chromascope::object_confidence_label(
                             video_detections->objects()[projected.detection_index]);
+                        if (live_track_ids && projected.detection_index < live_track_ids->size()) {
+                            const auto id = (*live_track_ids)[projected.detection_index];
+                            if (id != 0) caption += " | ID " + std::to_string(id);
+                        }
                         const ImVec2 measured = ImGui::CalcTextSize(caption.c_str());
                         const auto at = chromascope::live_overlay_label_origin(
                             projected.canvas.minimum, {measured.x + 8.0, measured.y + 4.0},
@@ -679,6 +711,7 @@ struct App {
     // No previously saved export is deleted by this UI action.
     void clear_private_session() {
         stop_camera();
+        live_enable_tracking = false; // reset opt-in alongside in-memory track history
         camera_devices = {};
         processing->cancel();
         pending_ticket = 0;
@@ -1481,7 +1514,7 @@ struct App {
         ImGui::Separator();
         ImGui::TextUnformatted("LIVE OBJECT / PERSON DETECTION (OPT-IN)");
         ImGui::TextWrapped("Only pinned local NanoDet COCO-80 inference. "
-                           "Person mode detects class 0; no identity or tracking.");
+                           "Person mode detects class 0; optional temporary box tracking is NOT identification.");
         ImGui::BeginDisabled(live_inference_active);
         ImGui::Combo("Live detection profile", &live_detection_profile,
             "COCO-80 objects\0Person only (COCO ID 0)\0");
@@ -1495,6 +1528,7 @@ struct App {
         ImGui::SliderInt("Minimum capture spacing (ms)",
             &live_min_capture_spacing_ms, 0, 1000);
         ImGui::InputText("Local ONNX model", detector_model_path.data(), detector_model_path.size());
+        ImGui::Checkbox("Enable temporary track IDs", &live_enable_tracking);
         ImGui::EndDisabled();
         ImGui::BeginDisabled(live_inference_active || !capturing);
         if (ImGui::Button("Start live inference", ImVec2(-1, 0))) start_live_inference();
@@ -1525,6 +1559,11 @@ struct App {
         ImGui::Checkbox("Show live confidence labels", &live_show_confidence_labels);
         ImGui::EndDisabled();
         ImGui::TextDisabled("Labels report model confidence (not calibrated probability).");
+        ImGui::TextDisabled("Track IDs only match nearby class-consistent boxes in this session; not identity or re-ID.");
+        if (live_enable_tracking && live_track_frame && live_inference_active)
+            ImGui::Text("Temporary tracks: %zu active | %zu matched | %zu new",
+                live_track_frame->active_tracks, live_track_frame->matched_tracks,
+                live_track_frame->created_tracks);
         ImGui::TextDisabled("One pending frame + one worker. Spacing uses capture timestamps, not wall time.");
         ImGui::TextDisabled("In-flight CPU forward cannot be forcibly interrupted.");
         ImGui::Separator();
@@ -1587,10 +1626,17 @@ struct App {
                      frame.index, frame.image.width(), frame.image.height(), stamp->value}))
                 synchronized_boxes = &live_displayed->inference.detections;
         }
+        const std::vector<std::uint64_t>* synchronized_track_ids = nullptr;
+        if (synchronized_boxes && live_enable_tracking && live_track_frame && live_displayed &&
+            chromascope::live_overlay_matches(
+                {camera_generation, live_state.session, camera_frame_index,
+                 camera_texture.source_width, camera_texture.source_height, camera_frame_time},
+                live_track_frame->key))
+            synchronized_track_ids = &live_track_frame->detection_ids;
         if (camera_frame_visible && camera_texture.id &&
             camera_capture.state() == chromascope::CameraCaptureState::Capturing)
             draw_viewport_texture("##camera_canvas", camera_texture, camera_view,
-                synchronized_boxes, live_show_confidence_labels, true);
+                synchronized_boxes, live_show_confidence_labels, true, synchronized_track_ids);
         else
             ImGui::TextWrapped("No live camera frame. Choose a camera and press Start camera. "
                                "An OS permission prompt may appear.");

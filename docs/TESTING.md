@@ -1004,3 +1004,13 @@ separately opt-in and distinct from recorded-video annotations. Expected
 **130 native CTests**, **20 camera CTests**, and **65 Python quality tests**.
 Full local camera/model GUI acceptance and six hosted CI checks remain required.
 See `docs/M9_3_LIVE_OVERLAY.md` for the acceptance checklist.
+
+### M9.4 (#63) temporary live object tracking
+
+Two new headless CTests exercise source-session validation, deterministic
+class-aware IoU association, bounded tracks, ID rollover prevention, missing
+analyzed-results expiration and complete stop/restart isolation. Two Python
+quality guards verify opt-in GUI wiring and lifecycle resets. Expected:
+132 CTests (22 camera) and 67 Python quality tests. Real-world ID stability,
+box/label alignment, person-only restrictions and recorded-video parity need
+manual webcam GUI verification. See docs/M9_4_TEMPORARY_TRACKING.md.

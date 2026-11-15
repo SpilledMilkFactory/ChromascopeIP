@@ -1188,3 +1188,19 @@ label placement and independent presentation toggles. Expected acceptance:
 full static analysis and provenance, manual webcam NanoDet boxes/labels,
 existing GUI/CLI regressions and six GitHub Actions checks. Do not record
 hardware PASS from synthetic tests. Details: docs/M9_3_LIVE_OVERLAY.md.
+
+### M9.4 (#63) — Temporary tracking acceptance (pending)
+
+M9.3 baseline: local GUI Release, CLI Release and CLI sanitizer suites passed
+130/130; camera suite passed 20/20, Python quality 65/65; the operator reports
+manual GUI/CLI regression success and six hosted CI checks passed before merge.
+
+M9.4 adds a bounded, opt-in session-local IoU tracker and two native tests plus
+two Python quality tests (expected 132/132 and 67/67). Track IDs must be gated
+by exact M9.3 source-frame matching. No camera/model access, persistent state,
+identity recognition or recorded-video behavior changes are permitted.
+
+Final sign-off requires complete local builds, ASan/UBSan, static analysis,
+provenance checks, webcam tracking and lifecycle manual acceptance, and six
+GitHub Actions successes on the M9.4 commit. Until verified: NOT ACCEPTED.
+See docs/M9_4_TEMPORARY_TRACKING.md.

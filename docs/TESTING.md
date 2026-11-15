@@ -1014,3 +1014,11 @@ quality guards verify opt-in GUI wiring and lifecycle resets. Expected:
 132 CTests (22 camera) and 67 Python quality tests. Real-world ID stability,
 box/label alignment, person-only restrictions and recorded-video parity need
 manual webcam GUI verification. See docs/M9_4_TEMPORARY_TRACKING.md.
+
+### M9.5 — live inference controls
+
+Run the two new hardware-free CTests with `ctest -R live_(gui_controls|inference_pause)`;
+verify all 134 native CTests (24 camera-labeled) and 69 Python quality tests.
+Manual GUI qualification must test pause/resume, object/person profile, live
+display confidence, effective FPS admission cap, track reset, and historic
+regressions. See `docs/M9_5_LIVE_GUI_CONTROLS.md`.

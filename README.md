@@ -812,3 +812,12 @@ COCO-80 classes; person mode uses class 0 only (no identity or tracking).
 Results are shown only with their **matching analyzed pixels**, never over an
 unrelated newer camera frame. No automatic model loading, recording, upload or
 export occurs. See [M9.1 live inference contract](docs/M9_1_LIVE_CAMERA_INFERENCE.md).
+
+### M9.2 — live inference scheduling and explicit frame dropping
+
+The opt-in live NanoDet GUI now offers **Keep newest** or **Keep oldest**
+when its one-slot inference queue is occupied, plus 0–1000 ms capture-timestamp
+pacing. Per-session accepted, completed, replaced, busy-dropped, paced and
+stale-frame counts are shown in the Live camera workspace. Capture remains
+independent and inference never queues unbounded frames. See
+[the M9.2 scheduling contract](docs/M9_2_LIVE_INFERENCE_SCHEDULING.md).

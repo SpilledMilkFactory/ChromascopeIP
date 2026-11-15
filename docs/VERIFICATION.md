@@ -1163,3 +1163,16 @@ the pinned NanoDet object/person processing path and has no tracker/identity
 or new recording/export path. Pending final local OpenCV 5.1.0/ImGui builds,
 126 CTests, 61 Python quality tests, manual hardware/model verification and
 six hosted Actions checks. See docs/M9_1_LIVE_CAMERA_INFERENCE.md.
+
+### M9.2 (#61) live inference non-blocking scheduling — acceptance pending
+
+M9.1 baseline: 126/126 CTests in GUI Release, CLI Release, and CLI sanitizer;
+16/16 camera CTests, 61/61 Python quality tests, clang-tidy, provenance and
+all six Actions green; manual GUI/CLI inference behavior confirmed by the
+operator. M9.2 adds an explicitly configurable one-pending-frame drop policy,
+capture-timestamp pacing, per-session diagnostics, two native tests and two
+Python quality checks. **Expected: 128 native / 18 camera / 63 Python quality.**
+Actual OpenCV GUI builds, CPU/ASan tests, webcam and ONNX behavior, manual
+regressions and hosted CI must be reverified before acceptance. Synthetic
+queue tests do not establish device-side frame drops or real-time inference
+performance. See `docs/M9_2_LIVE_INFERENCE_SCHEDULING.md`.

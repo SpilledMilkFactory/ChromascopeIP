@@ -146,6 +146,8 @@ struct App {
     int live_detection_profile = 0; // COCO objects / class-0 person only
     float live_confidence_threshold = 0.50F;
     float live_person_display_threshold = 0.50F;
+    int live_drop_strategy = 0; // 0: Keep newest (default); 1: Keep oldest queued
+    int live_min_capture_spacing_ms = 0; // capture-monotonic pacing
     chromascope::CameraBackend camera_backend = chromascope::CameraBackend::PlatformDefault;
     chromascope::CameraDiscoveryReport camera_devices;
     chromascope::CameraActiveFormat camera_active_format;
@@ -279,7 +281,14 @@ struct App {
             for (int i = 0; i < chromascope::kNanoDetClassCount; ++i)
                 if (const auto value = detector_class_overrides[static_cast<std::size_t>(i)])
                     policy.class_thresholds.push_back({i, *value});
-            (void)live_inference.start(camera_generation, detector_model_path.data(), policy);
+            chromascope::LiveInferenceScheduling scheduling;
+            scheduling.drop_strategy = live_drop_strategy == 0
+                ? chromascope::LiveInferenceDropStrategy::KeepNewest
+                : chromascope::LiveInferenceDropStrategy::KeepOldest;
+            scheduling.minimum_capture_spacing =
+                std::chrono::milliseconds(live_min_capture_spacing_ms);
+            (void)live_inference.start(camera_generation, detector_model_path.data(),
+                                       policy, scheduling);
             live_displayed.reset();
             live_inference_active = true;
             camera_status = "Live camera analysis requested (local, opt-in).";
@@ -348,12 +357,13 @@ struct App {
             camera_capture.generation() == camera_generation &&
             camera_capture.state() == chromascope::CameraCaptureState::Capturing) {
             try {
-                const auto image = chromascope::to_cv_mat_copy(newest->image);
-                const bool resized = camera_texture.source_width != image.cols ||
-                                     camera_texture.source_height != image.rows;
-                // When inferencing, hold the most recently ANALYZED pixels and
-                // draw only their matching result. Camera capture still runs.
+                // Avoid a full-size CPU pixel copy on each GUI tick when the
+                // result view is already showing exact analyzed pixels.
+                // The inference worker owns the submitted frame pixels.
                 if (!live_inference_active || !live_displayed) {
+                    const auto image = chromascope::to_cv_mat_copy(newest->image);
+                    const bool resized = camera_texture.source_width != image.cols ||
+                                         camera_texture.source_height != image.rows;
                     camera_texture.upload(image);
                     if (resized) camera_view.fit();
                     camera_frame_index = newest->index;
@@ -1447,6 +1457,10 @@ struct App {
         if (live_detection_profile == 1)
             ImGui::SliderFloat("Live person display cutoff", &live_person_display_threshold,
                 0.01F, 1.0F, "%.2f");
+        ImGui::Combo("Inference frame-drop policy", &live_drop_strategy,
+            "Keep newest (replace pending)\0Keep oldest (discard incoming)\0");
+        ImGui::SliderInt("Minimum capture spacing (ms)",
+            &live_min_capture_spacing_ms, 0, 1000);
         ImGui::InputText("Local ONNX model", detector_model_path.data(), detector_model_path.size());
         ImGui::EndDisabled();
         ImGui::BeginDisabled(live_inference_active || !capturing);
@@ -1460,10 +1474,21 @@ struct App {
         ImGui::EndDisabled();
         const auto live_state = live_inference.snapshot();
         ImGui::TextWrapped("%s", live_state.message.c_str());
-        ImGui::Text("Analyzed: %llu | Coalesced pending frames: %llu",
-            static_cast<unsigned long long>(live_state.processed_frames),
-            static_cast<unsigned long long>(live_state.replaced_pending_frames));
-        ImGui::TextDisabled("Inference uses one pending frame + one worker; CPU forward cannot be interrupted.");
+        ImGui::Text("Inference accepted: %llu | analyzed: %llu",
+            static_cast<unsigned long long>(live_state.accepted_frames),
+            static_cast<unsigned long long>(live_state.processed_frames));
+        ImGui::Text("Dropped: replaced=%llu | busy=%llu | paced=%llu | stale=%llu",
+            static_cast<unsigned long long>(live_state.replaced_pending_frames),
+            static_cast<unsigned long long>(live_state.dropped_busy_frames),
+            static_cast<unsigned long long>(live_state.dropped_pacing_frames),
+            static_cast<unsigned long long>(live_state.dropped_stale_frames));
+        ImGui::Text("Scheduler: %s | pending: %s | CPU forward: %s",
+            live_state.scheduling.drop_strategy == chromascope::LiveInferenceDropStrategy::KeepNewest
+                ? "Keep newest" : "Keep oldest",
+            live_state.has_pending_frame ? "yes" : "no",
+            live_state.inference_busy ? "busy" : "idle");
+        ImGui::TextDisabled("One pending frame + one worker. Spacing uses capture timestamps, not wall time.");
+        ImGui::TextDisabled("In-flight CPU forward cannot be forcibly interrupted.");
         ImGui::Separator();
         ImGui::Text("Completed frames dropped: %llu",
             static_cast<unsigned long long>(camera_capture.dropped_frames()));

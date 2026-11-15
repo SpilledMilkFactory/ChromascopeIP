@@ -1213,3 +1213,14 @@ checks; user confirmed manual GUI and six hosted Actions passing. M9.5 adds
 Headless tests cannot certify physical camera, GUI controls, model latency or
 actual FPS. Full native Release/sanitizer, local hardware, privacy and hosted
 CI acceptance remain required; see docs/M9_5_LIVE_GUI_CONTROLS.md.
+
+### M9.6 (#65) — pending real camera and cross-platform qualification
+
+M9.5 baseline accepted following user-confirmed 134 native CTests, 24 camera
+CTests, 69 quality tests, manual GUI/CLI checks and six green Actions jobs.
+M9.6 adds two native unit/integration CTests, two negative CLI CTests and two
+Python quality tests. Expected: 138 native, 28 camera, 71 quality. Verify
+Ctrl-C response, JSONL start/frame/end completeness, limits, model integrity,
+privacy, stdout and create-only destinations on real webcam hardware. Local
+Release and ASan/UBSan, static analysis and six Actions jobs must pass before
+acceptance. See docs/M9_6_CLI_LIVE_JSONL.md.

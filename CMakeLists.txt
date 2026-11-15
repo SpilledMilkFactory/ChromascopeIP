@@ -49,6 +49,7 @@ add_library(chromascope_core STATIC
     src/core/CameraSource.cpp
     src/core/CameraDiscovery.cpp
     src/core/AsyncCameraCapture.cpp
+    src/core/AsyncLiveCameraInference.cpp
     src/core/AsyncVideoDecoder.cpp
     src/core/VideoPlayer.cpp
     src/core/CpuDnnAdapter.cpp

@@ -1148,3 +1148,18 @@ create-only paths. A report alone cannot certify device release or GUI LIVE
 status. Real webcam evidence and manual GUI/error scenarios are required for
 M8.7 acceptance; **do not record hardware PASS without that evidence**.
 See `docs/M8_7_LINUX_CAMERA_SMOKE.md`.
+
+### M9.1 (#60) — live camera inference bridge (acceptance pending)
+
+Accepted M8.7 baseline (per local operator log): 124/124 CTests in GUI
+Release, CLI Release and CLI ASan/UBSan; 14/14 camera tests; 59/59 Python
+quality tests; clang-tidy and policy/provenance checks passed. Explicit Linux
+V4L2 repeated native capture and create-only PNG smoke validation passed;
+manual GUI/CLI regressions and six CI jobs were confirmed successful.
+
+M9.1 adds explicit live model inference to the GUI via a separately authorized
+worker with one pending input and one immutable exact-frame result. It shares
+the pinned NanoDet object/person processing path and has no tracker/identity
+or new recording/export path. Pending final local OpenCV 5.1.0/ImGui builds,
+126 CTests, 61 Python quality tests, manual hardware/model verification and
+six hosted Actions checks. See docs/M9_1_LIVE_CAMERA_INFERENCE.md.

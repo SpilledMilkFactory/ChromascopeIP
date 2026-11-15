@@ -776,3 +776,12 @@ chromascope_add_cpp_test(chromascope_unit_mock_camera
 chromascope_add_cpp_test(chromascope_integration_mock_camera_failures
     integration/test_mock_camera_failure_injection.cpp
     "integration;camera;mock;async;lifecycle;negative;security;regression;timing" 30)
+
+# M9.1 (#60): opt-in live camera -> shared NanoDet object/person processing.
+# Synthetic owned camera frames and injected inference; no ONNX or webcam in CI.
+chromascope_add_cpp_test(chromascope_unit_live_camera_inference_policy
+    unit/test_live_camera_inference_policy.cpp
+    "unit;camera;live;dnn;person;privacy;security;negative;regression" 25)
+chromascope_add_cpp_test(chromascope_integration_live_camera_inference
+    integration/test_live_camera_inference.cpp
+    "integration;camera;live;async;dnn;person;lifecycle;timing;security;regression" 35)

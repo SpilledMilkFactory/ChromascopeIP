@@ -971,3 +971,14 @@ CTest, CI or default checks. Four new Python tests use only synthetic mock
 subprocesses, bringing the Python quality suite to **59**; CTests remain
 **124** (14 camera). See `docs/M8_7_LINUX_CAMERA_SMOKE.md` for manual GUI,
 permission, privacy and recorded-video regression sign-off requirements.
+
+### M9.1 (#60) — live camera/CPU inference bridge
+
+Hardware-free `chromascope_unit_live_camera_inference_policy` and
+`chromascope_integration_live_camera_inference` exercise opt-in initialization,
+bounded newest-pending-frame behavior, exact result timing and geometry,
+model-policy propagation, generation cancellation, restart, and malformed
+result rejection. Two Python quality regressions protect the GUI and shared
+NanoDet CPU contract. Expected: 126 CTests (16 camera) and 61 Python quality
+tests. Do not substitute mock-camera results for actual local UI/model checks;
+see docs/M9_1_LIVE_CAMERA_INFERENCE.md.

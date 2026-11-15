@@ -1082,3 +1082,14 @@ and `python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
 Manually verify existing JSON/JSONL compatibility without the flag and new
 per-frame `annotations` with `--include-annotations`.
 See `docs/M10_3_UNIFIED_ANNOTATIONS.md`.
+
+### M10.4 (#70) — CPU/RAM/GPU baseline qualification
+
+`tests/quality/test_performance_baseline.py` adds **14 offline deterministic
+regressions** for M6.6 recorded-stage timing, M9.7 live timing, malicious JSON,
+bounded output, create-only private reports, camera opt-in, resource sampling
+and relative baseline comparison. Expected totals: **144 native CTests (28
+camera)** and **107 Python quality tests**. Run the focused quality module and
+complete suite; no physical device is opened by quality tests. See
+`docs/M10_4_PERFORMANCE_BASELINES.md` for active Release CLI benchmarking,
+whole-device GPU observation caveats and manual GUI profiling requirements.

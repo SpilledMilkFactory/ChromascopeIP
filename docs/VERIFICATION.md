@@ -1256,3 +1256,15 @@ quality tests (expected 142 / 28 camera / 91 quality). Real Linux and Windows
 GUI preferences roundtrip, corruption/permission tests, privacy boundaries,
 full build suites and hosted CI remain final acceptance requirements.
 See `docs/M10_2_VERSIONED_PREFERENCES.md`.
+
+### M10.4 (#70) — performance measurement baselines (PENDING)
+
+M10.3 baseline operator-accepted after 144/144 CTests in GUI Release, CLI
+Release and ASan/UBSan, 93/93 Python quality checks, documented JSONL export
+and GUI/CLI regression checks, and six green GitHub Actions jobs. M10.4 adds a
+passive offline performance report and opt-in bounded native CLI profiling of
+wall-clock time, process CPU, peak RAM and optional device-wide GPU telemetry.
+No production C++ or native CTests are changed: expected **144/28/107**.
+Manual reproducibility, full source gates, GUI performance, physical camera
+qualification and six hosted CI checks remain required; no speedup is claimed.
+See `docs/M10_4_PERFORMANCE_BASELINES.md`.

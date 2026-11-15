@@ -982,3 +982,15 @@ result rejection. Two Python quality regressions protect the GUI and shared
 NanoDet CPU contract. Expected: 126 CTests (16 camera) and 61 Python quality
 tests. Do not substitute mock-camera results for actual local UI/model checks;
 see docs/M9_1_LIVE_CAMERA_INFERENCE.md.
+
+### M9.2 (#61) explicit bounded live inference scheduler
+
+Two synthetic native CTests cover scheduling-option validation, Keep newest
+replacement versus Keep oldest busy drops, capture-timestamp admission spacing,
+nonmonotonic frames, session counters, cancellation and restart. Two additional
+Python quality checks guard queue bounds, GUI controls and source-frame pairing.
+No camera or ONNX weights are required for these tests. Expected totals:
+**128 native CTests**, **18 camera CTests**, **63 Python quality tests**.
+Run `ctest --test-dir build/presets/linux-release -R 'live_inference_(scheduling|drop)' --output-on-failure`
+followed by normal full builds/tests and physical GUI validation. See
+`docs/M9_2_LIVE_INFERENCE_SCHEDULING.md`.

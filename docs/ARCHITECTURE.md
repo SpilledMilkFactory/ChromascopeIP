@@ -397,3 +397,15 @@ access. `src/cli/CameraCliCapture.cpp` consumes owned M8.3 worker packets; it
 writes PNGs only after an explicit create-only `--camera-save-dir` request.
 This does not change `VideoSource` or GUI camera preview. Driver calls are
 cooperatively cancelled, not time-bounded. See `docs/M8_5_CAMERA_CLI.md`.
+
+### M9.2 live inference admission and overload policy
+
+The M9.1 `AsyncLiveCameraInference` worker remains separately opt-in from
+`AsyncCameraCapture`. Its M9.2 admission policy selects either replacing the
+single pending frame with the newest source frame or retaining the oldest
+pending frame and dropping incoming frames. Optional 0–1000 ms capture-clock
+spacing is enforced on admitted frames, and stale frame indices/rollback
+capture timestamps are rejected. All counts and queue states are scoped to
+one inference session. Neither policy affects the native camera device queue,
+the on-worker ONNX forward, or source-matched GUI result frames. See
+`docs/M9_2_LIVE_INFERENCE_SCHEDULING.md`.

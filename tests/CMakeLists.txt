@@ -785,3 +785,12 @@ chromascope_add_cpp_test(chromascope_unit_live_camera_inference_policy
 chromascope_add_cpp_test(chromascope_integration_live_camera_inference
     integration/test_live_camera_inference.cpp
     "integration;camera;live;async;dnn;person;lifecycle;timing;security;regression" 35)
+
+# M9.2 (#61): explicit bounded inference scheduling and observable drop strategies.
+# Synthetic detectors; no OS camera access, model downloads, or ONNX weights.
+chromascope_add_cpp_test(chromascope_unit_live_inference_scheduling_policy
+    unit/test_live_inference_scheduling_policy.cpp
+    "unit;camera;live;dnn;performance;negative;security;regression" 25)
+chromascope_add_cpp_test(chromascope_integration_live_inference_drop_strategy
+    integration/test_live_inference_drop_strategy.cpp
+    "integration;camera;live;dnn;async;performance;lifecycle;timing;regression" 35)

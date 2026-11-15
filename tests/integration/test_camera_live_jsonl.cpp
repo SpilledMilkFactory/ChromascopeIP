@@ -78,6 +78,22 @@ void exercise() {
     for (const char c : text) if (c == '\n') ++line_count;
     check(line_count == 5, "JSONL must emit one physical line per record");
 
+    // M10.3 opt-in does not change the existing start/end schema or activate
+    // another device; the same synthetic reader supplies immutable frames.
+    options.include_annotations = true;
+    std::ostringstream annotated;
+    const int annotated_rc = chromascope::cli::run_camera_detection_stream(
+        options, annotated, detect, std::make_unique<FakeReader>());
+    check(annotated_rc == 0 && occurrences(annotated.str(), "\"annotations\":") == 3,
+          "opt-in annotation block missing from camera frames");
+    check(annotated.str().find("\"coordinate_space\":\"stored_image_pixels\"") != std::string::npos &&
+          annotated.str().find("\"text\":\"person (75%)\"") != std::string::npos,
+          "live annotation geometry/caption contract mismatch");
+    check(occurrences(annotated.str(), "\"type\":\"start\"") == 1 &&
+          occurrences(annotated.str(), "\"type\":\"end\"") == 1,
+          "opt-in annotation altered stream lifecycle records");
+    options.include_annotations = false;
+
     // Cancellation follows the signal handler contract without any actual signal.
     std::uint32_t requests = 0;
     options.camera.max_frames = 100;

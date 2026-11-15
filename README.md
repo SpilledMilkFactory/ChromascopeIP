@@ -882,3 +882,13 @@ persistence remains disabled. Stored settings never include image/model paths,
 camera activation, media, tracking history or device permissions. Malformed,
 unsupported-version and invalid processor settings are rejected as a whole.
 See [M10.2 preferences and privacy contract](docs/M10_2_VERSIONED_PREFERENCES.md).
+
+### M10.3 — common, opt-in annotation records for still/video/live
+
+`--include-annotations` adds the same schema-v1, stored-pixel annotation payload
+(`annotations`) to detection JSON and per-frame JSONL across still images,
+recorded video and explicitly authorized live camera capture. Existing
+outputs are byte-compatible **without** the flag. Recorded and live GUI
+bounding boxes now share clipping/projection behavior; source detections,
+model inference and camera lifecycle are unchanged. See
+[the M10.3 annotation/export contract](docs/M10_3_UNIFIED_ANNOTATIONS.md).

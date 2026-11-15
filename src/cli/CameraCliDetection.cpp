@@ -2,6 +2,7 @@
 
 #include "chromascope/CpuDnnAdapter.hpp"
 #include "chromascope/DnnGuiSession.hpp"
+#include "chromascope/StructuredAnnotations.hpp"
 
 #include <chrono>
 #include <csignal>
@@ -63,7 +64,7 @@ void emit(std::ostream& out, std::string_view line) {
 }
 
 std::string frame_record(const CameraFramePacket& packet, const ObjectFrameInference& inference,
-                         double elapsed_ms) {
+                         double elapsed_ms, bool include_annotations = false) {
     const auto& result = inference.detections;
     const auto timestamp = packet.image.metadata().timestamp;
     if (!timestamp || timestamp->domain != TimestampDomain::CaptureMonotonic ||
@@ -93,7 +94,10 @@ std::string frame_record(const CameraFramePacket& packet, const ObjectFrameInfer
           << ",\"box\":{\"x\":" << box.x << ",\"y\":" << box.y
           << ",\"width\":" << box.width << ",\"height\":" << box.height << "}}";
     }
-    s << "]}";
+    s << ']';
+    if (include_annotations)
+        s << ",\"annotations\":" << structured_annotations_json(result);
+    s << '}';
     return s.str();
 }
 
@@ -175,7 +179,10 @@ int run_camera_detection_stream(const LiveCameraDetectionOptions& options, std::
             const auto prediction = detect(frame.image);
             const auto infer_ms = std::chrono::duration<double, std::milli>(Clock::now() - start_forward).count();
             if (stop_requested && stop_requested()) { reason = "interrupted"; result_code = 130; break; }
-            emit(output, frame_record(frame, prediction, infer_ms));
+            if (options.include_annotations)
+                emit(output, frame_record(frame, prediction, infer_ms, true));
+            else
+                emit(output, frame_record(frame, prediction, infer_ms));
             ++analyzed;
         }
         if (result_code == 0 && analyzed == options.camera.max_frames) reason = "frame_limit";

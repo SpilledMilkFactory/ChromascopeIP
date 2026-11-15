@@ -1,5 +1,6 @@
 #include "chromascope/Detection.hpp"
 #include "chromascope/AnnotationBridge.hpp"
+#include "chromascope/StructuredAnnotations.hpp"
 #include "chromascope/AnnotationRendererCV.hpp"
 #include "chromascope/DetectionResultBridge.hpp"
 #include "chromascope/SkittlesProcessor.hpp"
@@ -51,6 +52,7 @@ struct Options {
     bool json_stdout = false;
     bool jsonl_stdout = false;
     bool labels = true;
+    bool include_annotations = false;
     std::string profile_id = "skittles";
     chromascope::Settings settings;
     std::map<std::string, double, std::less<>> profile_options;
@@ -98,6 +100,7 @@ void usage(std::ostream& os) {
           "      --mask-output FILE Export segmentation/contour mask separately\n"
           "      --json FILE|-     Export machine-readable JSON; - writes to stdout\n"
           "      --json-version N   JSON schema version (supported: 1; default: 1)\n"
+          "      --include-annotations  Opt-in common annotation payload in detection JSON/JSONL\n"
           "      --output-dir DIR   Prefix relative output filenames; create DIR if needed\n"
           "      --mode skittles   Legacy alias for --profile skittles\n"
           "      --profile ID      Select a registered processing profile\n"
@@ -211,6 +214,8 @@ Options parse(int argc, char* argv[]) {
             if (count < 1 || count > 10000)
                 throw std::invalid_argument("--frame-step must be in [1,10000]");
             o.video_analysis.frame_step = static_cast<std::uint32_t>(count);
+        } else if (flag == "--include-annotations") {
+            once(flag, "include-annotations"); o.include_annotations = true;
         } else if (flag == "--json-version") {
             once(flag, "json-version");
             o.json_version = parse_integer(next(i, argc, argv, flag));
@@ -393,6 +398,12 @@ Options parse(int argc, char* argv[]) {
     } else if (o.video_backend_explicit) {
         throw std::invalid_argument("--video-backend requires a recorded-video command");
     }
+    // Additive opt-in only. Probe, extraction, encoded AVI and plain console
+    // output remain backward-compatible; never silently write new metadata.
+    if (o.include_annotations && !(o.analyze_video || o.json_stdout || !o.json.empty()))
+        throw std::invalid_argument("--include-annotations requires detection --json or --analyze-video --jsonl");
+    if (o.include_annotations && (o.video_probe || o.extract_frame || o.export_annotated_video))
+        throw std::invalid_argument("--include-annotations needs a detection operation");
     if (o.json_version != 1)
         throw std::invalid_argument("Unsupported JSON schema version (supported: 1)");
     if (single_use.contains("json-version") && o.json.empty() && !o.json_stdout)
@@ -452,7 +463,11 @@ void write_json(std::ostream& stream, const Options& options, const chromascope:
                << ", \"confidence\": " << obj.confidence << "}"
                << (i + 1 == r.objects.size() ? "" : ",") << "\n";
     }
-    stream << "  ]\n}\n";
+    stream << "  ]";
+    if (options.include_annotations)
+        stream << ",\n  \"annotations\": " << chromascope::structured_annotations_json(
+            chromascope::to_general_result(r), options.labels);
+    stream << "\n}\n";
 }
 // Schema v1 adds only a top-level schema_version to the legacy layout. Generic processors
 // report owned detection geometry without assigning semantic class names.
@@ -468,7 +483,10 @@ void write_general_json(std::ostream& stream, const Options& options,
            << "  \"elapsed_ms\": " << processed.elapsed_ms << ",\n"
            << "  \"total\": " << result.objects().size() << ",\n  \"detections\": [";
     if (result.objects().empty()) {
-        stream << "]\n}\n";
+        stream << "]";
+        if (options.include_annotations)
+            stream << ",\n  \"annotations\": " << chromascope::structured_annotations_json(result, options.labels);
+        stream << "\n}\n";
         return;
     }
     for (std::size_t index = 0; index < result.objects().size(); ++index) {
@@ -497,7 +515,10 @@ void write_general_json(std::ostream& stream, const Options& options,
         }, object.geometry);
         stream << "}";
     }
-    stream << "\n  ]\n}\n";
+    stream << "\n  ]";
+    if (options.include_annotations)
+        stream << ",\n  \"annotations\": " << chromascope::structured_annotations_json(result, options.labels);
+    stream << "\n}\n";
 }
 
 // Video JSON is schema-versioned independently of still-image detection JSON.
@@ -675,7 +696,10 @@ void write_object_json(std::ostream& stream, const Options& options,
                << ", \"y\": " << box.y << ", \"width\": " << box.width
                << ", \"height\": " << box.height << "}}";
     }
-    stream << (detections.empty() ? "" : "\n") << "  ]\n}\n";
+    stream << (detections.empty() ? "" : "\n") << "  ]";
+    if (options.include_annotations)
+        stream << ",\n  \"annotations\": " << chromascope::structured_annotations_json(result, options.labels);
+    stream << "\n}\n";
 }
 
 int run_object_command(Options options) {

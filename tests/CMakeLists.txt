@@ -855,3 +855,9 @@ chromascope_add_cpp_test(chromascope_unit_gui_preferences
     unit/test_gui_preferences.cpp "unit;gui-contract;preferences;security;negative;regression" 20)
 chromascope_add_cpp_test(chromascope_integration_gui_preference_storage
     integration/test_gui_preference_storage.cpp "integration;gui-contract;preferences;privacy;security;regression" 20)
+
+# M10.3 (#69): opt-in cross-media annotations and shared clipped overlays.
+chromascope_add_cpp_test(chromascope_unit_structured_annotations
+    unit/test_structured_annotations.cpp "unit;core;annotation;export;negative;privacy" 20)
+chromascope_add_cpp_test(chromascope_regression_structured_projection
+    regression/test_structured_projection.cpp "regression;gui-contract;annotation;coordinate;export" 20)

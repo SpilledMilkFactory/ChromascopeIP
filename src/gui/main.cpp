@@ -769,59 +769,40 @@ struct App {
         if (video_detections &&
             video_detections->width() == texture.source_width &&
             video_detections->height() == texture.source_height) {
-            const float scale_x = (bottom_right.x - top_left.x) /
-                static_cast<float>(texture.source_width);
-            const float scale_y = (bottom_right.y - top_left.y) /
-                static_cast<float>(texture.source_height);
             const auto overlay_start = std::chrono::steady_clock::now();
-            if (live_overlay) {
-                // Source-clipped, canvas-clipped, immutable boxes. Only the exact
-                // analyzed image reaches this branch (checked at call site).
-                for (const auto& projected : chromascope::make_live_overlay_boxes(
-                         *video_detections, view, {size.x, size.y})) {
-                    if (!chromascope::live_confidence_visible(
-                            video_detections->objects()[projected.detection_index].score,
-                            live_minimum_score)) continue;
-                    const ImVec2 a{origin.x + static_cast<float>(projected.canvas.minimum.x),
-                                   origin.y + static_cast<float>(projected.canvas.minimum.y)};
-                    const ImVec2 b{origin.x + static_cast<float>(projected.canvas.maximum.x),
-                                   origin.y + static_cast<float>(projected.canvas.maximum.y)};
-                    draw->AddRect(a, b, IM_COL32(55, 234, 191, 255), 0.0f, 0, 2.0f);
-                    if (detection_labels) {
-                        auto caption = chromascope::object_confidence_label(
-                            video_detections->objects()[projected.detection_index]);
+            // M10.3: recorded-video and live camera share exactly the same
+            // source-pixel clipping and canvas projection. Never paint stale
+            // detections: callers still enforce their source-frame identity.
+            for (const auto& projected : chromascope::make_live_overlay_boxes(
+                     *video_detections, view, {size.x, size.y})) {
+                const auto& object = video_detections->objects()[projected.detection_index];
+                if (live_overlay && !chromascope::live_confidence_visible(
+                        object.score, live_minimum_score)) continue;
+                const ImVec2 a{origin.x + static_cast<float>(projected.canvas.minimum.x),
+                               origin.y + static_cast<float>(projected.canvas.minimum.y)};
+                const ImVec2 b{origin.x + static_cast<float>(projected.canvas.maximum.x),
+                               origin.y + static_cast<float>(projected.canvas.maximum.y)};
+                draw->AddRect(a, b, IM_COL32(45, 205, 235, 255), 0.0f, 0, 2.0f);
+                if (detection_labels) {
+                    auto caption = chromascope::object_confidence_label(object);
+                    if (live_overlay) {
+                        // Temporary IDs are visual and session-local, never exported.
                         if (live_track_ids && projected.detection_index < live_track_ids->size()) {
                             const auto id = (*live_track_ids)[projected.detection_index];
                             if (id != 0) caption += " | ID " + std::to_string(id);
                         }
-                        const ImVec2 measured = ImGui::CalcTextSize(caption.c_str());
-                        const auto at = chromascope::live_overlay_label_origin(
-                            projected.canvas.minimum, {measured.x + 8.0, measured.y + 4.0},
-                            {size.x, size.y});
-                        const ImVec2 label_at{origin.x + static_cast<float>(at.x),
-                                              origin.y + static_cast<float>(at.y)};
-                        const ImVec2 label_end{
-                            label_at.x + measured.x + 8.0F, label_at.y + measured.y + 4.0F};
-                        draw->AddRectFilled(label_at, label_end, IM_COL32(8, 35, 31, 230), 3.0F);
-                        draw->AddText({label_at.x + 4.0F, label_at.y + 2.0F},
-                                      IM_COL32(218, 255, 241, 255), caption.c_str());
                     }
-                }
-            } else {
-                // Preserve established recorded-video drawing and performance metrics.
-                for (const auto& object : video_detections->objects()) {
-                    const auto* box = std::get_if<chromascope::BoxGeometry>(&object.geometry);
-                    if (!box) continue;
-                    const ImVec2 a{top_left.x + static_cast<float>(box->x) * scale_x,
-                                   top_left.y + static_cast<float>(box->y) * scale_y};
-                    const ImVec2 b{a.x + static_cast<float>(box->width) * scale_x,
-                                   a.y + static_cast<float>(box->height) * scale_y};
-                    draw->AddRect(a, b, IM_COL32(80, 220, 175, 255), 0.0f, 0, 2.0f);
-                    if (detection_labels) {
-                        const auto caption = chromascope::object_confidence_label(object);
-                        draw->AddText(ImVec2(a.x, a.y - 16.0f), IM_COL32(100, 255, 200, 255),
-                                      caption.c_str());
-                    }
+                    const ImVec2 measured = ImGui::CalcTextSize(caption.c_str());
+                    const auto at = chromascope::live_overlay_label_origin(
+                        projected.canvas.minimum, {measured.x + 8.0, measured.y + 4.0},
+                        {size.x, size.y});
+                    const ImVec2 label_at{origin.x + static_cast<float>(at.x),
+                                          origin.y + static_cast<float>(at.y)};
+                    const ImVec2 label_end{label_at.x + measured.x + 8.0F,
+                                           label_at.y + measured.y + 4.0F};
+                    draw->AddRectFilled(label_at, label_end, IM_COL32(8, 35, 31, 230), 3.0F);
+                    draw->AddText({label_at.x + 4.0F, label_at.y + 2.0F},
+                                  IM_COL32(218, 255, 241, 255), caption.c_str());
                 }
             }
             // Only video contributes to M6.6 overlay performance measurements.

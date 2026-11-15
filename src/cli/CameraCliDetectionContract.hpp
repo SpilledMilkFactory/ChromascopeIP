@@ -22,6 +22,7 @@ struct LiveCameraDetectionOptions {
     std::filesystem::path jsonl; // empty: stdout ('-'); output path: create only
     DnnPostprocessOptions postprocess;
     std::string profile = "object";
+    bool include_annotations = false;
 };
 
 inline double live_cli_real(std::string_view text, std::string_view flag) {
@@ -72,6 +73,8 @@ inline LiveCameraDetectionOptions parse_camera_detection_cli(int argc, char* con
             once(flag);
             result.camera.max_seconds = camera_cli_unsigned(next(i, flag), flag, 60);
             if (!result.camera.max_seconds) throw std::invalid_argument("Time limit cannot be zero");
+        } else if (flag == "--include-annotations") {
+            once(flag); result.include_annotations = true;
         } else if (flag == "--jsonl") {
             once(flag); has_jsonl = true;
             const auto v = next(i, flag);

@@ -1280,3 +1280,25 @@ explicit follow-up ownership. Do not claim a general security certification or
 that the absence of a reproduced critical bug proves memory safety. Full native,
 Python, static-analysis, manual privacy and six hosted CI gates remain required.
 See `docs/M10_5_THREAT_BOUNDARY_AUDIT.md`.
+
+## M10.6 (#72) acceptance supplement — malformed media and budgets
+
+M10.5 baseline from user acceptance: **144 native CTests**, **115 Python
+quality tests**, six successful hosted checks and manual GUI/CLI verification.
+M10.6 adds three native tests and eight Python quality tests (expected
+**147 native CTests** and **123 Python tests**). Required verification:
+
+- Run each new CTest in GUI Release, CLI Release and CLI ASan/UBSan.
+- Run the full 147-test native suites and 123-test Python quality suite.
+- Confirm the video seed regression uses only bounded, incomplete files in
+  build-tree test-artifacts, not real media or cameras.
+- Confirm corpus validation and create-only binary materialization without
+  modifying `samples/`, pinned models, or tracked test fixtures.
+- Re-run CI policy, provenance, object provenance, model-selection and clang-tidy.
+- Manually re-check still-image/video playback, CLI/video, camera opt-in and
+  image/person results; all six hosted GitHub checks must pass before merge.
+
+This is regression coverage of known first-party boundaries, **not** a claim
+of comprehensive third-party decoder fuzzing or an exploit-free build. The
+M10.5 threat register remains open for isolation, file-identity and resource
+mitigations requiring separate engineering review.

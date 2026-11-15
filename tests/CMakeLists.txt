@@ -861,3 +861,29 @@ chromascope_add_cpp_test(chromascope_unit_structured_annotations
     unit/test_structured_annotations.cpp "unit;core;annotation;export;negative;privacy" 20)
 chromascope_add_cpp_test(chromascope_regression_structured_projection
     regression/test_structured_projection.cpp "regression;gui-contract;annotation;coordinate;export" 20)
+
+# M10.6 (#72): deterministic malformed-media seeds, defensive predecode
+# regression, resource-limit edges, and bounded native MJPEG negative paths.
+# Generated binary fuzz corpora are opt-in; never mutate tracked samples.
+chromascope_add_cpp_test(chromascope_regression_malformed_media_preflight
+    regression/test_malformed_media_preflight.cpp
+    "regression;security;fuzz;formats;negative;budget" 20)
+chromascope_add_cpp_test(chromascope_unit_resource_limit_edges
+    unit/test_resource_limit_edges.cpp
+    "unit;security;budget;negative;regression" 20)
+add_executable(chromascope_regression_malformed_video_seeds
+    regression/test_malformed_video_seeds.cpp)
+target_link_libraries(chromascope_regression_malformed_video_seeds PRIVATE ChromascopeIP::Core)
+chromascope_apply_quality(chromascope_regression_malformed_video_seeds)
+target_include_directories(chromascope_regression_malformed_video_seeds PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME chromascope_regression_malformed_video_seeds
+    COMMAND chromascope_regression_malformed_video_seeds
+        "${CMAKE_CURRENT_BINARY_DIR}/test-artifacts/m10-6-malformed-video")
+set_tests_properties(chromascope_regression_malformed_video_seeds PROPERTIES
+    LABELS "regression;security;videoio;fuzz;negative" TIMEOUT 30)
+foreach(m106_target IN ITEMS chromascope_regression_malformed_media_preflight
+                            chromascope_regression_malformed_video_seeds)
+    target_compile_definitions(${m106_target} PRIVATE
+        CHROMASCOPE_M106_SEED_MANIFEST="${CMAKE_CURRENT_SOURCE_DIR}/fuzz/seeds/manifest.txt")
+endforeach()

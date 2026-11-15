@@ -912,3 +912,14 @@ dependency risks. It distinguishes existing controls from residual exposure and
 prioritizes follow-up mitigations; it **does not claim a complete vulnerability
 assessment or guarantee that third-party code is memory-safe**. The research
 milestone introduces no production changes, camera access or new exports.
+
+## M10.6 (#72) deterministic malformed-media regression and fuzz seeds
+
+M10.6 adds 30 small synthetic media seeds (25 still-image headers and five
+incomplete video containers), three headless CTests for predecode, video-open
+negative paths and exact resource-limit boundaries, and a separate optional
+libFuzzer entrypoint for **first-party image-header preflight only**. Normal
+builds never initiate fuzzing, device capture or model loading. The corpus is
+stored as auditable hex in `tests/fuzz/seeds/manifest.txt`; binary materialization
+is opt-in and create-only under a caller-selected build directory.
+See [`docs/M10_6_MALFORMED_MEDIA_FUZZ.md`](docs/M10_6_MALFORMED_MEDIA_FUZZ.md).

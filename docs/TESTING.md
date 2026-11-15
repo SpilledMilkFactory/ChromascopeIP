@@ -1105,3 +1105,19 @@ Run the focused and complete quality suites, existing native Release/sanitizer
 and clang-tidy gates, and all six hosted workflows. These eight static checks
 are not a fuzz campaign or third-party memory-safety proof. See
 `docs/M10_5_THREAT_BOUNDARY_AUDIT.md` for risk priorities and follow-ups.
+
+## M10.6 (#72) malformed-media seeds and resource-limit regression
+
+The 30 synthetic seed cases in `tests/fuzz/seeds/manifest.txt` cover JPEG,
+PNG, BMP, TIFF, WebP preflight and five deliberately incomplete AVI/MP4
+containers. Native tests `chromascope_regression_malformed_media_preflight`,
+`chromascope_unit_resource_limit_edges`, and
+`chromascope_regression_malformed_video_seeds` add 3 CTests (144 -> 147).
+The dedicated Python quality suite `test_malformed_media_fuzz.py` adds 8 tests
+(115 -> 123 against the supplied M10.5 baseline). The tests leave historical
+fixtures and model files untouched; generated videos stay in the build tree.
+
+Run `python3 scripts/materialize_fuzz_seeds.py --check` for passive seed
+validation. The optional LLVM libFuzzer path is documented in
+`docs/M10_6_MALFORMED_MEDIA_FUZZ.md`; sanitizer instrumentation of the
+first-party header parser does not sanitize third-party OpenCV codecs.

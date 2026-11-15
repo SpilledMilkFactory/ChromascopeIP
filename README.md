@@ -892,3 +892,14 @@ outputs are byte-compatible **without** the flag. Recorded and live GUI
 bounding boxes now share clipping/projection behavior; source detections,
 model inference and camera lifecycle are unchanged. See
 [the M10.3 annotation/export contract](docs/M10_3_UNIFIED_ANNOTATIONS.md).
+
+### M10.4 (#70) — repeatable CPU/RAM/GPU baseline reports
+
+Run `python3 scripts/performance_baseline.py --recorded-jsonl FILE --live-jsonl
+FILE --report PRIVATE.json` for passive timing analysis; active `--scenario
+still|video|camera` modes run the selected Release CLI under a finite resource
+supervisor. Camera requires `--allow-camera`; GPU device-wide observation
+requires `--observe-gpu` and is **not process GPU attribution**. Output is
+aggregate-only and create-exclusive. This milestone changes no production
+camera, model, GUI or CLI behavior; see
+[`docs/M10_4_PERFORMANCE_BASELINES.md`](docs/M10_4_PERFORMANCE_BASELINES.md).

@@ -803,3 +803,12 @@ chromascope_add_cpp_test(chromascope_unit_live_overlay_policy
 chromascope_add_cpp_test(chromascope_integration_live_overlay_geometry
     integration/test_live_overlay_geometry.cpp
     "integration;camera;live;overlay;gui-contract;coordinate;regression" 20)
+
+# M9.4 (#63): temporary class-aware cross-frame detection association.
+# Pure headless state; no webcam, tracking identity, model weights, or GUI dependency.
+chromascope_add_cpp_test(chromascope_unit_live_object_tracker
+    unit/test_live_object_tracker.cpp
+    "unit;camera;live;tracking;privacy;security;negative;regression" 20)
+chromascope_add_cpp_test(chromascope_integration_live_object_tracking
+    integration/test_live_object_tracking.cpp
+    "integration;camera;live;tracking;lifecycle;timing;privacy;regression" 20)

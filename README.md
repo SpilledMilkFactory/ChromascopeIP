@@ -872,3 +872,13 @@ validates existing M9.6 JSONL files offline and can explicitly supervise bounded
 Linux V4L2 object/person/restart/Ctrl-C runs. Reports contain **aggregate-only**
 performance metrics, with manual tracking/recovery/GUI checks always marked
 `NOT_VERIFIED`. No production camera, inference or tracking behavior changes.
+
+### M10.2 — versioned local preferences (explicit save)
+
+The GUI can restore validated non-sensitive profile and presentation settings
+from a strict schema-v1 local configuration file. **Save preferences** is
+explicit; the app does not automatically write settings, and ImGui INI/log
+persistence remains disabled. Stored settings never include image/model paths,
+camera activation, media, tracking history or device permissions. Malformed,
+unsupported-version and invalid processor settings are rejected as a whole.
+See [M10.2 preferences and privacy contract](docs/M10_2_VERSIONED_PREFERENCES.md).

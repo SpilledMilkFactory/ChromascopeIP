@@ -12,6 +12,7 @@
 #include "chromascope/AsyncRecordedVideoDetection.hpp"
 #include "chromascope/AnnotatedVideoExport.hpp"
 #include "chromascope/AsyncCameraCapture.hpp"
+#include "chromascope/AsyncLiveCameraInference.hpp"
 #include "chromascope/CameraDiscovery.hpp"
 #include "chromascope/CameraPreviewPolicy.hpp"
 #include "chromascope/DnnGuiSession.hpp"
@@ -139,6 +140,12 @@ struct App {
     // entering this workspace never open a device or request OS permission.
     // Capture thread owns driver I/O; texture uploads stay on the GUI thread.
     chromascope::AsyncCameraCapture camera_capture;
+    chromascope::AsyncLiveCameraInference live_inference;
+    std::shared_ptr<const chromascope::LiveInferenceResult> live_displayed;
+    bool live_inference_active = false;
+    int live_detection_profile = 0; // COCO objects / class-0 person only
+    float live_confidence_threshold = 0.50F;
+    float live_person_display_threshold = 0.50F;
     chromascope::CameraBackend camera_backend = chromascope::CameraBackend::PlatformDefault;
     chromascope::CameraDiscoveryReport camera_devices;
     chromascope::CameraActiveFormat camera_active_format;
@@ -228,7 +235,14 @@ struct App {
         }
     }
 
+    void cancel_live_inference() noexcept {
+        live_inference.cancel();
+        live_inference_active = false;
+        live_displayed.reset();
+    }
+
     void stop_camera() noexcept {
+        cancel_live_inference();
         // stop() returns immediately even if native driver I/O is blocked;
         // STOPPING remains visible until the worker actually closes the camera.
         if (camera_capture.state() != chromascope::CameraCaptureState::Idle)
@@ -250,7 +264,32 @@ struct App {
         workspace_mode = next_mode;
     }
 
+    void start_live_inference() {
+        try {
+            if (workspace_mode != 2 ||
+                camera_capture.state() != chromascope::CameraCaptureState::Capturing)
+                throw std::invalid_argument("Start the live camera before enabling inference");
+            chromascope::DnnPostprocessOptions policy;
+            policy.confidence_threshold = static_cast<double>(live_confidence_threshold);
+            policy.nms_iou_threshold = detector_options.nms_iou_threshold;
+            policy.max_detections = static_cast<std::size_t>(detector_options.max_detections);
+            policy.uncertainty_floor = static_cast<double>(video_uncertainty_floor);
+            policy.person_only = live_detection_profile == 1;
+            policy.person_display_threshold = static_cast<double>(live_person_display_threshold);
+            for (int i = 0; i < chromascope::kNanoDetClassCount; ++i)
+                if (const auto value = detector_class_overrides[static_cast<std::size_t>(i)])
+                    policy.class_thresholds.push_back({i, *value});
+            (void)live_inference.start(camera_generation, detector_model_path.data(), policy);
+            live_displayed.reset();
+            live_inference_active = true;
+            camera_status = "Live camera analysis requested (local, opt-in).";
+        } catch (const std::exception& error) {
+            camera_status = std::string("Live analysis rejected: ") + error.what();
+        }
+    }
+
     void start_camera() {
+        cancel_live_inference();
         // Only called by the explicit user-facing Start camera button.
         // No probes, fallback, recording, inference or model loading.
         try {
@@ -288,11 +327,13 @@ struct App {
                     }
                     break;
                 case chromascope::CameraCaptureEventKind::Stopped:
+                    cancel_live_inference();
                     camera_status = "Camera closed. No capture active.";
                     camera_texture.reset();
                     camera_frame_visible = false;
                     break;
                 case chromascope::CameraCaptureEventKind::Error:
+                    cancel_live_inference();
                     camera_status = "Camera error (" + std::string(
                         chromascope::camera_error_name(event->error_code.value_or(
                             chromascope::CameraErrorCode::ReadFailed))) + "): " + event->message;
@@ -310,15 +351,46 @@ struct App {
                 const auto image = chromascope::to_cv_mat_copy(newest->image);
                 const bool resized = camera_texture.source_width != image.cols ||
                                      camera_texture.source_height != image.rows;
-                camera_texture.upload(image);
-                if (resized) camera_view.fit();
-                camera_frame_index = newest->index;
-                camera_frame_time = newest->image.metadata().timestamp->value;
-                camera_frame_visible = true;
+                // When inferencing, hold the most recently ANALYZED pixels and
+                // draw only their matching result. Camera capture still runs.
+                if (!live_inference_active || !live_displayed) {
+                    camera_texture.upload(image);
+                    if (resized) camera_view.fit();
+                    camera_frame_index = newest->index;
+                    camera_frame_time = newest->image.metadata().timestamp->value;
+                    camera_frame_visible = true;
+                }
+                if (live_inference_active)
+                    (void)live_inference.submit(camera_generation, std::move(*newest));
             } catch (const std::exception& error) {
                 stop_camera();
                 camera_status = std::string("Preview conversion failed: ") + error.what();
             }
+        }
+        if (live_inference_active && workspace_mode == 2 &&
+            camera_capture.state() == chromascope::CameraCaptureState::Capturing) {
+            const auto snapshot = live_inference.snapshot();
+            if (snapshot.latest && snapshot.camera_generation == camera_generation &&
+                snapshot.latest->camera_generation == camera_generation &&
+                snapshot.latest->session == snapshot.session &&
+                snapshot.latest != live_displayed) {
+                try {
+                    const auto image = chromascope::to_cv_mat_copy(snapshot.latest->frame.image);
+                    const bool resized = camera_texture.source_width != image.cols ||
+                                         camera_texture.source_height != image.rows;
+                    camera_texture.upload(image); // GUI thread only
+                    if (resized) camera_view.fit();
+                    camera_frame_index = snapshot.latest->frame.index;
+                    camera_frame_time = snapshot.latest->frame.image.metadata().timestamp->value;
+                    camera_frame_visible = true;
+                    live_displayed = snapshot.latest;
+                } catch (const std::exception& error) {
+                    cancel_live_inference();
+                    camera_status = std::string("Live analysis preview failed: ") + error.what();
+                }
+            }
+            if (snapshot.stage == chromascope::LiveInferenceStage::Failed)
+                live_displayed.reset();
         }
     }
 
@@ -1296,8 +1368,8 @@ struct App {
         const float sidebar_width = 345.0F;
         ImGui::BeginChild("Camera controls", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("LOCAL LIVE CAMERA");
-        ImGui::TextWrapped("Camera activation is opt-in. Nothing is recorded, uploaded "
-                           "or sent to person/object detection by this preview.");
+        ImGui::TextWrapped("Camera and CPU detection are separately opt-in. "
+                           "Nothing is recorded, uploaded, or inferred automatically.");
         ImGui::Separator();
         const auto current_state = camera_capture.state();
         const auto badge = chromascope::camera_preview_badge(current_state);
@@ -1364,6 +1436,35 @@ struct App {
         if (ImGui::Button("Stop camera", ImVec2(-1, 0))) stop_camera();
         ImGui::EndDisabled();
         ImGui::Separator();
+        ImGui::TextUnformatted("LIVE OBJECT / PERSON DETECTION (OPT-IN)");
+        ImGui::TextWrapped("Only pinned local NanoDet COCO-80 inference. "
+                           "Person mode detects class 0; no identity or tracking.");
+        ImGui::BeginDisabled(live_inference_active);
+        ImGui::Combo("Live detection profile", &live_detection_profile,
+            "COCO-80 objects\0Person only (COCO ID 0)\0");
+        ImGui::SliderFloat("Live confidence cutoff", &live_confidence_threshold,
+            0.01F, 1.0F, "%.2f");
+        if (live_detection_profile == 1)
+            ImGui::SliderFloat("Live person display cutoff", &live_person_display_threshold,
+                0.01F, 1.0F, "%.2f");
+        ImGui::InputText("Local ONNX model", detector_model_path.data(), detector_model_path.size());
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(live_inference_active || !capturing);
+        if (ImGui::Button("Start live inference", ImVec2(-1, 0))) start_live_inference();
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!live_inference_active);
+        if (ImGui::Button("Stop live inference", ImVec2(-1, 0))) {
+            cancel_live_inference();
+            camera_status = "Live inference stopped; camera preview remains on.";
+        }
+        ImGui::EndDisabled();
+        const auto live_state = live_inference.snapshot();
+        ImGui::TextWrapped("%s", live_state.message.c_str());
+        ImGui::Text("Analyzed: %llu | Coalesced pending frames: %llu",
+            static_cast<unsigned long long>(live_state.processed_frames),
+            static_cast<unsigned long long>(live_state.replaced_pending_frames));
+        ImGui::TextDisabled("Inference uses one pending frame + one worker; CPU forward cannot be interrupted.");
+        ImGui::Separator();
         ImGui::Text("Completed frames dropped: %llu",
             static_cast<unsigned long long>(camera_capture.dropped_frames()));
         ImGui::Text("Worker queue: %zu frame(s), %zu bytes",
@@ -1391,9 +1492,23 @@ struct App {
         ImGui::SameLine();
         if (ImGui::SmallButton("Fit camera")) camera_view.fit();
         ImGui::Separator();
+        if (live_inference_active && live_displayed) {
+            ImGui::Text("Analyzed frame %llu | %.1f ms | %zu %s | %s",
+                static_cast<unsigned long long>(live_displayed->frame.index),
+                live_displayed->elapsed_ms,
+                live_displayed->inference.detections.objects().size(),
+                live_detection_profile == 1 ? "people" : "objects",
+                std::string(live_displayed->inference.summary.status()).c_str());
+            ImGui::TextDisabled("Preview shows analyzed pixels (not the newest captured frame).");
+        }
         if (camera_frame_visible && camera_texture.id &&
             camera_capture.state() == chromascope::CameraCaptureState::Capturing)
-            draw_viewport_texture("##camera_canvas", camera_texture, camera_view);
+            draw_viewport_texture("##camera_canvas", camera_texture, camera_view,
+                live_inference_active && live_displayed &&
+                live_displayed->camera_generation == camera_generation &&
+                live_displayed->frame.index == camera_frame_index &&
+                live_displayed->frame.image.metadata().timestamp->value == camera_frame_time
+                    ? &live_displayed->inference.detections : nullptr);
         else
             ImGui::TextWrapped("No live camera frame. Choose a camera and press Start camera. "
                                "An OS permission prompt may appear.");
@@ -1468,8 +1583,9 @@ struct App {
                 "telemetry, face recognition, or identity matching feature. "
                 "Person boxes are COCO class 0 predictions, not identities.");
             ImGui::TextWrapped("Images, model weights, decoded frames, camera "
-                "preview pixels and caches stay local. Camera preview never "
-                "records or uploads. File exports are explicit; AVI exports discard audio.");
+                "preview pixels and caches stay local. Live inference requires "
+                "a separate Start action; no recording or uploads. "
+                "File exports are explicit; AVI exports discard audio.");
             ImGui::TextDisabled("No automatic GUI layout file is written.");
             if (ImGui::Button("Clear loaded media, model and results"))
                 clear_private_session();

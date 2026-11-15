@@ -802,3 +802,13 @@ optional private PNG checks and sanitized create-only reports. Default mode
 is passive and cannot qualify hardware. GUI indicator, release and permission
 observations require a human operator on an authorized Linux webcam; CI
 remains camera-free. See [Linux camera smoke protocol](docs/M8_7_LINUX_CAMERA_SMOKE.md).
+
+### M9.1 — opt-in live camera object/person inference
+
+The Live camera GUI now has a **separate** Start live inference control. It
+passes bounded, source-owned camera frames to the same verified CPU NanoDet
+object/person inference used for still images and recorded video. Objects are
+COCO-80 classes; person mode uses class 0 only (no identity or tracking).
+Results are shown only with their **matching analyzed pixels**, never over an
+unrelated newer camera frame. No automatic model loading, recording, upload or
+export occurs. See [M9.1 live inference contract](docs/M9_1_LIVE_CAMERA_INFERENCE.md).

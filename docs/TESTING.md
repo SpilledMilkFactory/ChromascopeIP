@@ -1093,3 +1093,15 @@ camera)** and **107 Python quality tests**. Run the focused quality module and
 complete suite; no physical device is opened by quality tests. See
 `docs/M10_4_PERFORMANCE_BASELINES.md` for active Release CLI benchmarking,
 whole-device GPU observation caveats and manual GUI profiling requirements.
+
+### M10.5 (#71) — threat-boundary audit (research only)
+
+`tests/quality/test_threat_boundary_audit.py` adds **8 hardware-free source-policy
+checks** protecting the documented distinction between current first-party
+validation and untrusted decoder/model/driver/filesystem risks. The expected
+baseline is **144 native CTests (28 camera-labeled)** and **118 Python quality
+tests**; M10.5 changes no production C++ behavior or CTest registration.
+Run the focused and complete quality suites, existing native Release/sanitizer
+and clang-tidy gates, and all six hosted workflows. These eight static checks
+are not a fuzz campaign or third-party memory-safety proof. See
+`docs/M10_5_THREAT_BOUNDARY_AUDIT.md` for risk priorities and follow-ups.

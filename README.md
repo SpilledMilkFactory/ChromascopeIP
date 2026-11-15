@@ -903,3 +903,12 @@ requires `--observe-gpu` and is **not process GPU attribution**. Output is
 aggregate-only and create-exclusive. This milestone changes no production
 camera, model, GUI or CLI behavior; see
 [`docs/M10_4_PERFORMANCE_BASELINES.md`](docs/M10_4_PERFORMANCE_BASELINES.md).
+
+### M10.5 (#71) — security threat-boundary audit
+
+The [M10.5 trust-boundary review](docs/M10_5_THREAT_BOUNDARY_AUDIT.md) inventories
+filesystem/output, still/video decoder, ONNX model, camera, resource and
+dependency risks. It distinguishes existing controls from residual exposure and
+prioritizes follow-up mitigations; it **does not claim a complete vulnerability
+assessment or guarantee that third-party code is memory-safe**. The research
+milestone introduces no production changes, camera access or new exports.

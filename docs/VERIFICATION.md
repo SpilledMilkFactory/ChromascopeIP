@@ -1268,3 +1268,15 @@ No production C++ or native CTests are changed: expected **144/28/107**.
 Manual reproducibility, full source gates, GUI performance, physical camera
 qualification and six hosted CI checks remain required; no speedup is claimed.
 See `docs/M10_4_PERFORMANCE_BASELINES.md`.
+
+### M10.5 (#71) — filesystem, media, model, and camera security review (PENDING)
+
+M10.4 operator acceptance and all six CI jobs were reported before this audit.
+M10.5 adds a structured threat model and eight read-only Python quality guards;
+no native tests or production paths change (expected **144 native CTests,
+28 camera-labeled, 118 Python quality tests**). Sign-off on this **research
+artifact** requires traceable evidence, prioritized R-01–R-08 mitigations, and
+explicit follow-up ownership. Do not claim a general security certification or
+that the absence of a reproduced critical bug proves memory safety. Full native,
+Python, static-analysis, manual privacy and six hosted CI gates remain required.
+See `docs/M10_5_THREAT_BOUNDARY_AUDIT.md`.

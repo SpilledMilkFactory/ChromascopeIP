@@ -1302,3 +1302,19 @@ This is regression coverage of known first-party boundaries, **not** a claim
 of comprehensive third-party decoder fuzzing or an exploit-free build. The
 M10.5 threat register remains open for isolation, file-identity and resource
 mitigations requiring separate engineering review.
+
+## M10.7 (#73) — Extended validation preparation (pending operator sign-off)
+
+Added 17 no-hardware Python supervisor regressions and a bounded, opt-in
+synthetic/recorded-video/V4L2 live soak runner. The accepted M10.6 baseline
+is **147 native CTests**, **28 camera CTests**, and **123 Python quality
+tests**; M10.7 expects **147 / 28 / 140**. Production C++ is unchanged.
+
+Acceptance is NOT implied by an offline PASS: rerun all 147 GUI/CLI Release
+and CLI ASan/UBSan CTests, clang-tidy, 140 Python tests, provenance/policy,
+repeated synthetic soaks, extended recorded-video and explicitly authorized
+real-camera soak where available. Record native Windows 10/11 manual checks
+separately from Windows Server CI. Hosted six-check CI, operator GUI/device
+observations and real-hardware/resource measurements remain pending until
+tested against the exact M10.7 commit. See
+[M10_7_SANITIZER_STATIC_SOAK.md](M10_7_SANITIZER_STATIC_SOAK.md).

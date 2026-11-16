@@ -1121,3 +1121,14 @@ Run `python3 scripts/materialize_fuzz_seeds.py --check` for passive seed
 validation. The optional LLVM libFuzzer path is documented in
 `docs/M10_6_MALFORMED_MEDIA_FUZZ.md`; sanitizer instrumentation of the
 first-party header parser does not sanitize third-party OpenCV codecs.
+
+## M10.7 — Repeatable sanitizer/static-analysis and extended soak qualification
+
+M10.7 adds `scripts/soak_qualification.py` and **17** hardware-independent
+Python quality regressions (`tests/quality/test_soak_qualification.py`).
+It adds no native CTests: expected **147 native CTests**, **28 camera-labeled**,
+and **140 Python quality tests**. The opt-in supervisor repeats exactly eight
+existing synthetic live/video tests in configurable bounded rounds; active
+recorded-video/live checks require explicit local model/media and Linux V4L2
+camera authorization, respectively. Full commands, privacy limitations and
+separate manual sign-off: [M10.7 guide](M10_7_SANITIZER_STATIC_SOAK.md).

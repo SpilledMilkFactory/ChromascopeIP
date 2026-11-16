@@ -19,3 +19,6 @@ CMakeUserPresets.json.example text eol=lf
 *.png -text
 *.webp -text
 *.zip -text
+
+# Keep the M10.6 synthetic hex manifest byte-stable on Windows checkouts.
+tests/fuzz/seeds/manifest.txt text eol=lf

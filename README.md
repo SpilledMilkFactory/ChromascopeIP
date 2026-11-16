@@ -4,33 +4,48 @@
 
 I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible C++ application. This first baseline preserves the original four candy photographs while establishing a single processing core shared by a command-line application and a graphical desktop application.
 
-> **M10.1 (#67) candidate:** Resizable still/video/camera workspaces, monitor DPI
-> handling, bounded local file browser, guarded keyboard shortcuts and F1
-> contextual help. No automatic camera/model activation or GUI persistence.
-> Final desktop/DPI verification pending. See
-> [M10.1 GUI experience](docs/M10_1_GUI_EXPERIENCE.md).
+> **Current documentation:** [M10.8 user/maintainer documentation index](docs/DOCUMENTATION_INDEX.md)
+> describes the implemented GUI/CLI and its privacy, architecture and testing
+> boundaries. Historical M10.1–M10.7 issue notes below remain as development
+> records, not a statement that those features are unavailable today.
+
+## Current documentation (M10.8 / #74)
+
+**Start with the [current documentation index](docs/DOCUMENTATION_INDEX.md).**
+For day-to-day use: [GUI guide](docs/USER_GUIDE.md),
+[CLI reference](docs/CLI_REFERENCE.md),
+[local privacy/consent](docs/PRIVACY_GUIDE.md),
+[troubleshooting](docs/TROUBLESHOOTING.md), and
+[current system architecture](docs/CURRENT_ARCHITECTURE.md).
+The numbered milestone sections that follow preserve historical development
+snapshots; **older pending labels and capability tables are not current status**.
+At the accepted M10.7 baseline there are 147 native CTests, 28 camera-labeled
+CTests and 140 Python quality tests. M10.8 changes documentation and adds
+hardware-free documentation checks; it does **not** alter production behavior.
 
 > **Historical M8.4 foundation:** M8.1–M8.3 established native backend selection, passive discovery, validated formats, typed errors and bounded asynchronous capture. M8.4 adds a **user-activated local live-camera GUI workspace** with device selection, a visible capture indicator and Stop/session-reset cleanup. Still-image and recorded-video workflows remain intact. No automatic camera activation, recording, upload, face recognition or identity tracking is introduced. See [M8.4 camera preview](docs/M8_4_CAMERA_GUI.md) and [privacy controls](docs/M7_6_LOCAL_PRIVACY.md).
 
-## Current capabilities (M8.1 preparation; M7.6 accepted)
+## Current capabilities (M10.7 baseline; current for M10.8 documentation)
 
-| Capability | C++ library | CLI | GUI |
-| --- | :---: | :---: | :---: |
-| Open still images using OpenCV | Yes | Yes | Yes |
-| Hough-circle detection for candy-sized objects | Yes | Yes | Yes |
-| Classify red, orange, yellow, lime, dark purple | Yes | Yes | Yes |
-| Adjustable processing sensitivity | Yes | Yes | Yes |
-| Draw labeled colored outlines | Yes | Yes | Yes |
-| Export annotated JPEG/PNG | Yes | Yes | Yes |
-| Save structured machine-readable JSON | — | Yes | — |
-| Open the four archived examples | Yes | Yes | Yes |
-| Recorded-video decoding and navigation | Yes | Probe/extract | Play/seek |
-| Webcam backend adapter (explicit opt-in, not live UI) | **M8.1 core** | Registry only | **No** |
-| General multi-class object detection (NanoDet CPU) | Yes | Yes | Yes |
-| Person-only boxes (COCO class 0) | Yes | Yes | Yes |
-| Identity or face recognition | **No** | **No** | **No** |
+| Capability | CLI | GUI | Notes |
+| --- | :---: | :---: | --- |
+| Still-image Skittles/circle+HSV detection and annotation | Yes | Yes | Original four samples preserved |
+| Registered still-image filters and segmentation | Yes | Yes | No fabricated neural detections |
+| Pinned NanoDet COCO object and person-class boxes | Yes | Yes | Explicit local ONNX; CPU inference |
+| Recorded-video probe/extract/analyze and JSONL | Yes | Yes* | GUI offers play/seek/inference, CLI has structured exports |
+| Silent annotated MJPEG/AVI video export | Yes | Yes | Audio discarded intentionally |
+| Native local webcam discovery and explicit capture | Yes | Yes | Default V4L2/Linux or MSMF/Windows; optional DShow |
+| Live camera object/person inference, overlays and pause | Yes | Yes | Explicit opt-in; CLI streams JSONL |
+| Temporary live tracking IDs | No persistent export | Yes | Session-local opt-in, not identity recognition |
+| Versioned, explicit-save GUI preferences | N/A | Yes | No media/model/camera paths persisted |
+| Identity/face recognition or network upload | No | No | Not implemented in first-party runtime |
 
-The current **Skittles** profile uses classical image processing, not a trained model. Hough-circle candidates and an HSV color classifier perform best on reasonably separated, roughly round candies. Person and COCO-80 object boxes use the separately verified NanoDet CPU model. They are not biometric identities and do not guarantee recall under occlusion, crowding or small-object scale. Live camera input remains a later milestone.
+*The CLI's recorded-video operations and the GUI's recorded-video player have
+different interfaces; neither implies identical controls. Camera discovery is
+passive, while capture/inference requires explicit activation. Native desktop
+camera/GUI behavior requires real-device testing and is not proven by hosted
+Windows core/CLI CI. See the [GUI](docs/USER_GUIDE.md),
+[CLI](docs/CLI_REFERENCE.md) and [privacy](docs/PRIVACY_GUIDE.md) guides.
 
 ## M2.4 background processing (accepted)
 

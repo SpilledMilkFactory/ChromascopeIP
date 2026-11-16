@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -27,7 +28,46 @@ std::string preflight(const Bytes& bytes) {
     } catch (const std::invalid_argument&) { return "reject"; }
 }
 
+void verify_seed_manifest_line_endings() {
+    using chromascope::testing::read_malformed_seeds;
+    constexpr auto records = "# synthetic seed\n\nempty|reject|\npng_valid_header|pass|89504e470d0a1a0a0000000d494844520000000800000006\n";
+    const std::string lf(records);
+    std::string crlf;
+    for (const char character : lf) {
+        if (character == '\n') crlf.push_back('\r');
+        crlf.push_back(character);
+    }
+    std::istringstream unix_stream(lf);
+    std::istringstream windows_stream(crlf);
+    const auto unix_seeds = read_malformed_seeds(unix_stream);
+    const auto windows_seeds = read_malformed_seeds(windows_stream);
+    check(unix_seeds.size() == 2, "LF seed corpus must parse");
+    check(windows_seeds.size() == unix_seeds.size(), "CRLF seed count must match LF");
+    for (std::size_t i = 0; i < unix_seeds.size(); ++i) {
+        check(windows_seeds[i].name == unix_seeds[i].name &&
+              windows_seeds[i].outcome == unix_seeds[i].outcome &&
+              windows_seeds[i].bytes == unix_seeds[i].bytes,
+              "CRLF seed bytes/metadata must match LF");
+    }
+
+    const auto must_reject = [](const std::string& input) {
+        std::istringstream malformed(input);
+        try {
+            (void)read_malformed_seeds(malformed);
+        } catch (const std::runtime_error&) {
+            return true;
+        }
+        return false;
+    };
+    check(must_reject("empty|reject|\r"), "bare trailing CR without LF must fail");
+    check(must_reject("empty|reject|\r\r\n"), "double CR before LF must fail");
+    check(must_reject("empty|re\rject|\n"), "embedded CR must fail");
+    check(must_reject(std::string(1025, 'x') + "\n"),
+          "overlong manifest line must fail");
+}
+
 void run_corpus() {
+    verify_seed_manifest_line_endings();
     const auto seeds = chromascope::testing::read_malformed_seeds(
         CHROMASCOPE_M106_SEED_MANIFEST);
     check(seeds.size() == 30, "expected 25 still-image and five video seeds");

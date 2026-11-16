@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <istream>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
@@ -18,16 +19,21 @@ struct MalformedSeed {
     std::vector<std::uint8_t> bytes;
 };
 
-inline std::vector<MalformedSeed> read_malformed_seeds(const std::filesystem::path& path) {
-    std::ifstream stream(path, std::ios::binary);
-    if (!stream) throw std::runtime_error("cannot open deterministic seed manifest");
+inline std::vector<MalformedSeed> read_malformed_seeds(std::istream& stream) {
     std::vector<MalformedSeed> seeds;
     std::unordered_set<std::string> names;
     std::string line;
     while (std::getline(stream, line)) {
-        if (line.empty() || line[0] == '#') continue;
-        if (line.size() > 1024 || (!line.empty() && line.back() == '\r'))
+        // std::getline strips LF, but leaves CR from a Windows CRLF checkout.
+        // Remove exactly one CR only when LF terminated the line. Bare CR at
+        // EOF, embedded CR, repeated CR and overlong records still fail closed.
+        if (line.size() > 1025)
             throw std::runtime_error("invalid seed manifest line size/ending");
+        if (!line.empty() && line.back() == '\r' && !stream.eof())
+            line.pop_back();
+        if (line.size() > 1024 || line.find('\r') != std::string::npos)
+            throw std::runtime_error("invalid seed manifest line size/ending");
+        if (line.empty() || line[0] == '#') continue;
         const auto first = line.find('|');
         const auto second = first == std::string::npos ? first : line.find('|', first + 1);
         if (first == std::string::npos || second == std::string::npos ||
@@ -62,5 +68,11 @@ inline std::vector<MalformedSeed> read_malformed_seeds(const std::filesystem::pa
     }
     if (!stream.eof()) throw std::runtime_error("failed to read seed manifest");
     return seeds;
+}
+
+inline std::vector<MalformedSeed> read_malformed_seeds(const std::filesystem::path& path) {
+    std::ifstream stream(path, std::ios::binary);
+    if (!stream) throw std::runtime_error("cannot open deterministic seed manifest");
+    return read_malformed_seeds(stream);
 }
 } // namespace chromascope::testing

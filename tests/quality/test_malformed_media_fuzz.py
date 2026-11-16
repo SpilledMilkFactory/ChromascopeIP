@@ -29,6 +29,9 @@ class MalformedMediaFuzzTests(unittest.TestCase):
         for prefix in ("png_", "jpeg_", "bmp_", "tiff_", "webp_"):
             self.assertTrue(any(name.startswith(prefix) for name in seeds))
         self.assertTrue(all(len(data) <= 256 for _, data in seeds.values()))
+        # Git must not rewrite this tiny hex manifest on Windows checkouts.
+        attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
+        self.assertIn("tests/fuzz/seeds/manifest.txt text eol=lf", attributes)
 
     def test_empty_and_truncated_inputs_are_explicit(self):
         seeds = module.read_seeds()
@@ -40,6 +43,10 @@ class MalformedMediaFuzzTests(unittest.TestCase):
         text = MANIFEST.read_text(encoding="ascii")
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "manifest.txt"
+            # Git's default Windows checkout may use CRLF; seed identities
+            # must be independent of the host text convention.
+            path.write_bytes(text.replace("\n", "\r\n").encode("ascii"))
+            self.assertEqual(module.read_seeds(path), module.read_seeds())
             path.write_text(text + "empty|reject|00\n", encoding="ascii")
             with self.assertRaisesRegex(ValueError, "duplicate"):
                 module.read_seeds(path)

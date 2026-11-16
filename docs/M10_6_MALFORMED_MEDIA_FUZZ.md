@@ -20,6 +20,17 @@ Each record is `name|expected|hex-bytes`; expectations for images mean:
 - `video`: intentionally malformed/truncated video data. The dedicated native
   negative test uses only the explicit OpenCV MJPEG backend and demands rejection.
 
+### Windows CI line-ending qualification (M10.6 follow-up)
+
+The checked-in seed manifest is pinned to LF in `.gitattributes`. The native
+manifest reader also accepts conventional CRLF (including existing Windows
+working-tree copies) without changing seed bytes or expectations. It continues
+to reject lone or embedded CR, repeated CR, malformed fields, and oversized
+lines. The preflight regression exercises both LF and CRLF in memory, plus
+malformed line-ending cases; the Python quality suite checks the Git attribute
+and parses a CRLF corpus. This fixes the Windows MSVC CTest failures observed
+in tests 145 and 147, without disabling checks or changing production code.
+
 The seed corpus uses hand-built headers, not downloaded media, personal data,
 photographs, ONNX model bytes, camera frames or archived test fixtures.
 Each case is at most 256 bytes. The checked-in manifest is pure ASCII hex;

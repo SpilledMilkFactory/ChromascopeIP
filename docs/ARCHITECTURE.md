@@ -1,5 +1,11 @@
 # ChromascopeIP — M0–M0.3 Architecture (historical baseline)
 
+> **Current reference:** [M10.8 system architecture](CURRENT_ARCHITECTURE.md).
+> This file intentionally preserves historical milestone evolution; the
+> current operating architecture includes live camera inference, temporary
+> tracking, privacy/settings, and bounded soak qualification through M10.7.
+
+
 The early pipeline/"excluded from M0" sections below describe the **M0
 baseline**, not the current M7 feature set. Later sections describe the
 implemented async video and NanoDet pipelines. Current local processing,

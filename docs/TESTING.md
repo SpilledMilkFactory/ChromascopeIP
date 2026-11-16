@@ -1132,3 +1132,23 @@ existing synthetic live/video tests in configurable bounded rounds; active
 recorded-video/live checks require explicit local model/media and Linux V4L2
 camera authorization, respectively. Full commands, privacy limitations and
 separate manual sign-off: [M10.7 guide](M10_7_SANITIZER_STATIC_SOAK.md).
+
+## M10.8 (#74) — Current GUI/CLI, privacy, troubleshooting and architecture documentation
+
+M10.8 adds the [documentation index](DOCUMENTATION_INDEX.md),
+[current GUI](USER_GUIDE.md), [CLI reference](CLI_REFERENCE.md),
+[privacy guide](PRIVACY_GUIDE.md), [troubleshooting](TROUBLESHOOTING.md) and
+[current architecture](CURRENT_ARCHITECTURE.md). They describe the
+**accepted M10.7 baseline**, while earlier M0–M10.7 pages remain historical.
+`tests/quality/test_documentation_m108.py` adds **13 hardware-free checks** for
+links, CLI flags, safe examples, source boundary terms, privacy permissions,
+architecture layout and documentation discoverability. No production code,
+CTest registry, camera access or ONNX model loads are changed.
+
+Expected local test baseline after M10.8: **147 native CTests, 28 camera-labeled,
+153 Python quality tests** (140 + 13). Use the full Python suite, native GUI
+Release, CLI Release and ASan/UBSan, clang-tidy, provenance/CI policy, manual
+GUI/CLI acceptance and six hosted CI checks. The documentation tests validate
+consistency with selected source contracts; **they are not** a substitute for
+manual camera/platform verification or a comprehensive documentation accuracy
+proof. See [M10.8 guide index](DOCUMENTATION_INDEX.md).

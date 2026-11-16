@@ -923,3 +923,10 @@ builds never initiate fuzzing, device capture or model loading. The corpus is
 stored as auditable hex in `tests/fuzz/seeds/manifest.txt`; binary materialization
 is opt-in and create-only under a caller-selected build directory.
 See [`docs/M10_6_MALFORMED_MEDIA_FUZZ.md`](docs/M10_6_MALFORMED_MEDIA_FUZZ.md).
+
+### M10.7 — Extended sanitizer and live/video soak qualification
+
+See [the M10.7 qualification guide](docs/M10_7_SANITIZER_STATIC_SOAK.md) for
+repeatable Release/sanitizer CTests, clang-tidy, 20-round synthetic video/live
+soaks, and **explicitly opt-in** recorded-video or V4L2 camera runs.
+Automated PASS does not certify physical devices or the Windows desktop.

@@ -9,6 +9,19 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 > boundaries. Historical M10.1–M10.7 issue notes below remain as development
 > records, not a statement that those features are unavailable today.
 
+## M12.1 — v1.0.0 version and feature-scope freeze (Issue #84)
+
+**Current source, GUI, CLI and five distribution filenames: 1.0.0.**
+This is a **release-candidate identity freeze, NOT a signed or published release**.
+The first-party v1.0 scope is frozen: local still-image tools, recorded video,
+explicit local object/person inference, opt-in live camera/temporary tracking,
+GUI, CLI, and five OS-specific distribution candidates. Model weights and
+unapproved historical media remain excluded; no networking, face recognition,
+or persistent identity tracking is introduced. Public release remains blocked
+on the unresolved M11.9 redistribution/NOTICE review, any missing M11.8
+manual-device attestations, and later release/signing gates. See the
+[M12.1 scope and version contract](docs/M12_1_RELEASE_SCOPE.md).
+
 ## Current documentation (M10.8 / #74)
 
 **Start with the [current documentation index](docs/DOCUMENTATION_INDEX.md).**
@@ -41,8 +54,9 @@ This is a staging foundation, not a release-ready portable binary.
 
 The Debian 12 pipeline builds and clean-install-smoke-tests an `amd64` `.deb`
 using the M11.1 install layout, the pinned OpenCV 5.1.0 private runtime and
-Debian-native dependency declarations. This is a **version 0.1.3 development
-candidate**, not the future v1.0.0 release (M12.1 handles version freeze).
+Debian-native dependency declarations. The historical M11.2 artifact was a pre-v1.0 development candidate.
+The **current M12.1 source is version 1.0.0 (release candidate only)**;
+no public v1.0.0 release has been authorized.
 The package retains attribution/license texts and omits historical sample media,
 ONNX weights and development dependencies. It must still pass CI, actual clean
 installation, later third-party release inventory and manual GUI/camera gates.
@@ -53,20 +67,19 @@ See the [M11.2 Debian package guide](docs/M11_2_DEBIAN12_PACKAGE.md).
 Debian 13 (Trixie) builds a **separate** `amd64` package from its own pinned
 OpenCV 5.1.0 runtime and Trixie system-library dependency metadata, with the
 same M11.2 recursive OpenCV closure, private executable-relative ELF search
-paths, and procfs-aware clean-install checks. The temporary candidate filename
-is `ChromascopeIP-0.1.3-Debian13-amd64.deb`; it is **not** the v1.0.0
-release. Debian 12 packaging continues independently. No original photos,
+paths, and procfs-aware clean-install checks. The current version-frozen candidate filename is
+`ChromascopeIP-1.0.0-Debian13-amd64.deb`; it remains **unpublished**. Debian 12 packaging continues independently. No original photos,
 recordings or ONNX model weights are bundled. See the [M11.3 Trixie package
 guide](docs/M11_3_DEBIAN13_PACKAGE.md) for acceptance limits.
 
 ## M11.4 Ubuntu 24.04 AMD64 development package (Issue #78; accepted and merged)
 
-Ubuntu 24.04 (Noble) now constructs its own `ChromascopeIP-0.1.3-Ubuntu24.04-amd64.deb`
+Ubuntu 24.04 (Noble) now constructs its own `ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb`
 using the native Noble toolchain, source-pinned OpenCV 5.1.0 and Ubuntu-generated
 APT dependencies. The CI check additionally installs the package into a fresh
 Noble root and runs clean CLI smokes. Debian 12/13 packages and the Ubuntu
 26.04 build continue independently; no historical photographs, video files or
-ONNX weights are bundled. This candidate is not the v1.0.0 release. See the
+ONNX weights are bundled. This candidate is not an authorized public v1.0.0 release. See the
 [M11.4 Ubuntu 24.04 package guide](docs/M11_4_UBUNTU24_PACKAGE.md).
 
 ## M11.7 complete five-platform package matrix (Issue #81; pending acceptance)
@@ -82,7 +95,7 @@ qualification, not a signed release or Windows 10/11 desktop certification.
 
 The Windows Server 2022 / VS2022 CI now builds the GUI as well as the CLI,
 using statically linked pinned OpenCV 5.1.0, GLFW 3.4 and Dear ImGui 1.93.0.
-The new `ChromascopeIP-0.1.3-Windows-x64.zip` candidate includes both
+The new `ChromascopeIP-1.0.0-Windows-x64.zip` candidate includes both
 frontends, an explicit PE import and app-local VC143 runtime dependency
 inventory, notices, SHA-256 manifest and an isolated relocated CLI smoke.
 Windows 10/11 interactive desktop and camera testing, full redistribution
@@ -91,12 +104,12 @@ sign-off and final v1.0.0 qualification remain future gates. See
 
 ## M11.5 Ubuntu 26.04 AMD64 development package (Issue #79; accepted and merged)
 
-Resolute builds a separate native `ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb`
+Resolute builds a separate native `ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb`
 with source-pinned OpenCV 5.1.0, Ubuntu 26.04 dependency metadata, a private
 transitive ELF library closure, and a fresh Resolute APT/CLI smoke. The qualified
 Ubuntu 24.04 and Debian 12/13 package gates remain unchanged. This remains a
 development candidate without historical sample media or bundled ONNX weights,
-not a v1.0.0 release. See the [M11.5 Ubuntu 26.04 package guide](docs/M11_5_UBUNTU26_PACKAGE.md).
+not an authorized public v1.0.0 release. See the [M11.5 Ubuntu 26.04 package guide](docs/M11_5_UBUNTU26_PACKAGE.md).
 
 ## Current capabilities (M10.7 baseline; current for M10.8 documentation)
 

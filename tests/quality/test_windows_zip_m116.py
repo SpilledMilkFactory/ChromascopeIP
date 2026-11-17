@@ -134,7 +134,7 @@ class WindowsZipM116Tests(unittest.TestCase):
             cache.write_text('CMAKE_GENERATOR:INTERNAL=Visual Studio 17 2022\n'
                              'CMAKE_GENERATOR_PLATFORM:INTERNAL=x64\n'
                              'CHROMASCOPE_BUILD_GUI:BOOL=OFF\n'
-                             'CMAKE_PROJECT_VERSION:STATIC=0.1.3\n')
+                             'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n')
             with patch.object(pack.sys, 'platform', 'win32'), \
                  patch.object(pack.platform, 'machine', return_value='AMD64'):
                 with self.assertRaisesRegex(pack.PackageError, 'CHROMASCOPE_BUILD_GUI'):

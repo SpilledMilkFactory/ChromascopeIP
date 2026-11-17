@@ -45,6 +45,12 @@ set_tests_properties(chromascope_cli_help PROPERTIES
     LABELS "cli;smoke" TIMEOUT 15
     PASS_REGULAR_EXPRESSION "Usage: chromascope-cli")
 
+# M12.1: enforce compiled CLI identity; GUI/CLI version comes from CMake.
+add_test(NAME chromascope_cli_version COMMAND chromascope-cli --version)
+set_tests_properties(chromascope_cli_version PROPERTIES
+    LABELS "cli;smoke;release" TIMEOUT 15
+    PASS_REGULAR_EXPRESSION "ChromascopeIP ${PROJECT_VERSION} ")
+
 add_test(NAME chromascope_cli_sample COMMAND chromascope-cli
     --input "${CHROMASCOPE_TEST_FIXTURE_ROOT}/s2.jpg")
 set_tests_properties(chromascope_cli_sample PROPERTIES

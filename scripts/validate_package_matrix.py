@@ -19,7 +19,8 @@ import package_ubuntu24
 import package_ubuntu26
 import package_windows_x64
 
-VERSION = '0.1.3'
+from runpy import run_path
+VERSION = run_path(str(Path(__file__).resolve().parent / 'release_identity.py'))['VERSION']
 TARGETS = (
     ('Debian12-amd64', '.deb', package_debian12),
     ('Debian13-amd64', '.deb', package_debian13),

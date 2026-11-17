@@ -35,7 +35,7 @@ class RedistributionM119Tests(unittest.TestCase):
         cls.commit = 'a' * 40
         cls.run_id = '123456789'
         for target, ext, _ in matrix.TARGETS:
-            stem = 'ChromascopeIP-0.1.3-' + target
+            stem = 'ChromascopeIP-1.0.0-' + target
             folder = cls.artifacts / stem
             folder.mkdir()
             package = folder / (stem + ext)
@@ -43,7 +43,7 @@ class RedistributionM119Tests(unittest.TestCase):
                 with tempfile.TemporaryDirectory(dir=cls.root) as stage_temp:
                     stage = Path(stage_temp)
                     (stage / 'DEBIAN').mkdir()
-                    control = ('Package: chromascopeip\nVersion: 0.1.3\nArchitecture: amd64\n'
+                    control = ('Package: chromascopeip\nVersion: 1.0.0\nArchitecture: amd64\n'
                                'Maintainer: ChromascopeIP contributors\n'
                                'Depends: libc6 (>= 2.36), libavcodec59 | libavcodec60, libgl1\n'
                                'Description: Synthetic policy-only fixture\n')
@@ -93,7 +93,7 @@ class RedistributionM119Tests(unittest.TestCase):
                                 'bytes': package.stat().st_size})
         cls.report = cls.root / 'matrix-report.json'
         cls.report.write_text(json.dumps({'schema': 1, 'project': 'ChromascopeIP',
-                  'version': '0.1.3', 'status': 'DEVELOPMENT_MATRIX_VERIFIED',
+                  'version': '1.0.0', 'status': 'DEVELOPMENT_MATRIX_VERIFIED',
                   'git_commit': cls.commit, 'github_run_id': cls.run_id,
                   'packages': cls.entries}), encoding='utf-8')
 

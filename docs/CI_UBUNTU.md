@@ -75,7 +75,7 @@ certify camera access or third-party video compatibility.
 ## M11.4 Ubuntu 24.04 native AMD64 candidate qualification
 
 The Ubuntu 24.04 matrix job now additionally stages a native `/usr` multiarch
-installation, builds `ChromascopeIP-0.1.3-Ubuntu24.04-amd64.deb` using
+installation, builds `ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb` using
 `scripts/package_ubuntu24.py`, and smoke-tests it with
 `scripts/smoke_ubuntu24_chroot.sh` in a fresh Noble APT installation. All
 original GUI/CLI CTests precede this package qualification. The Ubuntu 26.04
@@ -85,7 +85,7 @@ it is not a final v1.0.0 release. See [M11.4 guide](M11_4_UBUNTU24_PACKAGE.md).
 
 ## M11.5 Ubuntu 26.04 AMD64 native development package (#79)
 
-The independent `ubuntu-26.04` matrix job builds `ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb`
+The independent `ubuntu-26.04` matrix job builds `ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb`
 after its GUI-enabled and CLI-only 149-CTest suites pass. The package uses the
 native Resolute toolchain, pinned OpenCV 5.1.0 and Ubuntu 26.04-generated APT
 dependencies; it never repackages the Noble or Debian artifacts.

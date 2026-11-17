@@ -36,8 +36,8 @@ Digest mismatch is fatal by default.
 
 **M11.7 CI failure correction (2026-11-17):** The first matrix run built
 and uploaded all five qualified packages, but its first download requested
-`ChromascopeIP-0.1.3-Debian12-amd64` whereas GitHub stored the artifact as
-`ChromascopeIP-0.1.3-Debian12-amd64.deb`. With `upload-artifact@v7` and
+`ChromascopeIP-1.0.0-Debian12-amd64` whereas GitHub stored the artifact as
+`ChromascopeIP-1.0.0-Debian12-amd64.deb`. With `upload-artifact@v7` and
 `archive: false`, the artifact **name is the uploaded file basename**;
 its configured `name:` input is ignored. The CI upload logs confirm this
 behavior for all five targets. The corrected consumer requests the exact
@@ -58,11 +58,11 @@ changes to native package construction or verification.
 
 | Target | Expected file |
 | --- | --- |
-| Debian 12 AMD64 | `ChromascopeIP-0.1.3-Debian12-amd64.deb` |
-| Debian 13 AMD64 | `ChromascopeIP-0.1.3-Debian13-amd64.deb` |
-| Ubuntu 24.04 AMD64 | `ChromascopeIP-0.1.3-Ubuntu24.04-amd64.deb` |
-| Ubuntu 26.04 AMD64 | `ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb` |
-| Windows x64 | `ChromascopeIP-0.1.3-Windows-x64.zip` |
+| Debian 12 AMD64 | `ChromascopeIP-1.0.0-Debian12-amd64.deb` |
+| Debian 13 AMD64 | `ChromascopeIP-1.0.0-Debian13-amd64.deb` |
+| Ubuntu 24.04 AMD64 | `ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb` |
+| Ubuntu 26.04 AMD64 | `ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb` |
+| Windows x64 | `ChromascopeIP-1.0.0-Windows-x64.zip` |
 
 ## Offline artifact validation
 
@@ -88,8 +88,8 @@ SBOM, approval to redistribute or release publication.
 
 Keep each *raw package* in a directory named after the filename with its
 extension removed (not the raw GitHub artifact name),
-e.g. `build/package-matrix/ChromascopeIP-0.1.3-Windows-x64/` contains exactly
-`ChromascopeIP-0.1.3-Windows-x64.zip`. Install `dpkg-dev`, `binutils`, and
+e.g. `build/package-matrix/ChromascopeIP-1.0.0-Windows-x64/` contains exactly
+`ChromascopeIP-1.0.0-Windows-x64.zip`. Install `dpkg-dev`, `binutils`, and
 `patchelf` on Linux; no OpenCV development installation is needed for inspect.
 
 ```bash

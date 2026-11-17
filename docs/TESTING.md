@@ -1387,3 +1387,28 @@ The new CI step uploads *REVIEW-REQUIRED* evidence only. Missing artifacts,
 wrong SHA256, unsafe inputs, and invalid review records fail closed. License
 review without actual reviewed evidence must NOT be reported as complete.
 See [M11.9](M11_9_REDISTRIBUTION_SBOM.md).
+
+## M12.1 (#84) — version identity and first-public-release scope freeze
+
+The 1.0.0 **release candidate** uses one CMake `project(VERSION)` source for
+CLI `--help`/`--version`, GUI text, Windows ZIP and same-run package metadata.
+The source-level `scripts/check_release_m121.py` rejects version drift in each
+producer and consumer workflow and missing M11.9 review-required boundaries.
+The new native `chromascope_cli_version` CTest validates the compiled CLI
+against `${PROJECT_VERSION}` (the native baseline becomes **150 CTests**,
+28 camera-labeled unchanged). Full Python quality baseline is **326**
+(313 accepted plus 13 M12.1 version-contract regression tests).
+
+```bash
+python3 scripts/check_release_m121.py
+python3 -m unittest discover -s tests/quality -p 'test_release_m121.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+# Native ASan/UBSan test preset and real five-package hosted matrix are mandatory.
+./build/presets/linux-release/chromascope-cli --version
+```
+
+**Version 1.0.0 is not a public release approval.** M11.9 human redistribution
+and license-notice review, any remaining M11.8 manual device evidence, actual
+release provenance clearance, signing and publication remain separate gates.

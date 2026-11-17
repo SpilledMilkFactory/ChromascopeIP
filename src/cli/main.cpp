@@ -24,6 +24,7 @@
 #include "chromascope/AnnotatedVideoExport.hpp"
 
 #include <opencv2/core/version.hpp>
+#include "chromascope/ReleaseVersion.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -74,7 +75,7 @@ struct Options {
 };
 
 void usage(std::ostream& os) {
-    os << "ChromascopeIP 0.1.3 - image processing CLI\n"
+    os << "ChromascopeIP " CHROMASCOPE_RELEASE_VERSION " - image processing CLI\n"
           "Usage: chromascope-cli --input IMAGE [options]\n"
           "       chromascope-cli --video-probe --input VIDEO [--json FILE|-]\n"
           "       chromascope-cli --extract-frame INDEX --input VIDEO --output FRAME.png\n"
@@ -1061,7 +1062,7 @@ int main(int argc, char* argv[]) {
                 return 0;
             }
             if (std::string_view(argv[i]) == "--version") {
-                std::cout << "ChromascopeIP 0.1.3 (OpenCV " << CV_VERSION << ")\n";
+                std::cout << "ChromascopeIP " CHROMASCOPE_RELEASE_VERSION " (OpenCV " << CV_VERSION << ")\n";
                 return 0;
             }
         }

@@ -31,6 +31,7 @@
 
 #include <GLFW/glfw3.h>
 #include <opencv2/imgproc.hpp>
+#include "chromascope/ReleaseVersion.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -2022,7 +2023,7 @@ struct App {
 
         ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP");
         if (viewport->WorkSize.x >= 960.0F * ui_content_scale) ImGui::SameLine();
-        ImGui::TextDisabled("v0.1.3  |  Images, video & local camera  |  OpenCV 5.1.0 / ImGui 1.93.0");
+        ImGui::TextDisabled("v%s  |  Images, video & local camera  |  OpenCV 5.1.0 / ImGui 1.93.0", CHROMASCOPE_RELEASE_VERSION);
         ImGui::Separator();
         if (ImGui::RadioButton("Still images", workspace_mode == 0))
             switch_workspace(0);

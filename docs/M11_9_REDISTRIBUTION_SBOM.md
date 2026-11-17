@@ -144,4 +144,4 @@ inventories, missing notice texts, source-specific codec/toolchain obligations,
 component licenses and human review decisions are actually resolved. If any
 finding is pending, preserve the review record and leave release clearance
 **BLOCKED**. This is not legal advice or an automatically signed/SBOM-certified
-v1.0 release. Version stays 0.1.3 until M12 release preparation.
+v1.0 release. M12.1 freezes the source version at 1.0.0; public release remains blocked until the review obligations described above are cleared.

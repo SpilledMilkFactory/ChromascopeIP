@@ -46,7 +46,7 @@ class Debian13PackagePolicyTests(unittest.TestCase):
                     'CHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                     'CMAKE_INSTALL_PREFIX:PATH=/usr\n'
                     'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                    'CMAKE_PROJECT_VERSION:STATIC=0.1.3\n')
+                    'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n')
             cases = [
                 (base.replace('CMAKE_BUILD_TYPE:STRING=Release',
                               'CMAKE_BUILD_TYPE:STRING=Debug'), 'Release'),
@@ -69,7 +69,7 @@ class Debian13PackagePolicyTests(unittest.TestCase):
                 'CMAKE_BUILD_TYPE:STRING=Release\nCHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                 'CMAKE_INSTALL_PREFIX:PATH=/usr\n'
                 'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                'CMAKE_PROJECT_VERSION:STATIC=0.1.3\n')
+                'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n')
             for name in ('chromascope-cli', 'chromascope-gui'):
                 (build / name).write_bytes(b'synthetic-executable')
             with self.assertRaisesRegex(pack.PackageError, 'OpenCV build marker'):
@@ -146,7 +146,7 @@ class Debian13PackagePolicyTests(unittest.TestCase):
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text('synthetic only\n')
             control = stage / 'DEBIAN/control'; control.parent.mkdir(parents=True)
-            control.write_text('Package: chromascopeip\nVersion: 0.1.3\n'
+            control.write_text('Package: chromascopeip\nVersion: 1.0.0\n'
                                'Architecture: amd64\nDepends: libc6 (>= 2.36)\n'
                                'Maintainer: CI fixture\nDescription: Synthetic .deb\n')
             def build(filename):
@@ -155,11 +155,11 @@ class Debian13PackagePolicyTests(unittest.TestCase):
                                          str(stage), str(output)], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return output
-            good = build('ChromascopeIP-0.1.3-Debian13-amd64.deb')
-            self.assertIn('Version: 0.1.3', pack.inspect(good, expected_version='0.1.3'))
+            good = build('ChromascopeIP-1.0.0-Debian13-amd64.deb')
+            self.assertIn('Version: 1.0.0', pack.inspect(good, expected_version='1.0.0'))
             (private / 'libopencv_videoio.so.501').unlink()
             with self.assertRaisesRegex(pack.PackageError, 'SONAME symlink'):
-                pack.inspect(build('bad-Trixie.deb'), expected_version='0.1.3')
+                pack.inspect(build('bad-Trixie.deb'), expected_version='1.0.0')
 
     def test_separate_bookworm_and_trixie_ci_and_artifact_gates(self):
         workflow = (ROOT / '.github/workflows/ci-debian.yml').read_text()
@@ -171,7 +171,7 @@ class Debian13PackagePolicyTests(unittest.TestCase):
         self.assertIn('CMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu', workflow)
         self.assertIn('scripts/package_debian13.py --inspect', workflow)
         self.assertIn('scripts/smoke_debian13_chroot.sh', workflow)
-        self.assertIn('name: ChromascopeIP-0.1.3-Debian13-amd64', workflow)
+        self.assertIn('name: ChromascopeIP-1.0.0-Debian13-amd64', workflow)
         self.assertIn('UNQUALIFIED-M11.3-Debian13-amd64-diagnostics', workflow)
         self.assertIn("if: failure() && matrix.version == '13'", workflow)
         self.assertIn('retention-days: 2', workflow)
@@ -200,7 +200,7 @@ class Debian13PackagePolicyTests(unittest.TestCase):
     def test_version_specific_docs_and_release_boundaries(self):
         guide = (ROOT / 'docs/M11_3_DEBIAN13_PACKAGE.md').read_text()
         for fragment in ('M11.3', 'Debian 13', 'Trixie', 'M11.2',
-                         'ChromascopeIP-0.1.3-Debian13-amd64.deb',
+                         'ChromascopeIP-1.0.0-Debian13-amd64.deb',
                          'OpenCV 5.1.0', '/proc/self/exe', 'M12.1', 'M11.9',
                          'unapproved media'):
             self.assertIn(fragment, guide)

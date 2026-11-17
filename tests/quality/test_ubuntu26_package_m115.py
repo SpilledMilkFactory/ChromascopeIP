@@ -46,7 +46,7 @@ class Ubuntu26PackagePolicyTests(unittest.TestCase):
                     'CHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                     'CMAKE_INSTALL_PREFIX:PATH=/usr\n'
                     'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                    'CMAKE_PROJECT_VERSION:STATIC=0.1.3\n')
+                    'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n')
             cases = [
                 (base.replace('CMAKE_BUILD_TYPE:STRING=Release',
                               'CMAKE_BUILD_TYPE:STRING=Debug'), 'Release'),
@@ -69,7 +69,7 @@ class Ubuntu26PackagePolicyTests(unittest.TestCase):
                 'CMAKE_BUILD_TYPE:STRING=Release\nCHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                 'CMAKE_INSTALL_PREFIX:PATH=/usr\n'
                 'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                'CMAKE_PROJECT_VERSION:STATIC=0.1.3\n')
+                'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n')
             for name in ('chromascope-cli', 'chromascope-gui'):
                 (build / name).write_bytes(b'synthetic-executable')
             with self.assertRaisesRegex(pack.PackageError, 'OpenCV build marker'):
@@ -146,7 +146,7 @@ class Ubuntu26PackagePolicyTests(unittest.TestCase):
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text('synthetic only\n')
             control = stage / 'DEBIAN/control'; control.parent.mkdir(parents=True)
-            control.write_text('Package: chromascopeip\nVersion: 0.1.3\n'
+            control.write_text('Package: chromascopeip\nVersion: 1.0.0\n'
                                'Architecture: amd64\nDepends: libc6 (>= 2.36)\n'
                                'X-Chromascope-Target: Ubuntu-26.04-amd64\n'
                                'Maintainer: CI fixture\nDescription: Synthetic .deb\n')
@@ -156,18 +156,18 @@ class Ubuntu26PackagePolicyTests(unittest.TestCase):
                                          str(stage), str(output)], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return output
-            good = build('ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb')
-            self.assertIn('Version: 0.1.3', pack.inspect(good, expected_version='0.1.3'))
+            good = build('ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb')
+            self.assertIn('Version: 1.0.0', pack.inspect(good, expected_version='1.0.0'))
             # A genuine Debian 13 control field cannot pass the Resolute inspector.
             original_control = control.read_text()
             control.write_text(original_control.replace('Ubuntu-26.04-amd64',
                                                         'Ubuntu-24.04-amd64'))
             with self.assertRaisesRegex(pack.PackageError, 'X-Chromascope-Target'):
-                pack.inspect(build('wrong-distribution.deb'), expected_version='0.1.3')
+                pack.inspect(build('wrong-distribution.deb'), expected_version='1.0.0')
             control.write_text(original_control)
             (private / 'libopencv_videoio.so.501').unlink()
             with self.assertRaisesRegex(pack.PackageError, 'SONAME symlink'):
-                pack.inspect(build('bad-Resolute.deb'), expected_version='0.1.3')
+                pack.inspect(build('bad-Resolute.deb'), expected_version='1.0.0')
 
     def test_native_resolute_ci_and_separate_artifact_gates(self):
         workflow = (ROOT / '.github/workflows/ci-ubuntu.yml').read_text()
@@ -178,7 +178,7 @@ class Ubuntu26PackagePolicyTests(unittest.TestCase):
                     'CMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu',
                     'scripts/package_ubuntu26.py --inspect',
                     'scripts/smoke_ubuntu26_chroot.sh',
-                    'name: ChromascopeIP-0.1.3-Ubuntu26.04-amd64',
+                    'name: ChromascopeIP-1.0.0-Ubuntu26.04-amd64',
                     'UNQUALIFIED-M11.5-Ubuntu26.04-amd64-diagnostics',
                     "if: failure() && matrix.os == 'ubuntu-26.04'",
                     'retention-days: 2', 'archive: false',
@@ -228,7 +228,7 @@ class Ubuntu26PackagePolicyTests(unittest.TestCase):
     def test_version_specific_docs_and_release_boundaries(self):
         guide = (ROOT / 'docs/M11_5_UBUNTU26_PACKAGE.md').read_text()
         for fragment in ('M11.5', 'Ubuntu 26.04', 'Resolute', 'M11.2',
-                         'ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb',
+                         'ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb',
                          'OpenCV 5.1.0', '/proc/self/exe', 'M12.1', 'M11.9',
                          'unapproved media'):
             self.assertIn(fragment, guide)

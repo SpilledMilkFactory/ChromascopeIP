@@ -23,6 +23,7 @@
 #include "chromascope/GuiPreferenceStorage.hpp"
 #include "chromascope/DnnGuiSession.hpp"
 #include "chromascope/DnnPostprocessing.hpp"
+#include "chromascope/InstallResources.hpp"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -103,6 +104,7 @@ struct Texture {
 struct App {
     std::array<char, 4096> path{};
     std::filesystem::path still_opened_path;
+    std::optional<std::filesystem::path> legacy_sample_directory;
     std::array<char, 4096> export_path{};
     std::array<char, 4096> video_path{};
     std::array<char, 4096> video_export_path{};
@@ -194,7 +196,7 @@ struct App {
         comparison_processed_view;
     int export_base_mode = 0; // As configured, Original, Processed
     bool synchronize_comparison = true;
-    std::string status = "Open one of the legacy samples or enter an image path.";
+    std::string status = "Browse for a local image to begin.";
     bool show_overlay = true;
     bool show_labels = true;
     bool show_mask_preview = false;
@@ -219,7 +221,14 @@ struct App {
                    const chromascope::ImageFrame& frame, std::stop_token token) {
                 return processors.run(profile, frame, token);
             });
-        std::snprintf(path.data(), path.size(), "%s", "samples/skittles/s1.jpg");
+        std::error_code cwd_error;
+        const auto cwd = std::filesystem::current_path(cwd_error);
+        legacy_sample_directory = chromascope::find_legacy_sample_directory(
+            chromascope::running_executable_path(), cwd_error ? std::filesystem::path{} : cwd);
+        if (legacy_sample_directory) {
+            const auto sample = (*legacy_sample_directory / "s1.jpg").string();
+            std::snprintf(path.data(), path.size(), "%s", sample.c_str());
+        }
         std::snprintf(export_path.data(), export_path.size(), "%s", "annotated.jpg");
         std::snprintf(video_path.data(), video_path.size(), "%s", "recording.avi");
         std::snprintf(video_export_path.data(), video_export_path.size(), "%s", "annotated-video.avi");
@@ -2113,13 +2122,17 @@ struct App {
         ImGui::TextDisabled("Browse folders or paste an absolute image path.");
         ImGui::Spacing();
         ImGui::TextUnformatted("ORIGINAL SKITTLES SAMPLES");
+        if (!legacy_sample_directory)
+            ImGui::TextDisabled("Samples are not redistributed; browse for your own media.");
+        ImGui::BeginDisabled(!legacy_sample_directory.has_value());
         for (int n = 1; n <= 4; ++n) {
             const std::string button = "s" + std::to_string(n) + ".jpg";
             if (ImGui::Button(button.c_str(), ImVec2(75, 0))) {
-                load(std::filesystem::path(CHROMASCOPE_SAMPLE_DIR) / button);
+                load(*legacy_sample_directory / button);
             }
             if (n != 4) ImGui::SameLine();
         }
+        ImGui::EndDisabled();
         ImGui::Separator();
         ImGui::TextUnformatted("PROCESSING PROFILE");
         const auto descriptors = processors.descriptors();
@@ -2317,7 +2330,8 @@ struct App {
             person_snapshot.person_detections
             ? person_snapshot.person_detections.get() : nullptr;
         if (!original_texture.id) {
-            ImGui::TextWrapped("Open one of the four supplied sample images to begin.");
+            ImGui::TextWrapped("Browse for a local image to begin. Historical sample images "
+                               "are only available in authorized development checkouts.");
         } else if (preview_mode == 2 && have_result) {
             const ImVec2 available = ImGui::GetContentRegionAvail();
             const float pane_width = std::max(1.0f,

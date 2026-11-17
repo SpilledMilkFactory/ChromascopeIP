@@ -1338,3 +1338,17 @@ GUI/CLI acceptance and six hosted CI checks. The documentation tests validate
 consistency with selected source contracts; **they are not** a substitute for
 manual camera/platform verification or a comprehensive documentation accuracy
 proof. See [M10.8 guide index](DOCUMENTATION_INDEX.md).
+
+## M11.1 (#75) — relocatable install and staging (PENDING)
+
+The accepted M10.8 baseline was 147 native (28 camera-labeled) and 153
+Python tests with six green hosted checks. M11.1 introduces two native CTests
+(resource lookup and install/relocate staging), five Python source-policy tests
+and installation rules for both frontends, documentation and model metadata.
+Expected: **149 native CTests**, **28 camera-labeled**, **158 Python quality
+tests**. Verify stage relocation and absence of unapproved photos/weights,
+manual GUI sample-button availability in a checkout versus absence in a stage,
+custom prefixes and `DESTDIR` on Linux; run full sanitizer/static-analysis,
+model/provenance gates and all six existing CI jobs. M11.1 deliberately does
+**not** bundle OpenCV, codecs or DLLs. Only M11.2 onward can qualify clean
+installed execution. See [M11.1 staging guide](M11_1_INSTALL_STAGING.md).

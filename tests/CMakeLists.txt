@@ -11,6 +11,8 @@ function(chromascope_add_cpp_test name source labels timeout_seconds)
     set_tests_properties(${name} PROPERTIES LABELS "${labels}" TIMEOUT ${timeout_seconds})
 endfunction()
 
+chromascope_add_cpp_test(chromascope_unit_install_resources
+    unit/test_install_resources.cpp "unit;packaging;security" 20)
 chromascope_add_cpp_test(chromascope_unit_color
     unit/test_color.cpp "unit;core" 20)
 chromascope_add_cpp_test(chromascope_unit_validation

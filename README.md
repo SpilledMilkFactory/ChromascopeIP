@@ -25,6 +25,18 @@ hardware-free documentation checks; it does **not** alter production behavior.
 
 > **Historical M8.4 foundation:** M8.1–M8.3 established native backend selection, passive discovery, validated formats, typed errors and bounded asynchronous capture. M8.4 adds a **user-activated local live-camera GUI workspace** with device selection, a visible capture indicator and Stop/session-reset cleanup. Still-image and recorded-video workflows remain intact. No automatic camera activation, recording, upload, face recognition or identity tracking is introduced. See [M8.4 camera preview](docs/M8_4_CAMERA_GUI.md) and [privacy controls](docs/M7_6_LOCAL_PRIVACY.md).
 
+## M11.1 installation and staging (Issue #75; awaiting acceptance)
+
+CMake now provides prefix-relative installation of the CLI, optional GUI,
+current documentation and model license/provenance **metadata**. Packages do
+**not** contain the historical Skittles JPEGs, videos, ONNX weights or native
+runtime libraries; those need separate rights/dependency qualification. GUI
+sample buttons remain available in a development checkout but are disabled
+when samples are absent in a relocated installation. See the
+[M11.1 installation guide](docs/M11_1_INSTALL_STAGING.md) for exact commands,
+`DESTDIR`, Windows configuration, relocatable layout, limitations and tests.
+This is a staging foundation, not a release-ready portable binary.
+
 ## Current capabilities (M10.7 baseline; current for M10.8 documentation)
 
 | Capability | CLI | GUI | Notes |

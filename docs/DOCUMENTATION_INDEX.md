@@ -24,3 +24,7 @@
 | Contributors/security reporters | [Contributing](../CONTRIBUTING.md), [Security policy](../SECURITY.md) | [Dependency provenance](THIRD_PARTY_PROVENANCE.md), [Media rights](MEDIA_RIGHTS.md) |
 
 **Document scope:** M10.8 is documentation and offline link/contract regression coverage. It does not add camera access, exports, inference, or change CLI/GUI behavior. At M10.7, 147 native CTests, 28 camera-labeled, 140 Python quality tests and six hosted Actions checks formed the accepted baseline. Keep manual hardware observations separate from synthetic CI success.
+
+## Final v1.0.0 candidate CI
+
+- [M12.2 same-run full regression and release-candidate evidence](M12_2_FINAL_RC_MATRIX.md) — Issue #85; not a public release.

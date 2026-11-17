@@ -9,6 +9,16 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 > boundaries. Historical M10.1–M10.7 issue notes below remain as development
 > records, not a statement that those features are unavailable today.
 
+## M12.2 — same-source final automated release-candidate matrix (Issue #85)
+
+`Release Candidate CI` reuses the complete native five-package matrix and
+Quality Release/sanitizer/clang-tidy suites in one run, then checks the
+artifact-matrix and review-required SBOM reports against the exact source SHA.
+Its evidence artifact explicitly **does not authorize** public redistribution,
+identify hardware certification, sign binaries or publish a tag. See the
+[M12.2 final RC matrix guide](docs/M12_2_FINAL_RC_MATRIX.md). The M11.9 human
+license/NOTICE review and outstanding M11.8 device sign-offs remain separate.
+
 ## M12.1 — v1.0.0 version and feature-scope freeze (Issue #84)
 
 **Current source, GUI, CLI and five distribution filenames: 1.0.0.**

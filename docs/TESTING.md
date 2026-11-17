@@ -1412,3 +1412,19 @@ ctest --preset linux-cli-release --output-on-failure
 **Version 1.0.0 is not a public release approval.** M11.9 human redistribution
 and license-notice review, any remaining M11.8 manual device evidence, actual
 release provenance clearance, signing and publication remain separate gates.
+
+
+## M12.2 — exact-commit final RC regressions
+
+The accepted M12.1 baseline was 326 Python quality tests and 150 native CTests
+(28 labeled camera). M12.2 adds 17 Python regression tests in
+`tests/quality/test_release_candidate_m122.py`; the expected Python count is
+**343**. No native tests or production algorithms change. Run the focused and
+full Python suites, both local Release presets, the sanitizer preset,
+`run_clang_tidy.py`, `check_release_m121.py`, policy and provenance scripts.
+
+`Release Candidate CI` reuses both Quality and Package Matrix workflows in one
+source-locked run. The new `scripts/qualify_release_candidate_m122.py` validates
+identities and SHA-256s of the existing matrix report and M11.9 SBOM drafts,
+without making a license/desktop qualification or release authorization claim.
+See [the full M12.2 procedure](M12_2_FINAL_RC_MATRIX.md).

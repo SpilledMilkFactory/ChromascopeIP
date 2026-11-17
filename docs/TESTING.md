@@ -1432,6 +1432,16 @@ See [the full M12.2 procedure](M12_2_FINAL_RC_MATRIX.md).
 
 ## M12.3 (#86) — Debian/Ubuntu v1.0.0 fresh-VM clean-install acceptance
 
+**Fast-track acceptance:** four separately completed operator JSON records are
+optional, not a required release-engineering gate. Preserve the successful
+four-distro native CI clean-install smoke tests and the full 20-check M12.2
+release-candidate matrix. The maintainer reported installing and exercising
+GUI/CLI packages on fresh VMs for all four Linux distributions. Neither CI nor
+that report proves every unreported manual step or the exact hash of a past
+VM download. The optional evidence tool remains strict when used; the M11.9
+redistribution review remains separate and unresolved.
+
+
 This is primarily documentation and reviewed operator evidence; **do not**
 replace real fresh-VM testing with another Python mock or a green headless
 chroot check. M11.2–M11.5 already require native `.deb` inspection and

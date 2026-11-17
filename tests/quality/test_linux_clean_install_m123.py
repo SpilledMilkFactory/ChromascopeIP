@@ -195,6 +195,16 @@ class LinuxCleanInstallM123Tests(unittest.TestCase):
         self.assertNotIn('subprocess.', code)
         self.assertNotIn('socket.', code)
 
+    def test_fast_track_does_not_require_reconstructing_vm_evidence(self):
+        guide = (ROOT / 'docs' / 'M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md').read_text()
+        verification = (ROOT / 'docs' / 'VERIFICATION.md').read_text()
+        readme = (ROOT / 'README.md').read_text()
+        for text in (guide, verification, readme):
+            self.assertIn('not required', text.lower())
+        self.assertIn('M11.9', guide)
+        self.assertIn('NOT_TESTED', guide)
+        self.assertIn('release', verification.lower())
+
     def test_guide_reuses_actual_native_smokes_and_rights_boundary(self):
         guide = (ROOT / 'docs' / 'M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md').read_text()
         for suffix in ('debian12', 'debian13', 'ubuntu24', 'ubuntu26'):

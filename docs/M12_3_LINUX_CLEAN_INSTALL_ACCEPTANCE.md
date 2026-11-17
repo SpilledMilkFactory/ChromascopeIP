@@ -13,7 +13,7 @@ This milestone consolidates already established installation behavior and adds a
 | Ubuntu 24.04 Noble | `ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb` | `scripts/smoke_ubuntu24_chroot.sh` | `python3 scripts/package_ubuntu24.py --inspect FILE` |
 | Ubuntu 26.04 Resolute | `ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb` | `scripts/smoke_ubuntu26_chroot.sh` | `python3 scripts/package_ubuntu26.py --inspect FILE` |
 
-**Artifact provenance:** Download the candidate packages from the same completed Package Matrix CI or Release Candidate CI execution. Verify each `.deb` SHA-256 against the *actual* `package-matrix-report.json` and record its `git_commit` (40 lowercase hexadecimal characters). Pull-request merge SHAs may differ from later main-branch commits; do not combine evidence from unrelated builds. A passing source test or filenames alone do **not** prove that the package matches the selected RC.
+**Artifact provenance for future or repeated tests:** When the package and matrix report are available together, compare the `.deb` SHA-256 with `package-matrix-report.json` and preserve its `git_commit`. A pull-request merge commit can differ from a main-branch commit. **This additional historical evidence reconstruction is optional for M12.3 engineering sign-off.** The existing CI already validates package hashes and same-run identity for the actual packages it produces; the maintainer's past VM test reports are accepted as operator-reported behavior, **not** independent proof that those manually downloaded bytes match a particular commit.
 
 ## Fresh VM setup and repeatable checks (execute within each target VM)
 
@@ -28,7 +28,19 @@ This milestone consolidates already established installation behavior and adds a
 
 For exact distribution-specific limitations see [Debian 12](M11_2_DEBIAN12_PACKAGE.md), [Debian 13](M11_3_DEBIAN13_PACKAGE.md), [Ubuntu 24.04](M11_4_UBUNTU24_PACKAGE.md) and [Ubuntu 26.04](M11_5_UBUNTU26_PACKAGE.md). **procfs caution:** the historical debootstrap minbase environments lack `/proc/self/exe`; their interpreter-mediated chroot smoke is not the same as ordinary kernel execution inside a fully booted VM. Do not infer GUI or physical-camera compatibility solely from those smokes.
 
-## Private, create-only operator evidence
+## Optional private, create-only operator evidence
+
+**Fast-track M12.3 acceptance:** The four private JSON records are an optional
+additional audit trail, **not an Issue #86 prerequisite**. The maintainer
+reports successful installation and GUI/CLI tests on fresh Debian 12/13 and
+Ubuntu 24.04/26.04 VMs. The independently passing clean-install CI smokes and
+full Release Candidate CI establish automated distribution qualification.
+Together those support M12.3 engineering sign-off once the M12.3 PR's existing
+checks are green. They do not establish the exact SHA/commit of each historical
+VM download, confirm unreported manual cases such as removal/reinstallation,
+or replace M11.9 redistribution approval. **Do not mark unperformed cases PASS.**
+If you have sufficient records and want greater traceability later, use the
+optional tool below. You can skip this entire section to stage the release.
 
 The Python tool **does not install/remove packages, launch the GUI, invoke a camera or download models**. It computes a package digest locally and creates a minimal record with all nine cases as `NOT_TESTED`. It does not collect commands' raw output, images, camera identifiers, personal paths, device serial numbers, account names or unrestricted notes. Evidence should be kept outside the repository in a private directory.
 
@@ -75,4 +87,4 @@ git diff --check
 
 The accepted M12.2 baseline is **343 Python quality tests** and **150 native CTests** (28 camera-labeled). M12.3 adds only Python evidence regressions; it does not add a native CTest or modify the established 20-check GitHub Actions release-candidate workflow. Require the existing workflows and native/sanitizer/clang-tidy tests to stay green on the proposed commit.
 
-**Issue #86 sign-off:** each of the four **exact, qualified** v1.0.0 Linux `.deb` packages has actually been installed in a fresh matching VM; APT dependencies, real installed CLI/GUI, synthetic processing, privacy defaults and removal/reinstall have been observed and reviewed; and four evidence records match the same source commit and package-matrix hashes. The user has reported successful fresh-VM functional testing, but any unrecorded case remains pending until verified. Windows qualification remains in M11.8/M12's separate scope. **M11.9 third-party redistribution review and final release signing/publication remain separate, unresolved gates.**
+**Issue #86 engineering sign-off (fast track):** The maintainer's reported fresh-VM installation and working GUI/CLI on all four Linux distributions, plus the established native clean-install CI smokes and passing full 20-check M12.2 release-candidate matrix, are sufficient for the planned *Linux installation engineering* acceptance once the M12.3 PR preserves those green checks. Four newly reconstructed JSON records and matching historical VM download hashes are **not required**. A specific unreported manual test (for example removal/reinstallation) must remain explicitly **not independently confirmed**; the automated smoke does not prove GUI behavior and the manual report does not prove exact historical artifact identity. The optional evidence tool remains strict if invoked. Windows/physical-device acceptance remains separately scoped. **M11.9 third-party redistribution review and final signing/publication remain separate, unresolved gates.**

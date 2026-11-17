@@ -1454,3 +1454,25 @@ pre-release `0.1.3` candidate, not final distribution license or 1.0.0 approval.
 Run the focused M11.4 Python policy tests and full suite; the 149 native CTests
 and 28 camera-labeled regressions remain required, alongside manual GUI/CLI
 checks and all six GitHub Actions checks. See [M11.4 guide](M11_4_UBUNTU24_PACKAGE.md).
+
+## M11.4 (#78) acceptance recorded — November 17, 2026
+
+The maintainer reported 13/13 focused Ubuntu 24.04 package policy tests, 209/209
+Python quality tests, 149/149 GUI Release, CLI-only Release and sanitized CTests,
+28/28 camera CTests, preserved manual GUI/CLI behavior and six green hosted
+GitHub Actions checks including the Noble clean-install package gate. PR #78
+was subsequently merged. These establish qualified *development-candidate*
+Ubuntu 24.04 packaging, not public release sign-off.
+
+## M11.5 (#79) — Ubuntu 26.04 AMD64 package (pending native acceptance)
+
+The separate Resolute package must pass source-verified OpenCV 5.1.0 provenance,
+recursive private ELF/SONAME dependency closure, Ubuntu 26.04 dpkg-shlibdeps
+metadata, post-extraction package inspection, ordinary native CLI launch with
+procfs, fresh Resolute APT installation and interpreter-driven CLI help, profile
+discovery and synthetic BMP processing. Preserve qualified Noble and Debian 12/13
+packages, Windows and quality CI; all six hosted checks and local manual GUI/CLI
+review remain necessary. Expect 149 native CTests, 28 camera CTests and 222
+Python quality tests (13 new M11.5 tests). No model or historical media is
+redistributed. This is a 0.1.3 candidate, not an approved v1.0.0 release.
+See [M11.5 guide](M11_5_UBUNTU26_PACKAGE.md).

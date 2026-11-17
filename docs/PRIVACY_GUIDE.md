@@ -37,3 +37,12 @@ Media/model parser and driver threats remain described in [M10.5](M10_5_THREAT_B
 ## Privacy verification checklist
 
 Use `chromascope-cli --privacy-info`; start the GUI in an empty working directory and check it does not create `imgui.ini` or a log; switch to camera workspace and verify CAMERA OFF; save/reload/delete preferences explicitly; export media only to a controlled directory and verify no implicit output is created. Perform genuine hardware checks where authorized. Automated CTests cover contracts but do not constitute a privacy or network-forensics certification.
+
+## M12.5 — privacy release-review boundary
+
+The [M12.5 review](M12_5_RELEASE_SECURITY_SIGNOFF.md) confirms the documented
+first-party privacy design (opt-in camera, local inference, no application
+telemetry, explicit export/save) as a **source-level review**, not a verified
+absence of all OS or third-party networking, crash dumps, codec data retention,
+or device-driver behavior. Any release privacy statement must preserve those
+limits and should not assert certified isolation or secure erasure.

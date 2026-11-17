@@ -30,3 +30,12 @@
 ## Final v1.0.0 candidate CI
 
 - [M12.2 same-run full regression and release-candidate evidence](M12_2_FINAL_RC_MATRIX.md) — Issue #85; not a public release.
+
+## M12.5 dependency, vulnerability, rights and privacy gate
+
+For current pre-publication decisions, use the
+[M12.5 release security sign-off review](M12_5_RELEASE_SECURITY_SIGNOFF.md),
+then [M11.9 artifact-derived SBOM review](M11_9_REDISTRIBUTION_SBOM.md),
+[license audit](LICENSE_AUDIT.md), [third-party provenance](THIRD_PARTY_PROVENANCE.md),
+and [privacy guide](PRIVACY_GUIDE.md). The dated FFmpeg CVE-2026-8461
+review remains **BLOCKED** for affected target distributions until disposition.

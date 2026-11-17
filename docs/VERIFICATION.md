@@ -1720,3 +1720,30 @@ Issue #87 engineering acceptance when the existing 20 CI checks remain green.
 M11.8 physical-device cases and M11.9 human license/NOTICE/codec and
 Microsoft redistribution decisions remain separate. Neither signing nor
 public v1.0.0 release is authorized by this issue.
+
+## M12.5 (#88) — release dependency, license, vulnerability, privacy review
+
+The maintainer confirms M12.4 was merged after **20 green GitHub Actions
+checks**, manual GUI/CLI regression verification, and local **365/365 Python
+quality tests**. Existing native Release, CLI-only, sanitizer and 150 CTest
+baseline (28 camera-labeled) remains unchanged by M12.5, which adds only
+review documentation and focused documentation/source-policy regressions.
+
+**Current security and redistribution decision: BLOCKED for public release.**
+The dated primary-source vulnerability review identified
+**CVE-2026-8461** in distro-provided FFmpeg, with Debian 12 and Ubuntu
+24.04/26.04 listed vulnerable on 2026-11-17; Debian 13 is listed fixed.
+Actual OS runtime versions and decoder reachability remain unverified. The
+29 outstanding M11.9 human review topics and known OpenCV notice
+completeness question remain unresolved. The public-repository historical
+photograph rights are separately unresolved. M10.8 first-party privacy
+controls remain documented, but are not independent system-wide privacy
+certification. See [the evidence and disposition guide](M12_5_RELEASE_SECURITY_SIGNOFF.md).
+
+M12.5 documentation engineering acceptance requires its new tests, complete
+Python suite, release identity/provenance/policy checks, and unchanged 20
+hosted checks. Its documentation can be merged independently of **public
+redistribution authorization**, which requires separate substantiated
+vulnerability and rights dispositions. No manual re-running of previously
+successful Windows/Linux VM tests or historical commit reconstruction is
+required solely by this documentation milestone.

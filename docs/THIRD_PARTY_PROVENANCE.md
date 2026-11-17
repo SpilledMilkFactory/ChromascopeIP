@@ -77,3 +77,14 @@ or that Windows PE imports reveal every statically linked OpenCV codec or
 Protobuf component. Final upstream NOTICE comparison, distro package license
 terms, Microsoft REDIST license entitlement, potential codec patent issues,
 and actual model/media exclusion remain explicit independent review tasks.
+
+## M12.5 release advisories and binary obligations
+
+Refer to [M12.5 release sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md) for the
+2026-11-17 tracker snapshot of **CVE-2026-8461**, including the vulnerable
+status reported by Debian 12 and Ubuntu 24.04/26.04 and the Debian 13 tracked
+fix. These are **OS-provided FFmpeg dependencies**, not private bundled
+OpenCV `.so` files; exact vendor-patched package versions and decoder
+reachability still require verification. The pinned application source and
+review-required CycloneDX drafts are not a vulnerability scan or redistribution
+entitlement. Retain the M11.9 NOTICE and native-component review obligations.

@@ -70,3 +70,15 @@ cache installations using a new marker and hash-key. Both fresh and cached
 installations must configure, link and run a separate installed-package videoio
 consumer and decode generated MJPEG/AVI through `CAP_FFMPEG`. This does not
 certify camera access or third-party video compatibility.
+
+
+## M11.4 Ubuntu 24.04 native AMD64 candidate qualification
+
+The Ubuntu 24.04 matrix job now additionally stages a native `/usr` multiarch
+installation, builds `ChromascopeIP-0.1.3-Ubuntu24.04-amd64.deb` using
+`scripts/package_ubuntu24.py`, and smoke-tests it with
+`scripts/smoke_ubuntu24_chroot.sh` in a fresh Noble APT installation. All
+original GUI/CLI CTests precede this package qualification. The Ubuntu 26.04
+matrix job remains a build/test-only gate until M11.5. The package contains
+private source-pinned OpenCV modules but excludes unapproved media and models;
+it is not a final v1.0.0 release. See [M11.4 guide](M11_4_UBUNTU24_PACKAGE.md).

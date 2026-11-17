@@ -1170,3 +1170,17 @@ ctest --test-dir build/presets/linux-release \
 python3 -m unittest discover -s tests/quality \
   -p 'test_install_staging_m111.py' -v
 ```
+
+
+## M11.2 (#76) — Debian 12 package and native clean-install testing
+
+M11.2 adds eight offline Python quality tests (`test_debian12_package_m112.py`),
+so the expected Python total is **166**. The native suite remains **149 CTests**,
+including two M11.1 staging/resource tests; camera subset remains **28**.
+Run `python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
+The existing Debian 12 CI matrix leg builds a Debian package from the pinned
+OpenCV build, inspects the package, creates a new Debian 12 minbase root with
+`debootstrap`, installs using apt and smoke-tests both executable loaders and
+CLI help/profile/synthetic BMP processing. This *does not* open a real GUI,
+access cameras, load models or establish redistribution license sign-off.
+See [M11.2 packaging instructions](M11_2_DEBIAN12_PACKAGE.md).

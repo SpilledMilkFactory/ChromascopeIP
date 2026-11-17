@@ -1352,3 +1352,21 @@ custom prefixes and `DESTDIR` on Linux; run full sanitizer/static-analysis,
 model/provenance gates and all six existing CI jobs. M11.1 deliberately does
 **not** bundle OpenCV, codecs or DLLs. Only M11.2 onward can qualify clean
 installed execution. See [M11.1 staging guide](M11_1_INSTALL_STAGING.md).
+
+
+## M11.2 (#76) — Debian 12 AMD64 package acceptance (PENDING)
+
+Previous M11.1 accepted baseline: 149/149 native CTests in each of three modes,
+28/28 camera tests, 158/158 Python quality tests and six green GitHub Actions
+checks, followed by merge confirmation. New M11.2 expected baseline: **149
+native**, **28 camera** and **166 Python quality** tests.
+
+Acceptance requires native Debian 12 AMD64 `.deb` construction from the pinned
+OpenCV 5.1.0 source revision, valid dpkg metadata, isolated OpenCV SONAME closure,
+Debian system dependencies derived by `dpkg-shlibdeps`, no media/model bundles,
+and successful clean Debian 12 minbase apt-install + CLI processing smoke **without
+a development OpenCV prefix**. This source contribution does not assert that
+its Debian 12 package or six new CI results have passed yet. See
+[M11.2 Debian 12 packaging](M11_2_DEBIAN12_PACKAGE.md). GUI desktop, physical
+cameras, release dependency notices, SBOM and final binary qualification remain
+future M11.8/M11.9/M12 gates.

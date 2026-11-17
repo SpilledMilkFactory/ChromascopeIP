@@ -62,6 +62,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             ca-certificates git tar zstd \
             build-essential cmake ninja-build pkg-config python3 \
+            dpkg-dev patchelf debootstrap \
             libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
             libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
             libglfw3-dev libgl1-mesa-dev \
@@ -105,7 +106,14 @@ jobs:
           printf 'OpenCV source commit: %s\n' "$(cat "$prefix/.chromascope-opencv-source-revision")"
 
       - name: Configure Release (GUI, CLI, tests)
-        run: cmake --preset linux-release
+        run: |
+          if [[ '${{ matrix.version }}' == '12' ]]; then
+            cmake --preset linux-release \
+              -DCMAKE_INSTALL_PREFIX=/usr \
+              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu
+          else
+            cmake --preset linux-release
+          fi
 
       - name: Build Release (GUI and CLI)
         run: cmake --build --preset linux-release --parallel 2
@@ -121,6 +129,34 @@ jobs:
 
       - name: Run all CLI-only CTests
         run: ctest --preset linux-cli-release --parallel 2
+
+      - name: Build Debian 12 AMD64 candidate package
+        if: matrix.version == '12'
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/package_debian12.py --build \
+            --build-dir build/presets/linux-release \
+            --opencv-prefix "$HOME/.local/opt/opencv-5.1.0" \
+            --output-dir build/packages
+          python3 scripts/package_debian12.py --inspect \
+            build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
+
+      - name: Smoke-test clean Debian 12 installation
+        if: matrix.version == '12'
+        run: |
+          set -Eeuo pipefail
+          bash scripts/smoke_debian12_chroot.sh \
+            build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
+
+      # This M11.2 candidate is for testing, NOT a signed v1.0 release.
+      - name: Upload tested Debian 12 candidate package
+        if: matrix.version == '12'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Show test logs on failure
         if: failure()
@@ -141,5 +177,10 @@ jobs:
             echo '- GUI + CLI: compiled in Release configuration'
             echo '- GUI-enabled Release: complete CTest suite passed'
             echo '- CLI-only Release: complete CTest suite passed'
-            echo '- GUI launch, hardware cameras, .deb package installation: not tested'
+            if [[ '${{ matrix.version }}' == '12' ]]; then
+              echo '- Debian 12: .deb build, dependency resolution and isolated clean-install CLI smoke PASSED'
+            else
+              echo '- Debian 13: .deb packaging is reserved for M11.3'
+            fi
+            echo '- Manual GUI and hardware-camera sign-off remains pending'
           } >> "$GITHUB_STEP_SUMMARY"

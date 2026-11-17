@@ -25,7 +25,7 @@ hardware-free documentation checks; it does **not** alter production behavior.
 
 > **Historical M8.4 foundation:** M8.1–M8.3 established native backend selection, passive discovery, validated formats, typed errors and bounded asynchronous capture. M8.4 adds a **user-activated local live-camera GUI workspace** with device selection, a visible capture indicator and Stop/session-reset cleanup. Still-image and recorded-video workflows remain intact. No automatic camera activation, recording, upload, face recognition or identity tracking is introduced. See [M8.4 camera preview](docs/M8_4_CAMERA_GUI.md) and [privacy controls](docs/M7_6_LOCAL_PRIVACY.md).
 
-## M11.1 installation and staging (Issue #75; awaiting acceptance)
+## M11.1 installation and staging (Issue #75; accepted and merged)
 
 CMake now provides prefix-relative installation of the CLI, optional GUI,
 current documentation and model license/provenance **metadata**. Packages do
@@ -36,6 +36,17 @@ when samples are absent in a relocated installation. See the
 [M11.1 installation guide](docs/M11_1_INSTALL_STAGING.md) for exact commands,
 `DESTDIR`, Windows configuration, relocatable layout, limitations and tests.
 This is a staging foundation, not a release-ready portable binary.
+
+## M11.2 Debian 12 AMD64 development package (Issue #76; pending acceptance)
+
+The Debian 12 pipeline builds and clean-install-smoke-tests an `amd64` `.deb`
+using the M11.1 install layout, the pinned OpenCV 5.1.0 private runtime and
+Debian-native dependency declarations. This is a **version 0.1.3 development
+candidate**, not the future v1.0.0 release (M12.1 handles version freeze).
+The package retains attribution/license texts and omits historical sample media,
+ONNX weights and development dependencies. It must still pass CI, actual clean
+installation, later third-party release inventory and manual GUI/camera gates.
+See the [M11.2 Debian package guide](docs/M11_2_DEBIAN12_PACKAGE.md).
 
 ## Current capabilities (M10.7 baseline; current for M10.8 documentation)
 

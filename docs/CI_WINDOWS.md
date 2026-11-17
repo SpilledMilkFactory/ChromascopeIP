@@ -106,3 +106,81 @@ cache key and provenance stamp reject stale three-module archives. A standalone
 installed-package CMake consumer tests PNG, MSMF backend registration, and a
 built-in MJPEG/AVI synthetic round trip. This does **not** establish which
 Windows multimedia formats or camera hardware work on Windows 10/11.
+
+
+## M11.6 — portable Windows x64 development candidate (#80)
+
+The original M1.6 CLI-only check is preserved, but M11.6 adds a separate
+Windows GUI-enabled `windows-release` configuration, native CTests,
+pinned static GLFW 3.4, pinned Dear ImGui 1.93.0 and a Windows x64 ZIP
+with complete PE import/CRT dependency inspection. Both frontends are
+installed; only approved app-local VC143 runtime DLLs from signed Microsoft
+redist sources may be copied. The ZIP contains explicit runtime documentation
+and a SHA-256 manifest, not unreviewed OpenCV/GLFW DLLs, models or fixtures.
+
+Hosted Windows Server 2022 CI unpacks the candidate and exercises the relocated
+CLI under a restricted PATH. This **does not** certify Windows 10/11 native GUI,
+camera, media, codecs or user-machine compatibility. Successful candidates and
+`UNQUALIFIED` failure diagnostics use separate artifact names; M11.8/M11.9/M12
+remain mandatory. Read [M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md).
+
+## M11.6 Windows GUI MSVC compilation regression (issue #80)
+
+The first GUI-enabled Windows Server 2022 build failed in `src/gui/main.cpp`
+before ZIP construction. Windows RPC's `small` macro collided with a local
+OpenCV image variable; Windows' legacy OpenGL headers also lacked the
+`GL_CLAMP_TO_EDGE` token. M11.6 now uses `resized_bgr` and a local OpenGL
+constant (`0x812F`) compatible with the existing 3.3 context. Three new
+quality tests include a synthetic syntax-only compile with the Windows macro
+and old-header symbol constraints. MSVC compilation and portable ZIP smoke
+were pending when this compiler correction was introduced. The later MSVC
+GUI-enabled build and CTests have passed; ZIP qualification remains pending.
+This does not declare Windows 10/11 interactive GUI compatibility.
+
+
+## M11.6 — VC143 redistributable enumeration correction (issue #80)
+
+The next Windows CI run passed the GUI-enabled MSVC build and CTests but
+failed in `verify_redist_path()` before ZIP creation because the genuine
+`Microsoft.VC143.CRT` directory contained `vccorlib140.dll`. This is a
+managed-code runtime shipped in some Microsoft redistribution directories,
+not a required native ChromascopeIP dependency. The packager now ignores
+that exact unused **source** DLL; it is **not** admitted to the `CRT` import
+allowlist, copied into the ZIP, or accepted if a PE binary imports it. The
+CI job continues checking Microsoft Authenticode signatures for every DLL
+in that directory; missing native CRT dependencies remain fatal.
+
+The M11.6 policy suite added three regression tests (19 focused / 241 total
+Python). The next hosted CI run proved that the one-off exception was
+insufficient: the same folder also contains `vcruntime140_threads.dll`.
+See the import-driven correction below.
+
+## M11.6 — Import-driven VC143 deployment correction (issue #80)
+
+The November 17 Windows CI run passed CLI and GUI builds, both CTest suites
+and Microsoft Authenticode checks, then failed in `verify_redist_path()` on
+`vcruntime140_threads.dll`. The source directory is **an inventory of installed
+Microsoft DLLs, not a list of application dependencies**. Enumerating every
+file against the package allowlist was the common cause of the two consecutive
+ZIP failures (`vccorlib140.dll`, `vcruntime140_threads.dll`).
+
+The packager now filters source entries into *potential* reviewed native CRT
+files, without rejecting other directory entries solely for existing. The
+hosted CI still authenticates **every** source-folder DLL with a valid Microsoft
+signature before packaging. For each executable and recursively copied runtime
+DLL, the package builder reads normal and delay-load PE imports; it copies
+**only imported**, reviewed CRT DLLs. Unknown imports, absent required DLLs,
+unsafe eligible symlinks, and case-conflicting eligible filenames still fail.
+Actual ZIP inspection independently recomputes the minimal recursive import
+closure and rejects both unreviewed and unnecessary bundled DLLs. Microsoft's
+`vcruntime140_threads.dll` is recognized as the C11-threads satellite runtime
+and may be bundled only when directly or transitively imported; the managed
+`vccorlib140.dll` and debug runtimes remain prohibited.
+
+The new quality tests include an actual synthetic PE-based end-to-end package
+build, recursive native CRT dependency copying, an unrelated-DLL exclusion
+check, a negative case that blocks ZIP creation on an unreviewed import, and
+unsafe-source/case-collision checks. **24 focused / 246 total Python tests**
+are expected; native CTests stay 149 (28 camera-labeled). Final Windows CI ZIP
+construction, ZIP inspection, relocation, synthetic BMP processing and artifact
+upload must all pass before accepting M11.6.

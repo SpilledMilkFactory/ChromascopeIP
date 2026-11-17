@@ -1476,3 +1476,88 @@ review remain necessary. Expect 149 native CTests, 28 camera CTests and 222
 Python quality tests (13 new M11.5 tests). No model or historical media is
 redistributed. This is a 0.1.3 candidate, not an approved v1.0.0 release.
 See [M11.5 guide](M11_5_UBUNTU26_PACKAGE.md).
+
+
+## M11.5 (#79) acceptance recorded — November 17, 2026
+
+Maintainer-confirmed 13/13 new Ubuntu 26.04 package quality tests,
+222/222 complete Python tests, 149/149 Release GUI/CLI/sanitizer CTests,
+28/28 camera CTests and intact manual GUI/CLI behavior. All six hosted
+GitHub Actions checks passed, including native Resolute package and smoke,
+then PR #79 was merged. The four Linux development distributions are
+qualified at their respective CI gates; this is not v1.0.0 public sign-off.
+
+## M11.6 (#80) — portable Windows x64 ZIP (pending hosted acceptance)
+
+The new Windows Server 2022 / MSVC2022 x64 GUI-enabled configuration must
+build CLI and GUI against static OpenCV 5.1.0, static GLFW 3.4 and pinned
+Dear ImGui 1.93.0 and pass all registered CTests. The portable ZIP must be
+reproducibly staged, inspect both executables' and bundled CRT DLLs' PE32+
+imports, reject unknown imports/missing CRT and unapproved media/model assets,
+record a SHA-256 manifest and explicit runtime/third-party notice inventory.
+Only approved Microsoft x64 VC143 runtime files from the installed VS2022
+redistribution folder may be staged app-local. Hosted CI must extract/relocate
+and successfully launch CLI help, version, profile listing and processing
+of a generated synthetic BMP under a PATH
+without development OpenCV or VS directories. Interactive GUI, real Windows
+10/11 and camera qualification, redist licensing sign-off and SBOM remain
+M11.8/M11.9/M12. Existing Debian 12/13, Ubuntu 24.04/26.04 and six required
+GitHub checks must stay green. Native Linux baseline: 149 CTests / 28 camera;
+Python quality suite increases from 222 by the M11.6 additions. See
+[M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md).
+
+
+## M11.6 (#80) — Windows GUI MSVC first-build correction (pending CI)
+
+The first M11.6 Windows Server 2022 GUI-enabled CMake build failed compiling
+`src/gui/main.cpp`, before package generation. A `small` local in the texture
+upload path conflicts with Windows RPC's `small` macro (`char`); the Windows
+SDK's legacy OpenGL headers do not declare `GL_CLAMP_TO_EDGE`. I renamed the
+local to `resized_bgr` and used a local `GLint` constant with OpenGL value
+`0x812F` while preserving the requested 3.3 context and texture behavior.
+The focused M11.6 policy suite adds three checks (16 total, including an
+actual syntax-only C++ macro/legacy-GL compile), raising the expected Python
+quality suite to 238. The native baseline remains 149 CTests and 28 camera
+regressions. The actual Windows GUI-enabled build, portable ZIP qualification
+and all six hosted CI checks must still pass before issue #80 can be merged.
+
+
+## M11.6 (#80) — VC143 runtime-directory false rejection (pending CI)
+
+The second Windows hosted run successfully compiled and tested the GUI and
+CLI, but the portable ZIP packager rejected `vccorlib140.dll` found in the
+verified VS2022 `Microsoft.VC143.CRT` directory. The directory includes a
+Microsoft managed-code runtime that ChromascopeIP does not require. Fixed
+only the packager's source-directory enumeration to ignore this exact known
+unused runtime: the PE-import and ZIP allowlists still reject it and all
+other unreviewed DLLs. CI continues to authenticate every Microsoft
+redistributable before packaging. Three new tests raise focused Windows
+policy coverage to 19 and total Python quality coverage to 241; native tests
+remain 149 (28 camera-specific). M11.6 stays BLOCKED until the Windows ZIP
+build, dependency audit, relocated CLI smoke and six hosted checks pass.
+
+
+## M11.6 (#80) — VC143 source-inventory / PE-import boundary (pending CI)
+
+The next hosted Windows Server 2022 job again completed both frontends' MSVC
+Release builds and CTests and signed Microsoft VC143 source validation, but
+failed on `vcruntime140_threads.dll` in the same folder that previously
+contained the unrelated `vccorlib140.dll`. These repeated false rejections
+stemmed from treating every Microsoft redistributable source DLL as a mandatory
+member of ChromascopeIP's narrow native runtime policy. **The source directory
+is not the package dependency manifest.**
+
+The correction inventories reviewed native CRT source files without rejecting
+other installed DLL names. The actual application and transitive CRT PE import
+tables, not the directory listing, determine which reviewed runtimes are
+copied. `vcruntime140_threads.dll` is allowed for genuine C11 threads imports
+but is otherwise excluded; managed `vccorlib140.dll`, debug CRT and unreviewed
+imports remain prohibited. CI continues validating every Microsoft source DLL
+signature and package inspection revalidates the exact PE dependency inventory
+and recomputes the necessary runtime closure to reject unneeded bundled DLLs.
+Five new tests cover arbitrary unused source DLL names, true thread-satellite
+imports, duplicate/symlink rejection, a complete synthetic recursive
+build/ZIP/inspect cycle, and refusal to build for an unreviewed PE import.
+**Expected: 24 Windows-specific / 246 total Python tests, 149 native CTests,
+28 camera tests.** The real hosted Windows ZIP and relocated CLI smoke are
+still mandatory; M11.6 remains BLOCKED until all six checks pass.

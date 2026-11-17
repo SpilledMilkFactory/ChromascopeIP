@@ -90,6 +90,14 @@
       }
     },
     {
+      "name": "windows-release",
+      "displayName": "Windows Release (GUI, CLI, tests)",
+      "inherits": "windows-msvc-base",
+      "cacheVariables": {
+        "CHROMASCOPE_BUILD_GUI": "ON"
+      }
+    },
+    {
       "name": "windows-cli-release",
       "displayName": "Windows Release (core, CLI, tests)",
       "inherits": "windows-msvc-base",
@@ -126,6 +134,11 @@
     {
       "name": "linux-cli-sanitize",
       "configurePreset": "linux-cli-sanitize"
+    },
+    {
+      "name": "windows-release",
+      "configurePreset": "windows-release",
+      "configuration": "Release"
     },
     {
       "name": "windows-cli-release",
@@ -188,6 +201,17 @@
       "execution": {
         "noTestsAction": "error"
       }
+    },
+    {
+      "name": "windows-release",
+      "configurePreset": "windows-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "configuration": "Release"
     },
     {
       "name": "windows-cli-release",

@@ -1274,3 +1274,48 @@ Run `python3 -m unittest discover -s tests/quality -p 'test_ubuntu26_package_m11
 (13 new tests) and the complete quality suite (222 tests). The existing 149
 native and 28 camera-labeled CTests are unchanged. Preserve the Debian 12/13
 and Ubuntu 24.04 package workflows. See [M11.5 guide](M11_5_UBUNTU26_PACKAGE.md).
+
+
+## M11.6 (#80) — Windows x64 portable ZIP
+
+On hosted Windows Server 2022 / MSVC 2022 x64, retain the CLI-only Release
+CTest gate and add `cmake --preset windows-release` with verified static GLFW
+3.4 / OpenCV 5.1.0 and Dear ImGui 1.93.0, then GUI-enabled CTests. Run
+`scripts/package_windows_x64.py --build` and `--inspect`, then unpack and
+start the relocated CLI (help/profiles/generated BMP) using a PATH without
+developer OpenCV/VS directories.
+The package must contain both frontends, a private app-local verified VC143
+runtime closure when required, a PE dependency/sha256 manifest and notices.
+Reject unknown imports and all historical samples, user media and ONNX weights.
+A Windows 10/11 GUI or camera success claim is not part of this smoke test.
+Run `python3 -m unittest discover -s tests/quality -p 'test_windows_zip_m116.py' -v`
+and the complete quality suite; 149 native/28 camera CTests are unchanged.
+See [M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md).
+
+
+### M11.6 Windows GUI first-build regression (issue #80)
+
+The new Windows GUI-enabled MSVC build exercises source previously excluded
+from Windows CI. On Windows RPC headers, `small` may be defined as `char`,
+and legacy `<GL/gl.h>` does not provide `GL_CLAMP_TO_EDGE`. Run the targeted
+quality tests (`test_windows_zip_m116.py`), including a synthetic C++ syntax
+check with those two constraints, followed by the complete Python suite. The
+expected focused M11.6 test count is **16** (previously 13), and the full
+Python suite is **238** (previously 235). Retain 149 native CTests and 28
+camera tests; Windows GUI-enabled MSVC CTests and ZIP smoke are still required.
+
+
+### M11.6 Windows VC143 source-folder regression (issue #80)
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_windows_zip_m116.py' -v`
+(**24 tests**, previously 19) and the full quality suite (**246 tests**, previously
+241). The initial one-off `vccorlib140.dll` filter failed on the next
+legitimate VC143 file, `vcruntime140_threads.dll`; the packager now distinguishes
+unused *source inventory* entries from actual PE imports and ZIP members.
+Five new cases include a complete synthetic PE32+ build-to-ZIP round-trip,
+recursive runtime DLL closure, an unreviewed-import ZIP failure, optional C11
+thread runtime selection, source-name collisions and symlink rejection.
+Unknown PE imports, missing required native CRT and extra ZIP DLLs remain
+fatal. Extra unused files present in the authenticated source folder are not. Native baseline stays
+149 CTests / 28 camera regressions; only a real hosted MSVC ZIP build and
+relocated smoke can qualify this packaging correction.

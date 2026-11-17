@@ -133,5 +133,23 @@ OpenCV image variable; Windows' legacy OpenGL headers also lacked the
 constant (`0x812F`) compatible with the existing 3.3 context. Three new
 quality tests include a synthetic syntax-only compile with the Windows macro
 and old-header symbol constraints. MSVC compilation and portable ZIP smoke
-remain pending CI verification; this correction does not declare Windows
-10/11 interactive GUI compatibility.
+were pending when this compiler correction was introduced. The later MSVC
+GUI-enabled build and CTests have passed; ZIP qualification remains pending.
+This does not declare Windows 10/11 interactive GUI compatibility.
+
+
+## M11.6 — VC143 redistributable enumeration correction (issue #80)
+
+The next Windows CI run passed the GUI-enabled MSVC build and CTests but
+failed in `verify_redist_path()` before ZIP creation because the genuine
+`Microsoft.VC143.CRT` directory contained `vccorlib140.dll`. This is a
+managed-code runtime shipped in some Microsoft redistribution directories,
+not a required native ChromascopeIP dependency. The packager now ignores
+that exact unused **source** DLL; it is **not** admitted to the `CRT` import
+allowlist, copied into the ZIP, or accepted if a PE binary imports it. The
+CI job continues checking Microsoft Authenticode signatures for every DLL
+in that directory and fails on unfamiliar filenames or missing native CRT.
+
+The M11.6 policy suite adds three regression tests (19 focused / 241 total
+Python); Windows ZIP construction, PE closure, relocated CLI startup and
+successful artifact upload still require a complete hosted CI rerun.

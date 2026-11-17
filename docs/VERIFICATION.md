@@ -1520,3 +1520,18 @@ actual syntax-only C++ macro/legacy-GL compile), raising the expected Python
 quality suite to 238. The native baseline remains 149 CTests and 28 camera
 regressions. The actual Windows GUI-enabled build, portable ZIP qualification
 and all six hosted CI checks must still pass before issue #80 can be merged.
+
+
+## M11.6 (#80) — VC143 runtime-directory false rejection (pending CI)
+
+The second Windows hosted run successfully compiled and tested the GUI and
+CLI, but the portable ZIP packager rejected `vccorlib140.dll` found in the
+verified VS2022 `Microsoft.VC143.CRT` directory. The directory includes a
+Microsoft managed-code runtime that ChromascopeIP does not require. Fixed
+only the packager's source-directory enumeration to ignore this exact known
+unused runtime: the PE-import and ZIP allowlists still reject it and all
+other unreviewed DLLs. CI continues to authenticate every Microsoft
+redistributable before packaging. Three new tests raise focused Windows
+policy coverage to 19 and total Python quality coverage to 241; native tests
+remain 149 (28 camera-specific). M11.6 stays BLOCKED until the Windows ZIP
+build, dependency audit, relocated CLI smoke and six hosted checks pass.

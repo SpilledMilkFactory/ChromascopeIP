@@ -238,6 +238,57 @@ class WindowsZipM116Tests(unittest.TestCase):
             self.assertIn(phrase.lower(), guide.lower())
 
 
+    def test_official_vc143_redist_can_contain_unused_managed_runtime(self):
+        # VS2022's legitimate Microsoft.VC143.CRT directory may contain
+        # vccorlib140.dll. This is not evidence of an application import.
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = (Path(tmp) / 'VC' / 'Redist' / 'MSVC' / '14.44.00000' /
+                      'x64' / 'Microsoft.VC143.CRT')
+            folder.mkdir(parents=True)
+            for name in ('vcruntime140.dll', 'vcruntime140_1.dll',
+                         'msvcp140.dll', 'vccorlib140.dll'):
+                (folder / name).write_bytes(b'fixture')
+            available = pack.verify_redist_path(folder)
+            self.assertEqual(set(available), {'vcruntime140.dll',
+                                               'vcruntime140_1.dll', 'msvcp140.dll'})
+            executable = Path(tmp) / 'native.exe'
+            executable.write_bytes(pe_binary('KERNEL32.dll', 'VCRUNTIME140.dll',
+                                             'MSVCP140.dll'))
+            self.assertEqual(pack.classify_imports(pack.read_pe_imports(executable),
+                                                   available),
+                             {'vcruntime140.dll', 'msvcp140.dll'})
+            self.assertNotIn('vccorlib140.dll', available)
+
+    def test_managed_runtime_import_remains_unreviewed_even_when_present(self):
+        # Do not solve source enumeration by silently expanding the ZIP DLL
+        # allowlist. A real native executable or delay-load import must fail.
+        available = {'vccorlib140.dll': Path('vccorlib140.dll'),
+                     'vcruntime140.dll': Path('vcruntime140.dll'),
+                     'msvcp140.dll': Path('msvcp140.dll')}
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / 'managed.exe'
+            executable.write_bytes(pe_binary('KERNEL32.dll', delay=('VCCORLIB140.dll',)))
+            with self.assertRaisesRegex(pack.PackageError, 'Unreviewed'):
+                pack.classify_imports(pack.read_pe_imports(executable), available)
+        self.assertIsNone(pack.CRT.fullmatch('vccorlib140.dll'))
+
+    def test_redist_source_still_rejects_unreviewed_or_missing_native_crt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = (Path(tmp) / 'VC' / 'Redist' / 'MSVC' / '14.44.00000' /
+                      'x64' / 'Microsoft.VC143.CRT')
+            folder.mkdir(parents=True)
+            (folder / 'vccorlib140.dll').write_bytes(b'managed fixture')
+            (folder / 'msvcp140.dll').write_bytes(b'native fixture')
+            with self.assertRaisesRegex(pack.PackageError, 'Incomplete'):
+                pack.verify_redist_path(folder)
+            (folder / 'vcruntime140.dll').write_bytes(b'native fixture')
+            (folder / 'untrusted.dll').write_bytes(b'invalid fixture')
+            with self.assertRaisesRegex(pack.PackageError, 'Unexpected redistributable'):
+                pack.verify_redist_path(folder)
+            (folder / 'untrusted.dll').unlink()
+            self.assertEqual(set(pack.verify_redist_path(folder)),
+                             {'vcruntime140.dll', 'msvcp140.dll'})
+
     def test_windows_gui_texture_avoids_rpc_small_macro(self):
         gui = (ROOT / 'src/gui/main.cpp').read_text(encoding='utf-8')
         texture = gui.split('struct Texture {', 1)[1].split('struct App {', 1)[0]

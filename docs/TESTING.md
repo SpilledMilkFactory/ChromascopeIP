@@ -1303,3 +1303,15 @@ check with those two constraints, followed by the complete Python suite. The
 expected focused M11.6 test count is **16** (previously 13), and the full
 Python suite is **238** (previously 235). Retain 149 native CTests and 28
 camera tests; Windows GUI-enabled MSVC CTests and ZIP smoke are still required.
+
+
+### M11.6 Windows VC143 source-folder regression (issue #80)
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_windows_zip_m116.py' -v`
+(**19 tests**, previously 16) and the full quality suite (**241 tests**, previously
+238). The added tests use a synthetic `Microsoft.VC143.CRT` folder containing
+`vccorlib140.dll` to verify it is ignored as an unused source-file entry,
+while direct and delayed PE imports of it still fail closed. Unexpected DLLs
+and missing mandatory `vcruntime140.dll` remain fatal. Native baseline stays
+149 CTests / 28 camera regressions; only a real hosted MSVC ZIP build and
+relocated smoke can qualify this packaging correction.

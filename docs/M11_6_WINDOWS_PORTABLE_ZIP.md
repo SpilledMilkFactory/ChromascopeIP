@@ -129,3 +129,21 @@ symbol; a GCC/Clang syntax-only synthetic compilation extracts the actual
 `GL_CLAMP_TO_EDGE`. This is not a substitute for MSVC. The Windows GUI-enabled
 CTest, package generation, PE import validation and relocated CLI smoke remain
 required before accepting issue #80.
+
+
+## M11.6 VC143 source-directory compatibility correction
+
+Following successful Windows Server 2022 GUI compilation and CTests, ZIP
+construction stopped because the verified Microsoft VC143 redistributable
+folder contained `vccorlib140.dll`. Microsoft documents this as a managed-
+code runtime. Its presence in the signed VC143 *source folder* does not
+mean that ChromascopeIP, a native C++ application, imports it.
+
+`verify_redist_path()` ignores only this explicitly identified unused source
+entry. It is **not** added to the native `CRT` allowlist: any actual ordinary
+or delayed PE import of `vccorlib140.dll` remains a packaging error. Other
+unexpected DLL filenames, unsafe symlinks, missing required runtime DLLs,
+non-Microsoft signatures in CI, and unreviewed DLLs in the ZIP remain errors.
+Only native CRT DLLs demanded by inspected PE imports are copied app-local.
+This fix does not establish a successful portable ZIP until GitHub Actions
+builds, inspects and launches the relocated candidate without developer PATH.

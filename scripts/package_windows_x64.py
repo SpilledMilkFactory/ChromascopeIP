@@ -44,6 +44,10 @@ SYSTEM_DLLS = frozenset('''
     api-ms-win-core-path-l1-1-0.dll
 '''.split())
 CRT = re.compile(r'(?:vcruntime140(?:_1)?|msvcp140(?:_[a-z0-9_]+)?|concrt140|vcomp140)\.dll\Z')
+# Official VC143 CRT folders also contain managed-code runtimes. Their mere
+# presence must not trigger packaging failure or authorize bundling. Actual
+# PE imports remain restricted to CRT above and reviewed Windows system DLLs.
+UNUSED_REDIST_DLLS = frozenset({'vccorlib140.dll'})
 RESTRICTED = {'.onnx', '.mp4', '.avi', '.mov', '.mkv', '.jpg', '.jpeg',
               '.png', '.bmp', '.webp', '.webm', '.pth', '.pt', '.pb'}
 REQUIRED_DOCS = (f'{DOCDIR}/LICENSE',
@@ -218,9 +222,16 @@ def verify_redist_path(directory):
         raise PackageError('Use the Visual Studio 2022 x64/Microsoft.VC143.CRT redistributable directory')
     result = {}
     for file in path.glob('*.dll'):
-        if file.is_symlink() or not CRT.fullmatch(file.name.lower()):
+        if file.is_symlink():
             raise PackageError('Unexpected redistributable library: ' + file.name)
         key = file.name.lower()
+        if key in UNUSED_REDIST_DLLS:
+            # Present in some signed Microsoft.VC143.CRT folders, but not a
+            # reviewed native ChromascopeIP dependency. Do not make it available
+            # to the recursive PE-import-based bundler.
+            continue
+        if not CRT.fullmatch(key):
+            raise PackageError('Unexpected redistributable library: ' + file.name)
         if key in result:
             raise PackageError('Ambiguous runtime DLL filename')
         result[key] = file

@@ -53,3 +53,15 @@ authorized separately. Apache-2.0 does not clear separate training/dataset,
 platform binary, codec, personal-data or historic Skittles photograph rights.
 Final per-artifact notice/licensing verification remains M11/M12 work.
 This addendum is not legal advice or an approval to distribute model binaries.
+
+
+## M11.9 per-binary inventory clarification
+
+See [M11.9 audit procedure](M11_9_REDISTRIBUTION_SBOM.md). The same-run
+`.deb`/`.zip` artifacts must be independently inspected; source-tree notices
+are NOT alone sufficient evidence that every statically compiled or dynamically
+loaded codec component is covered. The audit emits CycloneDX draft SBOMs and
+requires manual review of source-pinned third-party notices, Linux FFmpeg
+configuration/codec terms, Windows MSVC REDIST licensing and model exclusions.
+The original historical JPEG redistribution rights remain unresolved. No
+automatic legal clearance or v1.0 release authorization is implied.

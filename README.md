@@ -1030,3 +1030,14 @@ privacy-preserving platform description; the real device tests remain
 **explicitly operator-run**. See [M11.8 qualification](docs/M11_8_DESKTOP_DEVICE_QUALIFICATION.md).
 Native application code and all five package builders are unchanged. No
 physical platform is considered qualified merely because hosted CI is green.
+
+
+## M11.9 (#83) — Artifact-derived SBOM drafts and redistribution review
+
+M11.9 adds offline CycloneDX 1.6 **draft** SBOM generation against the five
+M11.7 same-run qualified packages. The matrix CI uploads review-required
+evidence, including notice hashes, linked libraries, declared distro runtime
+dependencies and selected source-pinned components. This is not automatic
+redistribution approval: codec/FFmpeg terms, static OpenCV internals, Microsoft
+VC143 redistribution rights, complete license notices and media/model exclusions
+need independent per-artifact review. See [the M11.9 review guide](docs/M11_9_REDISTRIBUTION_SBOM.md).

@@ -1373,3 +1373,17 @@ recorded after explicit operator work and local review. No hardware runs in
 quality CI. A GitHub Actions PASS alone is not Windows 10/11 or live-device
 certification. All six records must refer to the same source commit and
 qualified package digests before a manual-evidence report can be generated.
+
+
+## M11.9 (#83) — Binary redistribution SBOM and notice audit
+
+The M11.8 baseline is 291 Python quality tests, 149 native CTests (28 camera),
+and 12 green hosted CI checks. Run `python3 -m unittest discover -s
+tests/quality -p 'test_redistribution_m119.py' -v` and the full quality suite.
+The new `scripts/audit_redistribution_m119.py` independently validates the
+five downloaded package bytes against the same-run matrix report, invokes
+existing native package inspectors, and writes CycloneDX 1.6 **draft** SBOMs.
+The new CI step uploads *REVIEW-REQUIRED* evidence only. Missing artifacts,
+wrong SHA256, unsafe inputs, and invalid review records fail closed. License
+review without actual reviewed evidence must NOT be reported as complete.
+See [M11.9](M11_9_REDISTRIBUTION_SBOM.md).

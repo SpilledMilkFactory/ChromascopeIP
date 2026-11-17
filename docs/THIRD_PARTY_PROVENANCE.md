@@ -64,3 +64,16 @@ provenance markers are updated; **this adds a third-party runtime/component
 notice obligation** before distribution. The model artifact remains external;
 NanoDet Apache-2.0 notices and model fingerprint are recorded separately.
 Windows static MSVC DNN/Protobuf link acceptance remains a hosted CI gate.
+
+
+## M11.9 exact-artifact redistribution review
+
+The five M11.7-qualified artifacts are now the input to
+[`audit_redistribution_m119.py`](../scripts/audit_redistribution_m119.py).
+The generated CycloneDX 1.6 documents retain package SHA-256, imported native
+shared-library identities and raw notice hashes. They do not pretend that
+Linux Debian constraints reveal actually installed runtime package versions,
+or that Windows PE imports reveal every statically linked OpenCV codec or
+Protobuf component. Final upstream NOTICE comparison, distro package license
+terms, Microsoft REDIST license entitlement, potential codec patent issues,
+and actual model/media exclusion remain explicit independent review tasks.

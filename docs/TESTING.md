@@ -1242,3 +1242,19 @@ unresolved system dependencies and unapproved media must fail. The Debian 12
 package gate remains unchanged. Run the M11.3 Python tests with
 `python3 -m unittest discover -s tests/quality -p 'test_debian13_package_m113.py' -v`.
 See [M11.3 guide](M11_3_DEBIAN13_PACKAGE.md).
+
+
+## M11.4 (#78) — Ubuntu 24.04 native AMD64 package qualification
+
+Noble now runs `scripts/package_ubuntu24.py` after GUI and CLI-only CTests,
+then `scripts/smoke_ubuntu24_chroot.sh` installs the `.deb` in an independent
+Noble APT root with main/universe enabled. The smoke exercises ordinary native
+CLI execution with host procfs, and real Noble interpreter-driven CLI help,
+profile listing, and generated BMP processing inside the minimal chroot.
+Unlike a full desktop, debootstrap minbase has no mounted `/proc/self/exe`:
+interpreter-driven chroot execution is **not** native kernel exec on a fresh
+Ubuntu desktop. No OpenCV 5.1.0 developer prefix is exposed to the chroot.
+The Debian 12/13 gates and Ubuntu 26.04 build/test checks remain unchanged.
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_ubuntu24_package_m114.py' -v`
+and the complete quality suite. See [M11.4 guide](M11_4_UBUNTU24_PACKAGE.md).

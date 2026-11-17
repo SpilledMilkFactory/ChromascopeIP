@@ -1418,7 +1418,7 @@ not ordinary kernel exec inside the proc-less chroot. Do not waive any
 pre-existing gates. Expected: 27 focused / 185 Python, 149 native, 28 camera,
 and all six GitHub checks. M11.2 is blocked pending green CI.
 
-## M11.3 (#77) — Debian 13 AMD64 candidate (pending acceptance)
+## M11.3 (#77) — Debian 13 AMD64 candidate (accepted)
 
 Native Debian 13 package creation and inspection, procfs-enabled native CLI
 startup, and independent Trixie debootstrap APT/interpreter-driven help,
@@ -1428,3 +1428,29 @@ qualification unchanged; all six hosted checks, the native 149 CTests
 required. The chroot lacks /proc/self/exe, so interpreter invocation is not
 ordinary kernel-exec verification. No final v1.0 release or distribution
 licensing sign-off is implied. See [M11.3 guide](M11_3_DEBIAN13_PACKAGE.md).
+
+
+### M11.3 acceptance recorded — November 17, 2026
+
+The M11.3 pull request #77 received six successful GitHub Actions checks,
+including the Debian 12 and Debian 13 packaging/clean-install jobs, and was
+merged, as confirmed by the maintainer. Local verification recorded 11/11
+focused packaging quality tests, 196/196 complete Python quality tests,
+149/149 native Release, CLI-only and sanitizer CTests, and 28/28 camera-labeled
+regressions. Manual GUI and CLI behavior was reported unchanged. Acceptance
+establishes **Debian 13** package qualification at the development-candidate
+level; it does not certify a signed v1.0.0 public release, standalone desktop
+GUI install or camera hardware across all target systems.
+
+## M11.4 (#78) — Ubuntu 24.04 AMD64 package (pending acceptance)
+
+The native Noble package must pass source-pinned OpenCV provenance, recursive
+private SONAME dependency closure, re-extracted `.deb` ELF inspection,
+Ubuntu-generated `dpkg-shlibdeps` external Depends, ordinary native CLI startup
+on a procfs-enabled host, and fresh Noble APT installation with interpreter-
+driven CLI help/profiles/synthetic BMP processing. Keep Debian 12/13 packaging,
+Ubuntu 26.04 builds, Windows, sanitizer and quality CI green. This is a
+pre-release `0.1.3` candidate, not final distribution license or 1.0.0 approval.
+Run the focused M11.4 Python policy tests and full suite; the 149 native CTests
+and 28 camera-labeled regressions remain required, alongside manual GUI/CLI
+checks and all six GitHub Actions checks. See [M11.4 guide](M11_4_UBUNTU24_PACKAGE.md).

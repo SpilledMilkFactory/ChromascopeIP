@@ -48,7 +48,7 @@ ONNX weights and development dependencies. It must still pass CI, actual clean
 installation, later third-party release inventory and manual GUI/camera gates.
 See the [M11.2 Debian package guide](docs/M11_2_DEBIAN12_PACKAGE.md).
 
-## M11.3 Debian 13 AMD64 development package (Issue #77; pending acceptance)
+## M11.3 Debian 13 AMD64 development package (Issue #77; accepted)
 
 Debian 13 (Trixie) builds a **separate** `amd64` package from its own pinned
 OpenCV 5.1.0 runtime and Trixie system-library dependency metadata, with the
@@ -58,6 +58,16 @@ is `ChromascopeIP-0.1.3-Debian13-amd64.deb`; it is **not** the v1.0.0
 release. Debian 12 packaging continues independently. No original photos,
 recordings or ONNX model weights are bundled. See the [M11.3 Trixie package
 guide](docs/M11_3_DEBIAN13_PACKAGE.md) for acceptance limits.
+
+## M11.4 Ubuntu 24.04 AMD64 development package (Issue #78; pending acceptance)
+
+Ubuntu 24.04 (Noble) now constructs its own `ChromascopeIP-0.1.3-Ubuntu24.04-amd64.deb`
+using the native Noble toolchain, source-pinned OpenCV 5.1.0 and Ubuntu-generated
+APT dependencies. The CI check additionally installs the package into a fresh
+Noble root and runs clean CLI smokes. Debian 12/13 packages and the Ubuntu
+26.04 build continue independently; no historical photographs, video files or
+ONNX weights are bundled. This candidate is not the v1.0.0 release. See the
+[M11.4 Ubuntu 24.04 package guide](docs/M11_4_UBUNTU24_PACKAGE.md).
 
 ## Current capabilities (M10.7 baseline; current for M10.8 documentation)
 

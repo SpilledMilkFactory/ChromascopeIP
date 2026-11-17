@@ -1215,3 +1215,17 @@ substitutes `LD_LIBRARY_PATH` to pass. A failed package is retained for up to
 2 days as a conspicuously **UNQUALIFIED** diagnostic artifact. The tested
 release artifact remains gated by successful smoke. Python quality baseline:
 **182** (24 Debian packaging tests); native remains **149**.
+
+
+### M11.2 — proc-less Bookworm chroot `$ORIGIN` regression correction
+
+Loader diagnostics established that missing `/proc/self/exe` in the minbase
+chroot, **not missing OpenCV data in the .deb**, caused direct startup failure.
+M11.2 now verifies (a) ordinary native execution from the extracted package
+on the Debian 12 CI host with procfs and package-private videoio, and
+(b) interpreter-driven execution against the fresh Bookworm APT-installed
+libraries for CLI help, profiles and synthetic BMP. CI does not request
+privileged containers or mount `/proc` from the host. The interpreter-driven
+chroot invocation is not a substitute for ordinary kernel exec on a full
+Bookworm machine; M11.8/M12 retain that final manual/native release gate.
+Expected: **27 focused / 185 total Python tests**, 149 native CTests.

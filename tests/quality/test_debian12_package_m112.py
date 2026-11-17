@@ -445,5 +445,44 @@ class DebianCleanInstallDiagnosticsTests(unittest.TestCase):
         self.assertIn("if: matrix.version == '12'", workflow)
 
 
+class DebianProcfsOriginRegressionTests(unittest.TestCase):
+    """Do not confuse a proc-less minbase chroot with a normal Linux runtime."""
+
+    def test_smoke_exercises_native_exec_with_real_procfs_and_private_opencv(self):
+        script = (ROOT / 'scripts/smoke_debian12_chroot.sh').read_text()
+        self.assertIn('if [[ ! -r /proc/self/exe ]]', script)
+        self.assertIn('dpkg-deb --extract "$pkg" "$native_stage"', script)
+        self.assertIn('"$native_cli" --help', script)
+        self.assertIn('realpath -e -- "$native_private/libopencv_videoio.so.501"', script)
+        self.assertIn('Native packaged CLI did not resolve its own private videoio', script)
+        self.assertNotIn('LD_LIBRARY_PATH=', script)
+
+    def test_bookworm_execution_uses_real_interpreter_without_mount_privileges(self):
+        script = (ROOT / 'scripts/smoke_debian12_chroot.sh').read_text()
+        self.assertIn('cli_interpreter="$interpreter"', script)
+        self.assertIn('launch_bookworm_cli() {', script)
+        self.assertIn('chroot "$root" "$cli_interpreter" /usr/bin/chromascope-cli "$@"', script)
+        self.assertIn('--input /tmp/smoke.bmp --profile grayscale --json -', script)
+        self.assertIn('launch_bookworm_cli --list-profiles', script)
+        self.assertIn('launch_bookworm_cli --help', script)
+        self.assertNotIn('mount -t proc', script)
+        self.assertNotIn('mount --bind /proc', script)
+        self.assertNotIn('/proc/self/exe"', script.split('launch_bookworm_cli() {')[1].split('if ! launch_bookworm_cli')[0])
+        workflow = (ROOT / '.github/workflows/ci-debian.yml').read_text()
+        self.assertNotIn('--privileged', workflow)
+        self.assertNotIn('SYS_ADMIN', workflow)
+
+    def test_clean_install_documentation_identifies_chroot_procfs_limitation(self):
+        for name in ('docs/M11_2_DEBIAN12_PACKAGE.md',
+                     'docs/TESTING.md', 'docs/VERIFICATION.md'):
+            doc = (ROOT / name).read_text()
+            self.assertIn('/proc/self/exe', doc, name)
+            self.assertIn('M11.2', doc, name)
+        doc = (ROOT / 'docs/M11_2_DEBIAN12_PACKAGE.md').read_text()
+        self.assertIn('Debian bug #787227', doc)
+        self.assertIn('interpreter', doc)
+        self.assertIn('native', doc)
+
+
 if __name__ == '__main__':
     unittest.main()

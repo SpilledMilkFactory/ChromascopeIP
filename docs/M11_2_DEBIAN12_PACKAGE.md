@@ -169,3 +169,42 @@ When package construction succeeds but a later CI stage fails, CI may upload a
 This is for diagnosis only: it must not be distributed as a tested binary or
 confused with the separate successful clean-install artifact upload. Share the
 log and optionally this diagnostic `.deb` for an ELF/loader root-cause review.
+
+
+### M11.2 root cause correction: proc-less minbase chroot and `$ORIGIN`
+
+The previous Debian 12 package already contained `libopencv_videoio.so.501`
+and valid private ELF `DT_RPATH`. Full CI loader evidence finally exposed the
+actual cause: the newly created `debootstrap --variant=minbase` chroot does
+**not mount `/proc`**. On ordinary kernel `execve`, glibc may resolve the
+main executable's `$ORIGIN` through `/proc/self/exe`; without this entry, the
+loader cannot find the private directory. In contrast, explicitly running
+`ld-linux --list /usr/bin/chromascope-cli` worked because the interpreter
+was given the executable pathname. This exact limitation is tracked as
+**Debian bug #787227**. The behavior was reproduced with a synthetic ELF
+binary in a proc-less chroot, then confirmed by providing a controlled
+`/proc/self/exe` reference (research fixture only).
+
+The corrected non-privileged smoke now uses two complementary gates:
+
+1. Extract the actual `.deb` into another temporary prefix on the Debian 12
+   job host (where `/proc/self/exe` is present). Run its CLI via **ordinary
+   kernel exec**, with a minimal environment and no `LD_LIBRARY_PATH`, and
+   verify via `ldd` and canonical paths that videoio comes from the **extracted
+   package**, not the development OpenCV prefix. This tests `$ORIGIN` under
+   normal Linux conditions, but host-provided non-OpenCV dependencies may
+   differ from the isolated install.
+2. Keep the fresh debootstrap root and require APT to install all external
+   runtime dependencies without the development OpenCV prefix. Verify both
+   installed ELF loaders and SONAMEs, then **execute the actual installed CLI
+   using its Bookworm ELF interpreter** (pathname explicitly supplied) for
+   `--help`, `--list-profiles` and synthetic BMP processing. This tests the
+   clean dependencies and application functionality, but is *not* claimed to
+   be ordinary kernel exec from the proc-less chroot.
+
+This avoids escalating GitHub Actions container privileges merely to mount
+procfs; it does not fake `/proc/self/exe` in CI, alter the .deb, modify ELF
+search paths, or introduce system-global OpenCV configuration. The original
+unqualified-artifact failure gate remains, and a successfully tested package
+still requires all M11.2 clean-install checks plus full CI. GUI, camera,
+codec breadth and release licensing remain later gates.

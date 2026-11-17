@@ -1400,3 +1400,20 @@ actual executable interpreter `--list` resolution and, on startup failure,
 **UNQUALIFIED** and is not a release candidate. Do not close #76 until native
 clean-install execution, synthetic processing, and all six checks pass.
 Expected: 24 focused Debian Python tests, 182 total Python tests, 149 CTests.
+
+
+### M11.2 — verified proc-less chroot cause and two-sided smoke (PENDING)
+
+The Debian 12 test chroot lacks `/proc/self/exe`. Real ELF inspection and a
+controlled minimal-chroot reproduction confirmed `$ORIGIN` cannot be resolved
+on a direct kernel exec there; the same binary works when given to its ELF
+interpreter, or with executable location visible through procfs. See
+Debian bug #787227. No Debian packaging payload or RPATH change is needed.
+
+Acceptance now requires **ordinary native CLI startup** from the extracted
+`.deb` on Debian 12 with `/proc/self/exe` available, with the private OpenCV
+videoio path verified, PLUS full fresh-Bookworm APT installation and
+interpreter-driven CLI help, profile, synthetic BMP processing. The latter is
+not ordinary kernel exec inside the proc-less chroot. Do not waive any
+pre-existing gates. Expected: 27 focused / 185 Python, 149 native, 28 camera,
+and all six GitHub checks. M11.2 is blocked pending green CI.

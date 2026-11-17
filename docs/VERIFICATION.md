@@ -1417,3 +1417,14 @@ interpreter-driven CLI help, profile, synthetic BMP processing. The latter is
 not ordinary kernel exec inside the proc-less chroot. Do not waive any
 pre-existing gates. Expected: 27 focused / 185 Python, 149 native, 28 camera,
 and all six GitHub checks. M11.2 is blocked pending green CI.
+
+## M11.3 (#77) — Debian 13 AMD64 candidate (pending acceptance)
+
+Native Debian 13 package creation and inspection, procfs-enabled native CLI
+startup, and independent Trixie debootstrap APT/interpreter-driven help,
+profiles and generated BMP smoke are mandatory. Preserve M11.2 Debian 12
+qualification unchanged; all six hosted checks, the native 149 CTests
+(including 28 camera), Python quality suite and manual GUI/CLI review are
+required. The chroot lacks /proc/self/exe, so interpreter invocation is not
+ordinary kernel-exec verification. No final v1.0 release or distribution
+licensing sign-off is implied. See [M11.3 guide](M11_3_DEBIAN13_PACKAGE.md).

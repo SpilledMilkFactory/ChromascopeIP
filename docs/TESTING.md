@@ -1229,3 +1229,16 @@ privileged containers or mount `/proc` from the host. The interpreter-driven
 chroot invocation is not a substitute for ordinary kernel exec on a full
 Bookworm machine; M11.8/M12 retain that final manual/native release gate.
 Expected: **27 focused / 185 total Python tests**, 149 native CTests.
+
+## M11.3 (#77) — Debian 13 AMD64 independent package qualification
+
+Native Debian 13 (Trixie) now runs `scripts/package_debian13.py` after both
+Release CTest suites and `scripts/smoke_debian13_chroot.sh` before uploading
+the successful `.deb`. The smoke preserves M11.2's /proc/self/exe limitation
+handling: ordinary native packaged CLI startup on the procfs-enabled job host,
+PLUS fresh Trixie APT installation and interpreter-driven CLI processing.
+Missing OpenCV SONAME/dependency closure, wrong host, unexpected RPATH,
+unresolved system dependencies and unapproved media must fail. The Debian 12
+package gate remains unchanged. Run the M11.3 Python tests with
+`python3 -m unittest discover -s tests/quality -p 'test_debian13_package_m113.py' -v`.
+See [M11.3 guide](M11_3_DEBIAN13_PACKAGE.md).

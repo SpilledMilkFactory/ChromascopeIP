@@ -184,3 +184,14 @@ unsafe-source/case-collision checks. **24 focused / 246 total Python tests**
 are expected; native CTests stay 149 (28 camera-labeled). Final Windows CI ZIP
 construction, ZIP inspection, relocation, synthetic BMP processing and artifact
 upload must all pass before accepting M11.6.
+
+
+## M12.4 (#87) — Windows client ZIP engineering acceptance
+
+The maintainer reports using the v1.0.0 portable Windows x64 ZIP on Windows
+10 and Windows 11 with functional extracted GUI/CLI. This complements the
+Windows Server 2022 MSVC/CTest/PE-closure/relocated-CLI-smoke gates, without
+claiming client-driver or physical camera certification. No new per-OS JSON
+records or historical commit lookups are mandatory. See
+[M12.4 Windows ZIP acceptance](M12_4_WINDOWS_ZIP_ACCEPTANCE.md).
+M11.8 device and M11.9 redistribution reviews remain separate.

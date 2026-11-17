@@ -1702,3 +1702,21 @@ release signing and publication remain **separate unresolved gates**; no
 acceptance of #86 implies release authorization. The M12.2 Python baseline was
 **343** tests and native CTest baseline **150** (28 camera-labeled); M12.3 adds
 15 Python regressions and changes no native production or packaging code.
+
+
+## M12.4 (#87) — Windows 10/11 portable ZIP engineering sign-off
+
+The maintainer reports successful download/extraction and GUI/CLI use of the
+portable Windows x64 1.0.0 candidate on Windows 10 and Windows 11. Existing
+Windows Server 2022 MSVC CI, 150 native CTests, PE/VC143/ZIP inspections,
+restricted-PATH relocated CLI smoke, five-platform artifact matrix and
+full Release Candidate CI remain required and complementary evidence.
+
+The [M12.4 Windows ZIP acceptance guide](M12_4_WINDOWS_ZIP_ACCEPTANCE.md)
+records this operator-reported success without inventing historical exact
+ZIP hashes, commits, machine/driver details or unperformed camera tests.
+No additional Windows JSON evidence records or retesting are required for
+Issue #87 engineering acceptance when the existing 20 CI checks remain green.
+M11.8 physical-device cases and M11.9 human license/NOTICE/codec and
+Microsoft redistribution decisions remain separate. Neither signing nor
+public v1.0.0 release is authorized by this issue.

@@ -1464,3 +1464,25 @@ The prior M12.2 Python quality baseline is **343 tests**. M12.3 adds 15 Python
 regressions; the native baseline remains **150 CTests**, with 28 camera-labelled.
 There is no new CI workflow, runtime behavior, package builder or license
 sign-off. M11.9 redistribution and M11.8 camera certification stay separate.
+
+
+## M12.4 (#87) — Windows 10/11 portable ZIP acceptance
+
+The maintainer reports successful Windows 10 and Windows 11 portable ZIP
+GUI/CLI testing. Existing Windows Server 2022/MSVC builds, 150 native CTests,
+ZIP PE/CRT inspections, relocated synthetic CLI smoke, and all 20 Release
+Candidate CI checks remain required. No extra operator JSON records, historical
+commit lookups or repeated desktop testing are imposed.
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_windows_acceptance_m124.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -q
+python3 scripts/check_ci_policy.py
+python3 scripts/check_release_m121.py
+git diff --check
+```
+
+See [M12.4 Windows ZIP acceptance](M12_4_WINDOWS_ZIP_ACCEPTANCE.md).
+The 359 Python-test M12.3 baseline grows only by documentation tests. Windows
+camera/driver tests not actually performed and M11.9 redistribution review
+remain separate; no native or GitHub Actions workflows change.

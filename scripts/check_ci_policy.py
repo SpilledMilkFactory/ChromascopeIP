@@ -23,7 +23,9 @@ def check_workflow(path):
             # Only explicitly reviewed CI entry points may be invoked.
             allowed = {"./.github/workflows/ci-debian.yml",
                        "./.github/workflows/ci-ubuntu.yml",
-                       "./.github/workflows/ci-windows.yml"}
+                       "./.github/workflows/ci-windows.yml",
+                       "./.github/workflows/quality.yml",
+                       "./.github/workflows/package-matrix.yml"}
             if ref not in allowed:
                 errors.append(f"unapproved reusable workflow: {ref}")
             else:

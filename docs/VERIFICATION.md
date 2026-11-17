@@ -1657,3 +1657,22 @@ Required M12.1 gates: new offline version/scope contract tests; complete Python
 quality suite; native Release/CLI-only/sanitizer CTests; CI action-policy checks;
 all twelve hosted native/matrix checks; visual GUI/CLI version verification;
 exact `1.0.0` package metadata and Windows ZIP inspection.
+
+
+## M12.2 (#85) — final whole-release-candidate automated verification
+
+The maintainer confirms acceptance and merge of M12.1 after local 326/326
+Python quality tests, 150/150 native CTests, manual GUI/CLI verification and
+12 successful GitHub checks. M12.2 adds a same-run top-level `Release
+Candidate CI` workflow that requires the existing native five-package matrix
+and complete Quality workflow to succeed together. The final gated job checks
+frozen version identity, exact checked-out SHA, matrix report, all five actual
+artifact-derived CycloneDX drafts and 29 pending rights-review topics.
+
+**Baseline:** new 17 Python quality tests (343 total expected), 150 native
+CTests (28 camera-labeled) unchanged. The real hosted final-candidate workflow
+and workstation native verification are **PENDING** until executed on the M12.2
+commit. No public release is created. The M11.9 third-party license and NOTICE
+review, any incomplete M11.8 desktop/device evidence, and subsequent signing,
+tagging and publication requirements stay **BLOCKED/PENDING** as appropriate.
+See [M12.2 qualification guide](M12_2_FINAL_RC_MATRIX.md).

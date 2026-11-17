@@ -1,0 +1,97 @@
+# M12.2: final v1.0.0 release-CANDIDATE regression, not release publication.
+# Reuses accepted same-commit Quality and five-platform package matrix gates;
+# artifacts and SBOM drafts are retrieved only from THIS workflow run.
+name: Release Candidate CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  quality:
+    name: Complete quality, Release and sanitizer regressions
+    uses: ./.github/workflows/quality.yml
+    permissions:
+      contents: read
+
+  package_matrix:
+    name: Five-platform native package and SBOM qualification
+    uses: ./.github/workflows/package-matrix.yml
+    permissions:
+      contents: read
+
+  rc_evidence:
+    name: Verify exact-source release candidate evidence
+    needs: [quality, package_matrix]
+    if: ${{ success() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact candidate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify frozen release version and CI policy
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/check_release_m121.py
+          python3 scripts/check_ci_policy.py
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Download same-run qualified package matrix report
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: ChromascopeIP-1.0.0-M11.7-Matrix-Report
+          path: build/m122-evidence/matrix
+
+      - name: Download same-run review-required SBOM drafts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: ChromascopeIP-1.0.0-M11.9-SBOM-Drafts-REVIEW-REQUIRED
+          path: build/m122-evidence/sbom
+
+      - name: Independently verify source, native results, package and SBOM evidence
+        env:
+          RC_RUN_ID: ${{ github.run_id }}
+          RC_COMMIT: ${{ github.sha }}
+          RC_QUALITY_RESULT: ${{ needs.quality.result }}
+          RC_MATRIX_RESULT: ${{ needs.package_matrix.result }}
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/qualify_release_candidate_m122.py \
+            --matrix-report build/m122-evidence/matrix/package-matrix-report.json \
+            --sbom-dir build/m122-evidence/sbom \
+            --report build/m122-evidence/m122-rc-report.json \
+            --run-id "$RC_RUN_ID" \
+            --commit "$RC_COMMIT" \
+            --quality-result "$RC_QUALITY_RESULT" \
+            --matrix-result "$RC_MATRIX_RESULT"
+
+      - name: Upload M12.2 engineering qualification report (not a release)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ChromascopeIP-1.0.0-M12.2-RC-Automated-Evidence
+          path: build/m122-evidence/m122-rc-report.json
+          archive: true
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Summarize release-candidate automated qualification
+        run: |
+          {
+            echo '## M12.2 — v1.0.0 automated RC regression matrix PASS'
+            echo '- Same-run Quality: Release CTests, ASan/UBSan CTests, clang-tidy and Python quality policy.'
+            echo '- Same-run Debian 12/13, Ubuntu 24.04/26.04 and Windows native package/smoke gates.'
+            echo '- Exact source SHA, all five package SHA-256 values, M11.9 SBOM drafts checked.'
+            echo '- **NOT release-authorized:** outstanding M11.9 human redistribution reviews, manual hardware evidence, signing and tag/publication are separate gates.'
+          } >> "$GITHUB_STEP_SUMMARY"

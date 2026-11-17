@@ -1359,7 +1359,7 @@ installed execution. See [M11.1 staging guide](M11_1_INSTALL_STAGING.md).
 Previous M11.1 accepted baseline: 149/149 native CTests in each of three modes,
 28/28 camera tests, 158/158 Python quality tests and six green GitHub Actions
 checks, followed by merge confirmation. New M11.2 expected baseline: **149
-native**, **28 camera** and **171 Python quality** tests.
+native**, **28 camera** and **179 Python quality** tests.
 
 The M11.2 CI packaging correction closes the private OpenCV library graph
 recursively from the five requested modules, including DNN -> FLANN where
@@ -1375,3 +1375,17 @@ its Debian 12 package or six new CI results have passed yet. See
 [M11.2 Debian 12 packaging](M11_2_DEBIAN12_PACKAGE.md). GUI desktop, physical
 cameras, release dependency notices, SBOM and final binary qualification remain
 future M11.8/M11.9/M12 gates.
+
+### M11.2 follow-up: installed Bookworm ELF loader resolution (PENDING)
+
+The Debian 12 package now builds and installs in a fresh Bookworm chroot,
+but `chromascope-cli` previously failed to find `libopencv_videoio.so.501`.
+The corrected package uses private `$ORIGIN`-relative `DT_RPATH` for transitive
+OpenCV resolution, inspects the installed tree and re-extracted package ELF
+tags and SONAME links, and prints bounded dynamic-loader diagnostics upon
+clean-install failure. This is a narrowly scoped Debian 12 package exception,
+not a global runtime-loader configuration change. Re-run native Debian 12
+packaging and full clean-install CLI smoke before accepting #76.
+
+Expected M11.2 follow-up: **149 native / 28 camera / 179 Python** tests.
+Manual GUI/video/camera qualification and licensing sign-off remain pending.

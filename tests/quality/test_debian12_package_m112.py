@@ -1,5 +1,9 @@
 """M11.2 offline Debian 12 packaging policies; no root, downloads or cameras."""
 import importlib.util
+import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -171,6 +175,244 @@ class OpenCVRuntimeClosureTests(unittest.TestCase):
             with self.assertRaisesRegex(pack.PackageError, 'escapes verified prefix'):
                 pack.copy_opencv(root / 'opencv', root / 'stage')
 
+
+class InstalledOpenCVLoaderTests(unittest.TestCase):
+    """M11.2: packaged ELF resolution, separate from source/build success."""
+
+    def fixture(self, root, *, modules=None, missing_link=None, needed=None):
+        stage = Path(root)
+        private = stage / pack.LIBDIR
+        private.mkdir(parents=True)
+        modules = modules or pack.MODULES
+        for module in modules:
+            real = private / f'libopencv_{module}.so.5.1.0'
+            real.write_bytes(module.encode())
+            if module != missing_link:
+                (private / f'libopencv_{module}.so.501').symlink_to(real.name)
+        for binary in ('chromascope-cli', 'chromascope-gui'):
+            path = stage / pack.BINDIR / binary
+            path.parent.mkdir(exist_ok=True, parents=True)
+            path.write_bytes(binary.encode())
+
+        def dynamic_info(path):
+            module = path.name.removeprefix('libopencv_').split('.so.')[0]
+            if path.name.startswith('libopencv_'):
+                return f'libopencv_{module}.so.501', (needed or {}).get(module, [])
+            return None, (needed or {}).get(path.name, [])
+
+        return stage, dynamic_info
+
+    def test_private_rpath_is_transitive_and_no_global_loader_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stage = Path(directory) / 'stage'
+            for name in ('chromascope-cli', 'chromascope-gui'):
+                binary = stage / pack.BINDIR / name
+                binary.parent.mkdir(parents=True, exist_ok=True)
+                binary.write_bytes(b'fake')
+            (stage / pack.DOC / 'docs').mkdir(parents=True)
+            (stage / pack.DOC / 'LICENSE').write_bytes(b'MIT')
+            (stage / pack.DOC / 'docs/USER_GUIDE.md').write_bytes(b'guide')
+            model = stage / 'usr/share/chromascopeip/models/selected_model.json'
+            model.parent.mkdir(parents=True)
+            model.write_bytes(b'{}')
+            calls = []
+
+            def fake_cmd(args, **kwargs):
+                calls.append(list(map(str, args)))
+                return ''
+
+            with patch.object(pack, 'cmd', side_effect=fake_cmd):
+                pack.stage_install(Path(directory) / 'build', stage)
+            changes = [call for call in calls if call[0] == 'patchelf']
+            self.assertEqual(len(changes), 2)
+            for call in changes:
+                self.assertEqual(call[:4], ['patchelf', '--force-rpath', '--set-rpath',
+                                            pack.FRONTEND_RPATH])
+            source = (ROOT / 'scripts/package_debian12.py').read_text()
+            self.assertNotIn('ld.so.conf.d', source)
+            self.assertNotIn('LD_LIBRARY_PATH=', source)
+            self.assertEqual(pack.PRIVATE_RPATH, '$ORIGIN')
+
+    def test_stage_loader_contract_accepts_recursive_modules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            needed = {'dnn': ['libopencv_flann.so.501'],
+                      'flann': ['libopencv_core.so.501'],
+                      'chromascope-cli': ['libopencv_videoio.so.501']}
+            stage, info = self.fixture(directory, modules=(*pack.MODULES, 'flann'), needed=needed)
+            with patch.object(pack, 'dynamic_info', side_effect=info), \
+                 patch.object(pack, 'dynamic_search_path', side_effect=lambda path:
+                     pack.PRIVATE_RPATH if path.name.startswith('libopencv_')
+                     else pack.FRONTEND_RPATH):
+                result = pack.validate_runtime_tree(stage)
+            self.assertEqual(len(result), len(pack.MODULES) + 1)
+            self.assertIn('libopencv_videoio.so.501', result)
+            self.assertIn('libopencv_flann.so.501', result)
+
+    def test_stage_loader_contract_rejects_absent_or_broken_module(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stage, info = self.fixture(directory, missing_link='videoio')
+            with patch.object(pack, 'dynamic_info', side_effect=info), \
+                 patch.object(pack, 'dynamic_search_path', return_value=pack.PRIVATE_RPATH):
+                with self.assertRaisesRegex(pack.PackageError, 'SONAME symlink'):
+                    pack.validate_runtime_tree(stage)
+        with tempfile.TemporaryDirectory() as directory:
+            stage, info = self.fixture(directory)
+            with patch.object(pack, 'dynamic_info', side_effect=info), \
+                 patch.object(pack, 'dynamic_search_path', return_value=pack.PRIVATE_RPATH):
+                with self.assertRaisesRegex(pack.PackageError, 'executable private OpenCV DT_RPATH'):
+                    pack.validate_runtime_tree(stage)
+
+    def test_stage_loader_rejects_unbundled_transitive_library(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stage, info = self.fixture(directory, needed={'dnn': ['libopencv_flann.so.501']})
+            with patch.object(pack, 'dynamic_info', side_effect=info), \
+                 patch.object(pack, 'dynamic_search_path', side_effect=lambda path:
+                     pack.PRIVATE_RPATH if path.name.startswith('libopencv_')
+                     else pack.FRONTEND_RPATH):
+                with self.assertRaisesRegex(pack.PackageError, 'flann'):
+                    pack.validate_runtime_tree(stage)
+
+    def test_elf_rpath_tag_rejects_runpath_and_unset(self):
+        good = ' 0x000000000000000f (RPATH) Library rpath: [$ORIGIN]\n'
+        bad = ' 0x000000000000001d (RUNPATH) Library runpath: [$ORIGIN]\n'
+        with patch.object(pack, 'cmd', return_value=good):
+            self.assertEqual(pack.dynamic_search_path(Path('/tmp/test.so')), '$ORIGIN')
+        for output in ('', bad, good + bad):
+            with self.subTest(output=output), patch.object(pack, 'cmd', return_value=output):
+                with self.assertRaisesRegex(pack.PackageError, 'DT_RPATH'):
+                    pack.dynamic_search_path(Path('/tmp/test.so'))
+
+    def test_package_inspect_reextracts_and_audits_files(self):
+        package = Path('/tmp/ChromascopeIP-0.1.3-Debian12-amd64.deb')
+        meta = 'Package: chromascopeip\nVersion: 0.1.3\nArchitecture: amd64\nDepends: libc6\n'
+        files = '\n'.join('./' + item for item in (
+            'usr/bin/chromascope-cli', 'usr/bin/chromascope-gui',
+            'usr/share/doc/chromascopeip/LICENSE',
+            'usr/share/doc/chromascopeip/licenses/OpenCV-5.1.0-Apache-2.0.txt',
+            'usr/share/doc/chromascopeip/licenses/OpenCV-embedded-Protobuf-BSD-3-Clause.txt',
+            'usr/lib/x86_64-linux-gnu/chromascopeip/libopencv_core.so.5.1.0'))
+        calls = []
+
+        def fake_cmd(args, **kwargs):
+            calls.append(list(map(str, args)))
+            if '--field' in args:
+                return meta
+            if '--contents' in args:
+                return files
+            return ''
+
+        with patch.object(pack.Path, 'is_file', return_value=True), \
+             patch.object(pack, 'cmd', side_effect=fake_cmd), \
+             patch.object(pack, 'validate_runtime_tree', return_value={}) as audit:
+            self.assertEqual(pack.inspect(package, expected_version='0.1.3'), meta)
+        self.assertTrue(any('--extract' in call for call in calls))
+        audit.assert_called_once()
+
+
+    @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('cc'),
+                         'Requires a Linux C compiler and ELF dynamic loader')
+    def test_real_elf_runpath_vs_transitive_rpath(self):
+        # An ELF executable -> libmiddle -> libopencv_videoio chain reproduces
+        # the failure seen in Debian 12 without requiring OpenCV or root.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            private = root / pack.LIBDIR
+            private.mkdir(parents=True)
+            bindir = root / pack.BINDIR
+            bindir.mkdir(parents=True)
+            (root / 'dep.c').write_text('int value(void) { return 11; }\n')
+            (root / 'middle.c').write_text(
+                'int value(void); int middle(void) { return value()+1; }\n')
+            (root / 'app.c').write_text(
+                'int middle(void); int main(void) { return middle()==12 ? 0:1; }\n')
+            def compile_elf(*args):
+                result = subprocess.run(['cc', *map(str, args)],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+            library = private / 'libopencv_videoio.so.5.1.0'
+            compile_elf('-fPIC', '-shared', root / 'dep.c',
+                        '-Wl,-soname,libopencv_videoio.so.501', '-o', library)
+            (private / 'libopencv_videoio.so.501').symlink_to(library.name)
+            compile_elf('-fPIC', '-shared', root / 'middle.c',
+                        '-L' + str(private), '-l:libopencv_videoio.so.501',
+                        '-Wl,-soname,libmiddle.so.1', '-o', private / 'libmiddle.so.1')
+            outcomes = {}
+            for mode, tags in (('runpath', '--enable-new-dtags'),
+                               ('rpath', '--disable-new-dtags')):
+                binary = bindir / mode
+                compile_elf(root / 'app.c', '-L' + str(private), '-l:libmiddle.so.1',
+                            '-Wl,-rpath-link,' + str(private),
+                            '-Wl,-rpath,' + pack.FRONTEND_RPATH,
+                            '-Wl,' + tags, '-o', binary)
+                result = subprocess.run([str(binary)],
+                                        env={'PATH': '/usr/bin:/bin'},
+                                        capture_output=True, text=True)
+                outcomes[mode] = result
+            self.assertEqual(outcomes['rpath'].returncode, 0, outcomes['rpath'].stderr)
+            self.assertNotEqual(outcomes['runpath'].returncode, 0)
+            self.assertIn('libopencv_videoio.so.501', outcomes['runpath'].stderr)
+
+    @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('cc')
+                         and shutil.which('dpkg-deb') and shutil.which('readelf'),
+                         'Requires Linux ELF compiler and Debian package tools')
+    def test_real_deb_inspect_verifies_embedded_soname_links(self):
+        # Exercise actual dpkg-deb archive creation/extraction and actual readelf,
+        # not only mocks of the validation function.
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            root = base / 'pkgroot'
+            private = root / pack.LIBDIR
+            private.mkdir(parents=True)
+            bindir = root / pack.BINDIR
+            bindir.mkdir(parents=True)
+            (base / 'fixture.c').write_text('int fixture(void) { return 0; }\n')
+            for module in pack.MODULES:
+                library = private / f'libopencv_{module}.so.5.1.0'
+                result = subprocess.run([
+                    'cc', '-fPIC', '-shared', str(base / 'fixture.c'),
+                    f'-Wl,-soname,libopencv_{module}.so.501',
+                    '-Wl,--disable-new-dtags', '-Wl,-rpath,' + pack.PRIVATE_RPATH,
+                    '-o', str(library)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                (private / f'libopencv_{module}.so.501').symlink_to(library.name)
+            (base / 'main.c').write_text('int main(void) { return 0; }\n')
+            for name in ('chromascope-cli', 'chromascope-gui'):
+                result = subprocess.run([
+                    'cc', str(base / 'main.c'), '-Wl,--disable-new-dtags',
+                    '-Wl,-rpath,' + pack.FRONTEND_RPATH,
+                    '-o', str(bindir / name)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            required = [
+                'usr/share/doc/chromascopeip/LICENSE',
+                'usr/share/doc/chromascopeip/licenses/OpenCV-5.1.0-Apache-2.0.txt',
+                'usr/share/doc/chromascopeip/licenses/OpenCV-embedded-Protobuf-BSD-3-Clause.txt',
+            ]
+            for file in required:
+                dest = root / file
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text('synthetic fixture only\n')
+            control = root / 'DEBIAN/control'
+            control.parent.mkdir(parents=True)
+            control.write_text('Package: chromascopeip\nVersion: 0.1.3\n'
+                               'Architecture: amd64\nDepends: libc6 (>= 2.36)\n'
+                               'Maintainer: Packaging test\nDescription: Synthetic package\n')
+
+            def make_package(filename):
+                path = base / filename
+                result = subprocess.run(
+                    ['dpkg-deb', '--root-owner-group', '--build', str(root), str(path)],
+                    capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return path
+
+            valid = make_package('valid.deb')
+            self.assertIn('Package: chromascopeip',
+                          pack.inspect(valid, expected_version='0.1.3'))
+            (private / 'libopencv_videoio.so.501').unlink()
+            invalid = make_package('invalid.deb')
+            with self.assertRaisesRegex(pack.PackageError, 'SONAME symlink'):
+                pack.inspect(invalid, expected_version='0.1.3')
 
 if __name__ == '__main__':
     unittest.main()

@@ -1174,10 +1174,10 @@ python3 -m unittest discover -s tests/quality \
 
 ## M11.2 (#76) — Debian 12 package and native clean-install testing
 
-M11.2 has 13 offline Python quality tests (`test_debian12_package_m112.py`),
+M11.2 has 21 Python quality tests (`test_debian12_package_m112.py`),
 including five regression cases for transitive OpenCV dependencies (FLANN),
 missing modules, incompatible ABI, cycles and prefix escape; the expected
-Python total is **171**. The native suite remains **149 CTests**,
+Python total is **179**. The native suite remains **149 CTests**,
 including two M11.1 staging/resource tests; camera subset remains **28**.
 Run `python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
 The existing Debian 12 CI matrix leg builds a Debian package from the pinned
@@ -1186,3 +1186,21 @@ OpenCV build, inspects the package, creates a new Debian 12 minbase root with
 CLI help/profile/synthetic BMP processing. This *does not* open a real GUI,
 access cameras, load models or establish redistribution license sign-off.
 See [M11.2 packaging instructions](M11_2_DEBIAN12_PACKAGE.md).
+
+### M11.2 — Debian 12 transitive loader correction (CI follow-up)
+
+The initially assembled Debian 12 `.deb` installed successfully but its CLI
+failed to locate `libopencv_videoio.so.501` inside the clean Bookworm root.
+The package now uses private, relative **DT_RPATH** instead of non-transitive
+DT_RUNPATH and statically audits both staged and re-extracted package ELF
+metadata plus all OpenCV SONAME links. The focused Python tests include a
+real, compiler-generated ELF dependency chain that proves RUNPATH failure
+and RPATH success without OpenCV or camera access. The isolated chroot
+remains the real-runtime acceptance gate.
+
+```sh
+python3 -m unittest discover -s tests/quality -p test_debian12_package_m112.py -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+Expected: **21 focused / 179 total Python tests**, 149 native CTests.

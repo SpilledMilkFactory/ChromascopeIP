@@ -21,6 +21,12 @@ LIBDIR = Path("usr/lib/x86_64-linux-gnu/chromascopeip")
 BINDIR = Path("usr/bin")
 DOC = Path("usr/share/doc/chromascopeip")
 NAME = "chromascopeip"
+# Bookworm's older loader may need to discover a private OpenCV dependency
+# through multiple DT_NEEDED edges. Use package-private, transitive DT_RPATH
+# rather than DT_RUNPATH (which covers only direct dependencies). Never add
+# this path to the global ld.so configuration or install system OpenCV libs.
+FRONTEND_RPATH = '$ORIGIN/../lib/x86_64-linux-gnu/chromascopeip'
+PRIVATE_RPATH = '$ORIGIN'
 
 
 class PackageError(RuntimeError):
@@ -114,6 +120,64 @@ def dynamic_info(path):
     return (soname[0] if len(soname) == 1 else None), needed
 
 
+def dynamic_search_path(path):
+    """Read ELF tags, preserving the RPATH versus RUNPATH distinction."""
+    output = cmd(['readelf', '-d', path])
+    rpaths = re.findall(r'\(RPATH\).*?\[([^]]*)\]', output)
+    runpaths = re.findall(r'\(RUNPATH\).*?\[([^]]*)\]', output)
+    require(len(rpaths) == 1 and not runpaths,
+            f'Private runtime requires a single transitive DT_RPATH (no DT_RUNPATH): {path}')
+    return rpaths[0]
+
+
+def validate_runtime_tree(stage):
+    """Audit the staged/extracted ELF objects, not just dpkg control fields.
+
+    This guards against successful .deb creation with a missing OpenCV SONAME
+    link or a loader path that cannot reach the private module directory.
+    It is a static gate: the fresh Bookworm chroot remains the runtime proof.
+    """
+    private = stage / LIBDIR
+    require(private.is_dir(), f'Missing private OpenCV library directory: {private}')
+    names = {}
+    for library in sorted(private.glob('libopencv_*.so.5.1.0')):
+        require(library.is_file() and not library.is_symlink(),
+                f'Invalid private OpenCV payload: {library}')
+        soname, needed = dynamic_info(library)
+        match = re.fullmatch(r'libopencv_([a-z0-9_]+)\.so\.([0-9]+)', soname or '')
+        require(match and match.group(2) == '501',
+                f'Invalid OpenCV 5.1.0 SONAME in package: {library}')
+        require(library.name == f'libopencv_{match.group(1)}.so.5.1.0',
+                f'Unexpected packaged OpenCV module filename: {library}')
+        link = private / soname
+        require(link.is_symlink() and link.readlink() == Path(library.name),
+                f'OpenCV SONAME symlink is missing or incorrect: {link}')
+        require(dynamic_search_path(library) == PRIVATE_RPATH,
+                f'Incorrect private OpenCV DT_RPATH: {library}')
+        require(soname not in names, f'Duplicate bundled OpenCV SONAME: {soname}')
+        names[soname] = needed
+
+    require(all(f'libopencv_{module}.so.501' in names for module in MODULES),
+            'Debian package is missing a mandatory private OpenCV runtime module')
+    for binary in ('chromascope-cli', 'chromascope-gui'):
+        path = stage / BINDIR / binary
+        require(path.is_file() and not path.is_symlink(),
+                f'Missing or invalid installed frontend: {path}')
+        require(dynamic_search_path(path) == FRONTEND_RPATH,
+                f'Incorrect executable private OpenCV DT_RPATH: {path}')
+        _, needed = dynamic_info(path)
+        for entry in needed:
+            if entry.startswith('libopencv_'):
+                require(entry in names,
+                        f'Installed {binary} cannot resolve private OpenCV dependency: {entry}')
+    for soname, needed in names.items():
+        for entry in needed:
+            if entry.startswith('libopencv_'):
+                require(entry in names,
+                        f'Packaged {soname} cannot resolve private OpenCV dependency: {entry}')
+    return names
+
+
 def copy_opencv(opencv, private):
     """Stage the recursive DT_NEEDED OpenCV closure of the required modules.
 
@@ -168,7 +232,7 @@ def copy_opencv(opencv, private):
         staged = private / original.name
         shutil.copy2(original, staged)
         (private / soname).symlink_to(original.name)
-        cmd(['patchelf', '--set-rpath', '$ORIGIN', staged])
+        cmd(['patchelf', '--force-rpath', '--set-rpath', PRIVATE_RPATH, staged])
         names[soname] = staged
 
     for library in names.values():
@@ -188,7 +252,7 @@ def stage_install(build, stage):
     for binary in ('chromascope-cli', 'chromascope-gui'):
         path = stage / BINDIR / binary
         require(path.is_file() and path.stat().st_size > 0, f'Missing installed {binary}')
-        cmd(['patchelf', '--set-rpath', '$ORIGIN/../lib/x86_64-linux-gnu/chromascopeip', path])
+        cmd(['patchelf', '--force-rpath', '--set-rpath', FRONTEND_RPATH, path])
     for filename in (DOC / 'LICENSE', DOC / 'docs/USER_GUIDE.md',
                      Path('usr/share/chromascopeip/models/selected_model.json')):
         require((stage / filename).is_file(), f'Missing staged metadata: {filename}')
@@ -288,6 +352,12 @@ def inspect(package, expected_version=None):
         require(item in payload, f'Package missing expected file: {item}')
     require(not re.search(r'\.(?:onnx|jpe?g|mp4|avi)(?:\s|$)', payload, re.I),
             'Package unexpectedly contains media or model weights')
+    # The source's staged payload may differ from what dpkg-deb actually wrote.
+    # Re-extract the generated package and validate real ELF files and links.
+    with tempfile.TemporaryDirectory(prefix='chromascope-deb12-inspect-') as temp:
+        extracted = Path(temp) / 'payload'
+        cmd(['dpkg-deb', '--extract', package, extracted])
+        validate_runtime_tree(extracted)
     return meta
 
 
@@ -307,6 +377,7 @@ def build_package(build, opencv, output):
         private = stage / LIBDIR
         names = copy_opencv(opencv, private)
         ensure_clean_files(stage)
+        validate_runtime_tree(stage)
         deps = dependencies(stage, private, names, work)
         write_control(stage, version, deps, names)
         pending = work / filename

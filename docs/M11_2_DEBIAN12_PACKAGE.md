@@ -61,11 +61,22 @@ Every required OpenCV dependency must resolve uniquely **inside the verified
 OpenCV prefix**, to an actual OpenCV 5.1.0 shared library with the expected
 compatible SONAME/ABI. Missing, mismatched or noncanonical dependencies fail
 package construction; no system OpenCV fallback or allowlist bypass is used.
-SONAME links are private; executable RUNPATH is relative to `$ORIGIN` and
-private library RUNPATH uses `$ORIGIN`. No development-machine RPATH or
-`LD_LIBRARY_PATH` is needed for the installed application. The dynamic
-provenance manifest and SHA-256 inventory list the actual closure shipped,
-not an outdated hard-coded five-module list.
+SONAME links are private. The Debian 12 package uses narrowly scoped,
+`$ORIGIN`-relative **DT_RPATH** entries for both executables and private OpenCV
+modules. This is deliberate: `DT_RUNPATH` is **not transitive**, which caused the
+first successfully constructed M11.2 `.deb` to fail in the clean-install chroot
+with `libopencv_videoio.so.501: cannot open shared object file`. Debian normally
+prefers RUNPATH over legacy RPATH; this package-specific exception permits
+nested OpenCV `DT_NEEDED` lookups without global `ld.so.conf` changes or
+`LD_LIBRARY_PATH`. It does **not** modify the general M11.1 CMake install
+layout. No developer paths may appear in the package's ELF search tags.
+
+The packager also audits the real staged and *re-extracted .deb* executables,
+ELF `DT_RPATH` tags, mandatory private modules, SONAME links, and the full
+OpenCV dependency closure. A correct control file and successful `dpkg-deb`
+are not sufficient acceptance. The isolated Bookworm execution test remains
+mandatory. The dynamic provenance manifest and SHA-256 inventory list the
+actual closure shipped, not an outdated hard-coded five-module list.
 
 `dpkg-shlibdeps` analyzes **both installed executables and every bundled
 private shared library** and derives external `Depends` from Debian 12's
@@ -96,7 +107,9 @@ The CI Debian 12 job creates a **fresh Debian 12 minbase root with debootstrap**
 installs the generated `.deb` using `apt-get`, and verifies:
 
 - apt resolves every system dependency without the OpenCV development prefix;
+- the installed private OpenCV SONAME links point to real payload files;
 - the CLI and GUI ELF dependencies have no missing shared libraries;
+- any loader failure emits installed library/ELF-tag diagnostics;
 - CLI `--help` and profile listing work;
 - the CLI processes a wholly synthetic BMP with the grayscale profile;
 - no original media, ONNX weights, model inference, or webcam access is needed.
@@ -123,9 +136,9 @@ clean installation on the final frozen source revision.
 
 - 149 existing native CTests, including two M11.1 install-stage tests, retain
   their normal behavior in Release, CLI-only Release and ASan/UBSan configurations.
-- Thirteen Python packaging-policy checks (eight original plus five recursive
-  dependency-closure regressions) bring quality total from 158 to **171**;
-  camera-specific count remains **28**.
+- Twenty-one Python packaging-policy checks (the original eight, five recursive
+  dependency-closure regressions and eight new loader/ELF audit tests) bring
+  quality total from 158 to **179**; camera-specific count remains **28**.
 - Debian 12 CI now builds and inspects a candidate package **and requires an
   isolated clean-install CLI smoke** after the existing Release/CLI-only tests.
   Debian 13 CI is unchanged except for prerequisites shared by the matrix;

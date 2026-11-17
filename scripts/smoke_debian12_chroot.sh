@@ -35,10 +35,41 @@ env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin DEBIAN_FRONTEND=noninteractive \
   chroot "$root" apt-get install -y --no-install-recommends /tmp/chromascopeip.deb
 env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
   chroot "$root" dpkg-query -W chromascopeip
+# Verify the actual files and links in the *installed* chroot, before ldd.
+# RUNPATH is not transitive: the Debian 12 package deliberately uses a
+# private $ORIGIN DT_RPATH on the frontends and OpenCV modules.
+private="$root/usr/lib/x86_64-linux-gnu/chromascopeip"
+test -d "$private"
+for module in core imgproc imgcodecs videoio dnn; do
+  link="$private/libopencv_${module}.so.501"
+  test -L "$link" && test -f "$link" || {
+    echo "Missing installed private OpenCV SONAME link: $link" >&2
+    exit 1
+  }
+done
+show_loader_diagnostics() {
+  echo '--- Installed private OpenCV libraries ---' >&2
+  ls -la "$private" >&2 || :
+  echo '--- Installed ELF dynamic search tags ---' >&2
+  for object in "$root/usr/bin/chromascope-cli" "$root/usr/bin/chromascope-gui" \
+                "$private"/libopencv_*.so.5.1.0; do
+    [[ -f "$object" ]] || continue
+    echo "Object: $object" >&2
+    readelf -d "$object" | grep -E '\((NEEDED|RPATH|RUNPATH|SONAME)\)' >&2 || :
+  done
+}
 for program in chromascope-cli chromascope-gui; do
-  env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
-    chroot "$root" /usr/bin/ldd "/usr/bin/$program" > "$work/$program.ldd"
+  if ! env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+       chroot "$root" /usr/bin/ldd "/usr/bin/$program" \
+       > "$work/$program.ldd" 2>&1; then
+    cat "$work/$program.ldd" >&2
+    show_loader_diagnostics
+    echo "Dynamic-loader verification failed for $program" >&2
+    exit 1
+  fi
   if grep -F 'not found' "$work/$program.ldd"; then
+    cat "$work/$program.ldd" >&2
+    show_loader_diagnostics
     echo "Unresolved runtime library in $program" >&2
     exit 1
   fi

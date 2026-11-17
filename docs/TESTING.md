@@ -1486,3 +1486,29 @@ See [M12.4 Windows ZIP acceptance](M12_4_WINDOWS_ZIP_ACCEPTANCE.md).
 The 359 Python-test M12.3 baseline grows only by documentation tests. Windows
 camera/driver tests not actually performed and M11.9 redistribution review
 remain separate; no native or GitHub Actions workflows change.
+
+## M12.5 (#88) — release risk/notice/privacy review
+
+Documentation-driven audit: **no new production code, packaging or CI jobs**.
+Run focused checks then the existing complete Python quality suite. The
+M12.4 baseline is **365 Python tests**; M12.5 adds ten focused regression
+checks. The native baseline stays **150 CTests** (28 camera-labeled) and
+20 existing GitHub Actions checks. The tests verify documented source
+claims and unresolved review boundaries; they do **not** independently scan
+CVE databases or certify packaged library versions.
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_release_signoff_m125.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -q
+python3 scripts/check_release_m121.py
+python3 scripts/check_ci_policy.py
+python3 scripts/check_provenance.py
+python3 scripts/check_object_provenance.py
+python3 scripts/check_model_selection.py
+git diff --check
+```
+
+See [M12.5 release security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md).
+The observed FFmpeg CVE-2026-8461 vendor vulnerabilities and M11.9 license
+notices are **outstanding public-release blockers**; green test results do
+not change those decisions.

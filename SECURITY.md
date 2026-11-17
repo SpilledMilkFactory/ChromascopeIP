@@ -6,7 +6,7 @@ I am developing ChromascopeIP as a local-first C++ computer-vision application. 
 
 | Version / branch | Security status |
 | --- | --- |
-| `main` / current 0.1.x development | I review responsible reports on a best-effort basis; no stable security-maintenance guarantee. |
+| `main` / v1.0.0 release candidate | I review responsible reports on a best-effort basis; no stable security-maintenance guarantee. |
 | v1.0.0 and later | Not yet released; future support commitments will be documented before release. |
 | Historic SkittlesIP Python project | Not supported by ChromascopeIP. |
 
@@ -37,3 +37,14 @@ analysis images are limited to 16 million pixels. These limits reduce exposure
 to decompression bombs and accidental runaway workloads, but do not sandbox
 OpenCV codecs or guarantee a total process-memory cap. I document exact
 boundaries and supported header formats in `docs/RESOURCE_BUDGETS.md`.
+
+## M12.5 — pre-publication dependency risk (2026-11-17)
+
+The [release review](docs/M12_5_RELEASE_SECURITY_SIGNOFF.md) documents
+CVE-2026-8461 in distro-provided FFmpeg MagicYUV decoding, with unresolved
+OS-level exposure for Debian 12 and Ubuntu 24.04/26.04 as of the cited
+vendor trackers. All media decoders should be treated as untrusted input
+boundaries. Successful first-party CTests and sanitizer runs are not proof
+that external decoder vulnerabilities are absent. This item requires
+mitigation/vendor fix disposition before security sign-off on affected
+release targets; no silent waiver or universal patch-status claim is made.

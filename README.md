@@ -1089,3 +1089,14 @@ dependencies and selected source-pinned components. This is not automatic
 redistribution approval: codec/FFmpeg terms, static OpenCV internals, Microsoft
 VC143 redistribution rights, complete license notices and media/model exclusions
 need independent per-artifact review. See [the M11.9 review guide](docs/M11_9_REDISTRIBUTION_SBOM.md).
+
+## M12.5 (#88) — dependency, rights, vulnerability and privacy review
+
+The [v1.0 release sign-off dossier](docs/M12_5_RELEASE_SECURITY_SIGNOFF.md)
+consolidates the accepted engineering baseline and the actual outstanding
+public-release risks. It documents the 2026-11-17 **CVE-2026-8461** FFmpeg
+MagicYUV advisory affecting distribution-provided codecs on Debian 12 and
+Ubuntu 24.04/26.04 (Debian 13 tracked as fixed), the M11.9 outstanding
+license/NOTICE obligations, and the scope of first-party local privacy
+controls. **Public release is not yet authorized.** No new VM records,
+production code, package builders or GitHub Actions workflows are introduced.

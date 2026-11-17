@@ -65,3 +65,15 @@ requires manual review of source-pinned third-party notices, Linux FFmpeg
 configuration/codec terms, Windows MSVC REDIST licensing and model exclusions.
 The original historical JPEG redistribution rights remain unresolved. No
 automatic legal clearance or v1.0 release authorization is implied.
+
+## M12.5 (#88) — current distribution-rights decision (2026-11-17)
+
+The [M12.5 dependency/security sign-off review](M12_5_RELEASE_SECURITY_SIGNOFF.md)
+consolidates the five-application-package notices, Microsoft VC143 runtime
+rules, upstream OpenCV/Protobuf/GLFW/ImGui obligations and historical media
+rights. The M11.9 artifact-derived inventories are valuable but **remain
+REVIEW_REQUIRED**, and their 29 review decisions have not been independently
+approved. Packaging the standard NanoDet Apache-2.0 license under an OpenCV
+filename is not proof of complete OpenCV NOTICE compliance. Do not mark
+redistribution or the public v1.0.0 release cleared until outstanding
+licenses, notices and applicable patent questions are resolved.

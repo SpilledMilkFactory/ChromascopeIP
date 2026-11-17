@@ -73,3 +73,24 @@ prefix. The changed cache key and module/backend marker invalidate old
 still-image-only installations. The Linux independent consumer compiles and
 executes against the installed package on every CI run, including cache hits,
 with explicit FFmpeg synthetic decoding. No host camera or GUI launch is used.
+
+## M11.2–M11.3 distribution package qualification (current)
+
+The historical M1.5 limitations above describe the **original CI milestone**,
+not the current workflow. M11.2 added an independently built Bookworm AMD64
+`.deb`, and M11.3 adds the corresponding independently built Trixie AMD64
+`.deb`. Each package is built **inside its own pinned distribution container**
+after GUI/CLI and CLI-only Release CTests; each uses a separate OpenCV 5.1.0
+cache, a `/usr` multiarch install layout, and its own `dpkg-shlibdeps` system
+package dependencies. Neither package may borrow libraries from the other OS.
+
+Both jobs construct the recursive private OpenCV ELF dependency closure,
+audit the staged and re-extracted `.deb`, then create a clean debootstrap root
+for their respective distributions and test APT installation and isolated CLI
+help/profile/synthetic BMP execution. Proc-less chroots require
+interpreter-mediated execution; native packaged CLI startup is additionally
+verified with `/proc/self/exe` available on the job host. Passing this CI gate
+is not equivalent to manual GUI desktop or hardware-camera certification.
+Successful candidates and explicitly `UNQUALIFIED` failure-diagnostic artifacts
+have distinct names and retention. See [M11.2 Bookworm package](M11_2_DEBIAN12_PACKAGE.md)
+and [M11.3 Trixie package](M11_3_DEBIAN13_PACKAGE.md).

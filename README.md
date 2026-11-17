@@ -37,7 +37,7 @@ when samples are absent in a relocated installation. See the
 `DESTDIR`, Windows configuration, relocatable layout, limitations and tests.
 This is a staging foundation, not a release-ready portable binary.
 
-## M11.2 Debian 12 AMD64 development package (Issue #76; pending acceptance)
+## M11.2 Debian 12 AMD64 development package (Issue #76; accepted and merged)
 
 The Debian 12 pipeline builds and clean-install-smoke-tests an `amd64` `.deb`
 using the M11.1 install layout, the pinned OpenCV 5.1.0 private runtime and
@@ -47,6 +47,17 @@ The package retains attribution/license texts and omits historical sample media,
 ONNX weights and development dependencies. It must still pass CI, actual clean
 installation, later third-party release inventory and manual GUI/camera gates.
 See the [M11.2 Debian package guide](docs/M11_2_DEBIAN12_PACKAGE.md).
+
+## M11.3 Debian 13 AMD64 development package (Issue #77; pending acceptance)
+
+Debian 13 (Trixie) builds a **separate** `amd64` package from its own pinned
+OpenCV 5.1.0 runtime and Trixie system-library dependency metadata, with the
+same M11.2 recursive OpenCV closure, private executable-relative ELF search
+paths, and procfs-aware clean-install checks. The temporary candidate filename
+is `ChromascopeIP-0.1.3-Debian13-amd64.deb`; it is **not** the v1.0.0
+release. Debian 12 packaging continues independently. No original photos,
+recordings or ONNX model weights are bundled. See the [M11.3 Trixie package
+guide](docs/M11_3_DEBIAN13_PACKAGE.md) for acceptance limits.
 
 ## Current capabilities (M10.7 baseline; current for M10.8 documentation)
 

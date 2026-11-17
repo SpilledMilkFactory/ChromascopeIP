@@ -1018,3 +1018,15 @@ See [the M10.7 qualification guide](docs/M10_7_SANITIZER_STATIC_SOAK.md) for
 repeatable Release/sanitizer CTests, clang-tidy, 20-round synthetic video/live
 soaks, and **explicitly opt-in** recorded-video or V4L2 camera runs.
 Automated PASS does not certify physical devices or the Windows desktop.
+
+
+## M11.8 (#82) — Manual Windows/Linux desktop and real-camera qualification
+
+M11.8 adds an offline, fail-closed manual GUI/live-device evidence process for
+Windows 10/11, Debian 12/13 and Ubuntu 24.04/26.04. The tool never opens a
+camera, launches a GUI, downloads models or records media. It collects only
+operator-entered status enums, source/package/model digests and a minimal
+privacy-preserving platform description; the real device tests remain
+**explicitly operator-run**. See [M11.8 qualification](docs/M11_8_DESKTOP_DEVICE_QUALIFICATION.md).
+Native application code and all five package builders are unchanged. No
+physical platform is considered qualified merely because hosted CI is green.

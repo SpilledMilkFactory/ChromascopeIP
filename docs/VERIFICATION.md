@@ -1601,3 +1601,21 @@ still required.
 **Correction regression baseline:** 22 M11.7-focused tests and 268 total
 Python quality tests (262 + six). Existing native CTests remain 149, including
 28 camera-labeled tests. Full hosted matrix acceptance is pending.
+
+
+## M11.8 (#82) — real desktop GUI and live-device qualification
+
+M11.7 was accepted after 268 Python quality tests, the unchanged 149 native
+CTests/28 camera-specific tests, 12 successful GitHub Actions checks including
+all five same-run packages, and maintainer-confirmed merge. M11.8 adds a
+**passive**, offline evidence tool and **23** Python regressions for the manual
+Windows 10/11, Debian 12/13 and Ubuntu 24.04/26.04 desktop matrix. The expected
+Python quality baseline is **291**; native CTests remain **149** (28 camera).
+
+Run `python3 scripts/qualify_desktop_m118.py --help` and follow
+[the M11.8 guide](M11_8_DESKTOP_DEVICE_QUALIFICATION.md). Initial evidence
+files are deliberately NOT_TESTED; physical GUI/camera observations are only
+recorded after explicit operator work and local review. No hardware runs in
+quality CI. A GitHub Actions PASS alone is not Windows 10/11 or live-device
+certification. All six records must refer to the same source commit and
+qualified package digests before a manual-evidence report can be generated.

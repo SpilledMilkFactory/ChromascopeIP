@@ -9,6 +9,19 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 > boundaries. Historical M10.1–M10.7 issue notes below remain as development
 > records, not a statement that those features are unavailable today.
 
+## M12.3 — four Linux clean-install VM acceptance (Issue #86)
+
+The maintainer reports successful fresh-VM GUI/CLI testing on Debian 12/13
+and Ubuntu 24.04/26.04. This is valuable operator-reported evidence, **not**
+a substitute for tying each `.deb` to the exact qualified CI package SHA-256.
+The [M12.3 clean-install acceptance guide](docs/M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md)
+consolidates the existing four distribution-specific headless APT smokes with
+actual desktop VM installation, processing, privacy and removal/reinstall
+checks. A new offline tool creates private, initially `NOT_TESTED` records;
+no app binaries, package builders, workflow triggers or CTests change.
+Unperformed checks, M11.9 redistribution review and final public-release
+approval remain pending rather than automatically passing.
+
 ## M12.2 — same-source final automated release-candidate matrix (Issue #85)
 
 `Release Candidate CI` reuses the complete native five-package matrix and

@@ -1428,3 +1428,29 @@ source-locked run. The new `scripts/qualify_release_candidate_m122.py` validates
 identities and SHA-256s of the existing matrix report and M11.9 SBOM drafts,
 without making a license/desktop qualification or release authorization claim.
 See [the full M12.2 procedure](M12_2_FINAL_RC_MATRIX.md).
+
+
+## M12.3 (#86) — Debian/Ubuntu v1.0.0 fresh-VM clean-install acceptance
+
+This is primarily documentation and reviewed operator evidence; **do not**
+replace real fresh-VM testing with another Python mock or a green headless
+chroot check. M11.2–M11.5 already require native `.deb` inspection and
+new debootstrap/APT CLI smoke on all four operating-system distributions;
+M12.2 additionally qualifies the five-package matrix at the same source SHA.
+The maintainer reports successful GUI/CLI tests on fresh VMs, but the per-VM
+package SHA, test actions and exact source commit must be recorded before the
+full acceptance report can be generated. See [M12.3 procedure](M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md).
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_linux_clean_install_m123.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+python3 scripts/qualify_linux_install_m123.py --help
+```
+
+The new script is offline, create-exclusive and hardware-free. It starts all
+nine cases as `NOT_TESTED`, and the four-platform summary demands actual
+operator review plus exact SHA-256 identity against the same-run M11.7 report.
+The prior M12.2 Python quality baseline is **343 tests**. M12.3 adds 15 Python
+regressions; the native baseline remains **150 CTests**, with 28 camera-labelled.
+There is no new CI workflow, runtime behavior, package builder or license
+sign-off. M11.9 redistribution and M11.8 camera certification stay separate.

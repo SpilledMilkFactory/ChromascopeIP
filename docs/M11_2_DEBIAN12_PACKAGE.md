@@ -148,3 +148,24 @@ clean installation on the final frozen source revision.
 - A passing CI smoke demonstrates a working Debian 12 headless install, **not**
   GUI interaction, physical camera compatibility, codec patent clearance, or
   legal redistribution sign-off. These remain explicit release gates.
+
+### M11.2 follow-up: unchanged clean-install loader failure (diagnostic gate)
+
+The actual November 17 CI attempt still fails during **installed CLI startup** with
+`libopencv_videoio.so.501: cannot open shared object file`, even after package
+extraction and DT_RPATH inspection pass. The static checks prove only that the
+file and ELF metadata exist; they do **not** prove the runtime loader selected
+that file. Do not claim M11.2 acceptance until the clean-install execution works.
+
+The smoke now invokes the installed ELF interpreter directly with `--list`,
+prints its full dependency resolution, and requires the versioned `videoio` SONAME
+to resolve to the private `/usr/lib/x86_64-linux-gnu/chromascopeip` directory.
+If execution still fails, a bounded `LD_DEBUG=libs` trace exposes searched paths,
+followed by the installed library and dynamic-tag inventory. No host OpenCV,
+`LD_LIBRARY_PATH`, or source fixtures are used to make the test pass.
+
+When package construction succeeds but a later CI stage fails, CI may upload a
+**UNQUALIFIED-M11.2-Debian12-amd64-diagnostics** artifact with 2-day retention.
+This is for diagnosis only: it must not be distributed as a tested binary or
+confused with the separate successful clean-install artifact upload. Share the
+log and optionally this diagnostic `.deb` for an ELF/loader root-cause review.

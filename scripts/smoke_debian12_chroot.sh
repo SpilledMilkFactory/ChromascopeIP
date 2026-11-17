@@ -48,34 +48,95 @@ for module in core imgproc imgcodecs videoio dnn; do
   }
 done
 show_loader_diagnostics() {
-  echo '--- Installed private OpenCV libraries ---' >&2
+  echo '--- Installed private OpenCV libraries (including SONAME links) ---' >&2
   ls -la "$private" >&2 || :
-  echo '--- Installed ELF dynamic search tags ---' >&2
+  echo '--- Installed executables and program interpreters ---' >&2
   for object in "$root/usr/bin/chromascope-cli" "$root/usr/bin/chromascope-gui" \
                 "$private"/libopencv_*.so.5.1.0; do
     [[ -f "$object" ]] || continue
-    echo "Object: $object" >&2
+    echo "Object: ${object#"$root"}" >&2
+    readelf -l "$object" | grep 'Requesting program interpreter' >&2 || :
     readelf -d "$object" | grep -E '\((NEEDED|RPATH|RUNPATH|SONAME)\)' >&2 || :
   done
 }
+# A successful dpkg installation and readelf RPATH tag do not prove that the
+# *real* Bookworm loader resolves the installed libraries. Inspect the exact
+# interpreter named by each executable and require videoio to resolve from
+# the package-private directory before allowing the startup smoke to proceed.
 for program in chromascope-cli chromascope-gui; do
+  executable="$root/usr/bin/$program"
+  interpreter="$(LC_ALL=C readelf -l "$executable" | sed -n 's/.*Requesting program interpreter: \([^]]*\)].*/\1/p')"
+  if [[ -z "$interpreter" || "$interpreter" != /* || "$interpreter" == *'..'* || ! -e "$root$interpreter" ]]; then
+    echo "Invalid or unavailable Bookworm ELF interpreter for $program: $interpreter" >&2
+    show_loader_diagnostics
+    exit 1
+  fi
+  if ! env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+       chroot "$root" "$interpreter" --list "/usr/bin/$program" \
+       > "$work/$program.loader" 2>&1; then
+    cat "$work/$program.loader" >&2
+    show_loader_diagnostics
+    echo "Real loader --list failed for $program" >&2
+    exit 1
+  fi
+  echo "--- Bookworm loader resolution: $program ---"
+  cat "$work/$program.loader"
+  # A generic loader success is not enough: confirm that OpenCV's critical
+  # module is resolved from the exact package-private location, not from an
+  # unexpected system installation. This is deliberately not LD_LIBRARY_PATH.
+  # ld-linux prints the *un-normalized* $ORIGIN search path (e.g.,
+  # /usr/bin/../lib/...). Compare real target files, not textual paths.
+  # Only a package-private file is acceptable; a system OpenCV match fails.
+  expected_videoio="$(realpath -e -- "$private/libopencv_videoio.so.501")"
+  videoio_ok=false
+  while read -r needed arrow location _rest; do
+    if [[ "$needed" == 'libopencv_videoio.so.501' && "$arrow" == '=>' && "$location" == /* ]]; then
+      if resolved="$(realpath -e -- "$root$location")" && \
+         [[ "$resolved" == "$expected_videoio" ]]; then
+        videoio_ok=true
+      fi
+    fi
+  done < "$work/$program.loader"
+  if [[ "$videoio_ok" != true ]]; then
+    show_loader_diagnostics
+    echo "Private OpenCV videoio did not resolve for $program" >&2
+    exit 1
+  fi
   if ! env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
        chroot "$root" /usr/bin/ldd "/usr/bin/$program" \
        > "$work/$program.ldd" 2>&1; then
     cat "$work/$program.ldd" >&2
     show_loader_diagnostics
-    echo "Dynamic-loader verification failed for $program" >&2
+    echo "ldd verification failed for $program" >&2
     exit 1
   fi
-  if grep -F 'not found' "$work/$program.ldd"; then
+  if grep -F 'not found' "$work/$program.ldd" || \
+     grep -F 'error while loading shared libraries' "$work/$program.ldd"; then
     cat "$work/$program.ldd" >&2
     show_loader_diagnostics
-    echo "Unresolved runtime library in $program" >&2
+    echo "Unresolved runtime library reported by ldd for $program" >&2
     exit 1
   fi
 done
-env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
-  chroot "$root" /usr/bin/chromascope-cli --help > "$work/help.txt"
+# The initial --help invocation is executable startup, not just ELF tracing.
+# If it fails, retain bounded glibc LD_DEBUG=libs output showing the actual
+# searched file paths. This is diagnostic-only and never masks a failed smoke.
+if ! env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+     chroot "$root" /usr/bin/chromascope-cli --help \
+     > "$work/help.txt" 2> "$work/help.err"; then
+  cat "$work/help.err" >&2
+  echo '--- Actual CLI startup loader diagnostics (LD_DEBUG=libs) ---' >&2
+  env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_DEBUG=libs \
+    chroot "$root" /usr/bin/chromascope-cli --help \
+    > /dev/null 2> "$work/cli.lddebug" || :
+  grep -E 'find library=libopencv_|search path=|trying file=.*(opencv|chromascopeip)' \
+    "$work/cli.lddebug" | tail -n 120 >&2 || :
+  echo '--- Last 80 loader messages ---' >&2
+  tail -n 80 "$work/cli.lddebug" >&2 || :
+  show_loader_diagnostics
+  echo 'Installed CLI startup failed; Debian package is NOT qualified.' >&2
+  exit 1
+fi
 grep -Fq 'Usage: chromascope-cli' "$work/help.txt"
 env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
   chroot "$root" /usr/bin/chromascope-cli --list-profiles > "$work/profiles.txt"

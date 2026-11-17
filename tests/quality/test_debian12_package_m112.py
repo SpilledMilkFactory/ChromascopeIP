@@ -414,5 +414,36 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
             with self.assertRaisesRegex(pack.PackageError, 'SONAME symlink'):
                 pack.inspect(invalid, expected_version='0.1.3')
 
+class DebianCleanInstallDiagnosticsTests(unittest.TestCase):
+    """Ensure CI diagnoses actual runtime loading rather than only static tags."""
+
+    def test_loader_list_uses_actual_installed_interpreter_and_private_library(self):
+        script = (ROOT / 'scripts/smoke_debian12_chroot.sh').read_text()
+        self.assertIn('Requesting program interpreter:', script)
+        self.assertIn('chroot "$root" "$interpreter" --list', script)
+        self.assertIn("'libopencv_videoio.so.501'", script)
+        self.assertIn('realpath -e', script)
+        self.assertIn('cat "$work/$program.loader"', script)
+        self.assertNotIn('LD_LIBRARY_PATH=', script)
+
+    def test_cli_startup_failure_records_bounded_real_loader_debug(self):
+        script = (ROOT / 'scripts/smoke_debian12_chroot.sh').read_text()
+        self.assertIn('LD_DEBUG=libs', script)
+        self.assertIn('tail -n 120', script)
+        self.assertIn('tail -n 80', script)
+        self.assertIn('Debian package is NOT qualified.', script)
+        self.assertIn('show_loader_diagnostics', script)
+        self.assertIn('error while loading shared libraries', script)
+
+    def test_unqualified_failure_artifact_cannot_replace_success_gate(self):
+        workflow = (ROOT / '.github/workflows/ci-debian.yml').read_text()
+        self.assertIn('UNQUALIFIED-M11.2-Debian12-amd64-diagnostics', workflow)
+        self.assertIn("if: failure() && matrix.version == '12'", workflow)
+        self.assertIn('retention-days: 2', workflow)
+        self.assertIn('if-no-files-found: ignore', workflow)
+        self.assertIn('Upload tested Debian 12 candidate package', workflow)
+        self.assertIn("if: matrix.version == '12'", workflow)
+
+
 if __name__ == '__main__':
     unittest.main()

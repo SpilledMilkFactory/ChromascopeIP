@@ -1389,3 +1389,14 @@ packaging and full clean-install CLI smoke before accepting #76.
 
 Expected M11.2 follow-up: **149 native / 28 camera / 179 Python** tests.
 Manual GUI/video/camera qualification and licensing sign-off remain pending.
+
+### M11.2 unchanged loader failure — evidence required to unblock
+
+November 17: clean Bookworm APT installation succeeded but CLI startup still
+failed loading `libopencv_videoio.so.501`; source-presence, SONAME links, and
+ELF DT_RPATH inspection alone were insufficient. Next CI run must show the
+actual executable interpreter `--list` resolution and, on startup failure,
+`LD_DEBUG=libs` search paths. The optional failed package artifact is named
+**UNQUALIFIED** and is not a release candidate. Do not close #76 until native
+clean-install execution, synthetic processing, and all six checks pass.
+Expected: 24 focused Debian Python tests, 182 total Python tests, 149 CTests.

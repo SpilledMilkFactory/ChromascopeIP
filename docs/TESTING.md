@@ -1204,3 +1204,14 @@ python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
 ```
 
 Expected: **21 focused / 179 total Python tests**, 149 native CTests.
+
+### M11.2 unchanged Debian loader failure — diagnostic qualification follow-up
+
+The November 17 Bookworm clean-install CI still cannot start the installed CLI
+(`libopencv_videoio.so.501`), despite successful package construction and static
+RPATH/SO-name inspection. The CI smoke now requires actual `ld-linux` `--list`
+resolution and emits bounded `LD_DEBUG=libs` on failed startup; it never
+substitutes `LD_LIBRARY_PATH` to pass. A failed package is retained for up to
+2 days as a conspicuously **UNQUALIFIED** diagnostic artifact. The tested
+release artifact remains gated by successful smoke. Python quality baseline:
+**182** (24 Debian packaging tests); native remains **149**.

@@ -33,7 +33,7 @@ class Debian12PackagePolicyTests(unittest.TestCase):
                 'CMAKE_BUILD_TYPE:STRING=Release\nCHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                 'CMAKE_INSTALL_PREFIX:PATH=/usr/local\n'
                 'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                'CMAKE_PROJECT_VERSION:STATIC=0.1.3\n', encoding='utf-8')
+                'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n', encoding='utf-8')
             with self.assertRaisesRegex(pack.PackageError, 'CMAKE_INSTALL_PREFIX'):
                 pack.validate_source(build, prefix)
 
@@ -45,7 +45,7 @@ class Debian12PackagePolicyTests(unittest.TestCase):
                 'CMAKE_BUILD_TYPE:STRING=Release\nCHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                 'CMAKE_INSTALL_PREFIX:PATH=/usr\n'
                 'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                'CMAKE_PROJECT_VERSION:STATIC=0.1.3\n', encoding='utf-8')
+                'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n', encoding='utf-8')
             for binary in ('chromascope-cli', 'chromascope-gui'):
                 (build / binary).write_bytes(b'fake binary')
             with self.assertRaisesRegex(pack.PackageError, 'OpenCV build marker'):
@@ -103,7 +103,7 @@ class Debian12PackagePolicyTests(unittest.TestCase):
                      'docs/M11_2_DEBIAN12_PACKAGE.md', 'docs/DOCUMENTATION_INDEX.md'):
             self.assertIn('M11.2', (ROOT / name).read_text(encoding='utf-8'))
         doc = (ROOT / 'docs/M11_2_DEBIAN12_PACKAGE.md').read_text()
-        for token in ('0.1.3', '1.0.0', 'Debian 12', 'clean-install', 'model',
+        for token in ('1.0.0', '1.0.0', 'Debian 12', 'clean-install', 'model',
                       'OpenCV', 'FFmpeg', 'M11.9', 'M12'):
             self.assertIn(token, doc)
 
@@ -283,8 +283,8 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
                     pack.dynamic_search_path(Path('/tmp/test.so'))
 
     def test_package_inspect_reextracts_and_audits_files(self):
-        package = Path('/tmp/ChromascopeIP-0.1.3-Debian12-amd64.deb')
-        meta = 'Package: chromascopeip\nVersion: 0.1.3\nArchitecture: amd64\nDepends: libc6\n'
+        package = Path('/tmp/ChromascopeIP-1.0.0-Debian12-amd64.deb')
+        meta = 'Package: chromascopeip\nVersion: 1.0.0\nArchitecture: amd64\nDepends: libc6\n'
         files = '\n'.join('./' + item for item in (
             'usr/bin/chromascope-cli', 'usr/bin/chromascope-gui',
             'usr/share/doc/chromascopeip/LICENSE',
@@ -304,7 +304,7 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
         with patch.object(pack.Path, 'is_file', return_value=True), \
              patch.object(pack, 'cmd', side_effect=fake_cmd), \
              patch.object(pack, 'validate_runtime_tree', return_value={}) as audit:
-            self.assertEqual(pack.inspect(package, expected_version='0.1.3'), meta)
+            self.assertEqual(pack.inspect(package, expected_version='1.0.0'), meta)
         self.assertTrue(any('--extract' in call for call in calls))
         audit.assert_called_once()
 
@@ -394,7 +394,7 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
                 dest.write_text('synthetic fixture only\n')
             control = root / 'DEBIAN/control'
             control.parent.mkdir(parents=True)
-            control.write_text('Package: chromascopeip\nVersion: 0.1.3\n'
+            control.write_text('Package: chromascopeip\nVersion: 1.0.0\n'
                                'Architecture: amd64\nDepends: libc6 (>= 2.36)\n'
                                'Maintainer: Packaging test\nDescription: Synthetic package\n')
 
@@ -408,11 +408,11 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
 
             valid = make_package('valid.deb')
             self.assertIn('Package: chromascopeip',
-                          pack.inspect(valid, expected_version='0.1.3'))
+                          pack.inspect(valid, expected_version='1.0.0'))
             (private / 'libopencv_videoio.so.501').unlink()
             invalid = make_package('invalid.deb')
             with self.assertRaisesRegex(pack.PackageError, 'SONAME symlink'):
-                pack.inspect(invalid, expected_version='0.1.3')
+                pack.inspect(invalid, expected_version='1.0.0')
 
 class DebianCleanInstallDiagnosticsTests(unittest.TestCase):
     """Ensure CI diagnoses actual runtime loading rather than only static tags."""

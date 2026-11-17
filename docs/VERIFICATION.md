@@ -2,7 +2,8 @@
 
 **Date:** 2026-11-09 (America/New_York)
 
-**Source version:** 0.1.3 (M0.3 accepted; M1.1 is documentation-only)
+**Current source version:** 1.0.0 (M12.1 release-candidate freeze; no public release authorization).
+**Historical source version:** 0.1.3 (M0.3 accepted; M1.1 was documentation-only).
 
 **Target:** Ubuntu 26.04, OpenCV **5.1.0**, Dear ImGui **1.93.0**, CMake + Ninja.
 
@@ -1635,3 +1636,24 @@ verify pinned source/third-party notices, Linux distro FFmpeg and codec builds,
 Windows static components and VC143 licensing, and resolve any missing notices
 or legal requirements. `REVIEW_REQUIRED` is not a release PASS. M12 signing,
 version promotion and release remain blocked until applicable clearances.
+
+
+## M12.1 (#84) — v1.0.0 release-candidate identity and scope freeze
+
+CMake declares `project(ChromascopeIP VERSION 1.0.0 LANGUAGES CXX)` as the
+authoritative application version. Both frontends consume a generated header;
+Windows packaging, matrix verification and M11.8 QA read the same declaration.
+The five package workflows, raw artifact names, matrix download destinations,
+and M11.9 review artifacts use the `1.0.0` candidate identifier. Historical
+M11 findings above retain their original `0.1.3` context and are not modified.
+
+**Release status: BLOCKED / UNPUBLISHED.** The green M11.9 CI run validates
+SBOM draft generation, not human redistribution clearance. M11.9 license/NOTICE
+decisions, any incomplete M11.8 human device records, provenance release-gate
+restrictions, signing and release artifacts must be resolved separately.
+No tag, public GitHub release or automatic version promotion occurs here.
+
+Required M12.1 gates: new offline version/scope contract tests; complete Python
+quality suite; native Release/CLI-only/sanitizer CTests; CI action-policy checks;
+all twelve hosted native/matrix checks; visual GUI/CLI version verification;
+exact `1.0.0` package metadata and Windows ZIP inspection.

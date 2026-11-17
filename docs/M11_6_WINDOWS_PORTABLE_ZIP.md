@@ -63,12 +63,12 @@ python scripts/package_windows_x64.py --build `
   --glfw-license C:/deps/glfw-source/LICENSE.md `
   --imgui-license build/presets/windows-release/_deps/imgui-src/LICENSE.txt `
   --output-dir build/packages
-python scripts/package_windows_x64.py --inspect build/packages/ChromascopeIP-0.1.3-Windows-x64.zip
+python scripts/package_windows_x64.py --inspect build/packages/ChromascopeIP-1.0.0-Windows-x64.zip
 ```
 
 Replace local dependency paths with your actual installations. The packaging
 script performs no network operations and rejects existing output files.
-The expected archive is `ChromascopeIP-0.1.3-Windows-x64.zip`. Its top-level
+The expected archive is `ChromascopeIP-1.0.0-Windows-x64.zip`. Its top-level
 folder contains `bin/` (both frontends and required app-local CRT DLLs),
 `share/` (approved documentation and metadata), `manifest.json` (SHA-256
 inventory, pinned revisions, imports and bundled runtimes) and

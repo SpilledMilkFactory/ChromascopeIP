@@ -18,7 +18,8 @@ import subprocess
 import sys
 
 SCHEMA = 'chromascope.m11.8.desktop-manual.v1'
-VERSION = '0.1.3'
+from runpy import run_path
+VERSION = run_path(str(Path(__file__).resolve().parent / 'release_identity.py'))['VERSION']
 TARGETS = {
     'windows10': ('Windows-x64.zip', ('msmf', 'dshow')),
     'windows11': ('Windows-x64.zip', ('msmf', 'dshow')),

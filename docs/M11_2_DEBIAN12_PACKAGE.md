@@ -6,8 +6,8 @@ The M11.1 installation rules and six pre-existing quality gates remain intact.
 
 ## Package version and filename
 
-`project(ChromascopeIP VERSION 0.1.3)` is still current. M11.2 therefore creates
-`ChromascopeIP-0.1.3-Debian12-amd64.deb` with Debian control version `0.1.3`.
+`project(ChromascopeIP VERSION 1.0.0)` is still current. M11.2 therefore creates
+`ChromascopeIP-1.0.0-Debian12-amd64.deb` with Debian control version `1.0.0`.
 Only after the M12.1 coordinated version freeze will the qualified release
 artifact become **`ChromascopeIP-1.0.0-Debian12-amd64.deb`**. No version is
 silently relabeled. The Debian package name for apt/dpkg is `chromascopeip`.
@@ -33,8 +33,8 @@ python3 scripts/package_debian12.py --build \
   --opencv-prefix "$HOME/.local/opt/opencv-5.1.0" \
   --output-dir build/packages
 python3 scripts/package_debian12.py --inspect \
-  build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
-sha256sum build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
+  build/packages/ChromascopeIP-1.0.0-Debian12-amd64.deb
+sha256sum build/packages/ChromascopeIP-1.0.0-Debian12-amd64.deb
 ```
 
 The packager **refuses** a wrong host/version/architecture, mismatched
@@ -117,7 +117,7 @@ installs the generated `.deb` using `apt-get`, and verifies:
 ```sh
 # On Debian 12 AMD64 only; the separate root requires chroot permission.
 sudo bash scripts/smoke_debian12_chroot.sh \
-  build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
+  build/packages/ChromascopeIP-1.0.0-Debian12-amd64.deb
 ```
 
 After the Debian 12 job passes, the tested `.deb` is retained briefly as a

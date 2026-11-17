@@ -44,8 +44,8 @@ Use the *actual qualified native packages* from a matrix run built from the
 a local OpenCV prefix. The successful M11.7 matrix is the accepted baseline,
 not evidence that an older M11.7 package matches a new M11.8 commit. Check `sha256sum` on Linux / `Get-FileHash -Algorithm
 SHA256` on PowerShell and compare with the matrix report and package file.
-The ZIP is `ChromascopeIP-0.1.3-Windows-x64.zip`; Linux filenames are
-`ChromascopeIP-0.1.3-Debian12-amd64.deb`, `...-Debian13-amd64.deb`,
+The ZIP is `ChromascopeIP-1.0.0-Windows-x64.zip`; Linux filenames are
+`ChromascopeIP-1.0.0-Debian12-amd64.deb`, `...-Debian13-amd64.deb`,
 `...-Ubuntu24.04-amd64.deb`, and `...-Ubuntu26.04-amd64.deb`. Windows 10/11
 use the same package, but require two different desktop checks. Neither
 operating-system version nor installed driver is inferred by the tool.
@@ -78,7 +78,7 @@ mkdir -m 700 -p "$HOME/.local/state/chromascope-m118"
 COMMIT="<source_commit-from-matching-package-matrix-report>"
 python3 scripts/qualify_desktop_m118.py --init ubuntu26.04 \
   --commit "$COMMIT" \
-  --package "$HOME/Downloads/ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb" \
+  --package "$HOME/Downloads/ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb" \
   --cli /usr/bin/chromascope-cli \
   --output "$HOME/.local/state/chromascope-m118/ubuntu26.04.json"
 ```
@@ -90,7 +90,7 @@ qualified ZIP outside the source checkout:
 $commit = '<actual-40-character-commit-sha>'
 python scripts/qualify_desktop_m118.py --init windows10 `
   --commit $commit `
-  --package 'C:\Packages\ChromascopeIP-0.1.3-Windows-x64.zip' `
+  --package 'C:\Packages\ChromascopeIP-1.0.0-Windows-x64.zip' `
   --cli 'C:\Packages\ChromascopeIP\bin\chromascope-cli.exe' `
   --output 'C:\PrivateEvidence\windows10.json'
 ```

@@ -8,7 +8,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
         "or configure with an explicit -B build directory outside the source root.")
 endif()
 
-project(ChromascopeIP VERSION 0.1.3 LANGUAGES CXX)
+project(ChromascopeIP VERSION 1.0.0 LANGUAGES CXX)
+
+# M12.1: one authoritative release-candidate version for every frontend/package.
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ReleaseVersion.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/chromascope/ReleaseVersion.hpp" @ONLY)
 
 include(CTest)
 option(CHROMASCOPE_BUILD_GUI "Build the Dear ImGui application" ON)
@@ -78,6 +82,7 @@ chromascope_apply_quality(chromascope_core)
 add_executable(chromascope-cli src/cli/main.cpp src/cli/CameraCliCapture.cpp
     src/cli/CameraCliDetection.cpp)
 target_link_libraries(chromascope-cli PRIVATE ChromascopeIP::Core)
+target_include_directories(chromascope-cli PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 chromascope_apply_quality(chromascope-cli)
 
 if(CHROMASCOPE_BUILD_GUI)
@@ -133,6 +138,7 @@ if(CHROMASCOPE_BUILD_GUI)
 
     add_executable(chromascope-gui src/gui/main.cpp)
     target_link_libraries(chromascope-gui PRIVATE ChromascopeIP::Core chromascope_imgui)
+    target_include_directories(chromascope-gui PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
     chromascope_apply_quality(chromascope-gui)
 endif()
 

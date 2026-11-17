@@ -19,6 +19,7 @@
 | Release maintainers: one-run five-package CI matrix and offline artifact checks | [M11.7 package matrix](M11_7_PACKAGE_MATRIX.md) | [Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md), [Verification](VERIFICATION.md) |
 | Desktop QA: interactive GUI and physical camera evidence on Windows 10/11 and Linux | [M11.8 desktop/device qualification](M11_8_DESKTOP_DEVICE_QUALIFICATION.md) | [M9.7 real-device verification](M9_7_LIVE_DEVICE_QUALIFICATION.md), [M11.7 package matrix](M11_7_PACKAGE_MATRIX.md) |
 
+| v1.0 release maintainers: frozen scope, version identity and outstanding release gates | [M12.1 scope and version freeze](M12_1_RELEASE_SCOPE.md) | [M11.9 redistribution review](M11_9_REDISTRIBUTION_SBOM.md), [M11.7 matrix](M11_7_PACKAGE_MATRIX.md) |
 | Redistribution reviewers: exact package inventory, codec/model notices, SBOM drafts | [M11.9 redistribution & SBOM](M11_9_REDISTRIBUTION_SBOM.md) | [Third-party provenance](THIRD_PARTY_PROVENANCE.md), [License audit](LICENSE_AUDIT.md) |
 | Contributors/security reporters | [Contributing](../CONTRIBUTING.md), [Security policy](../SECURITY.md) | [Dependency provenance](THIRD_PARTY_PROVENANCE.md), [Media rights](MEDIA_RIGHTS.md) |
 

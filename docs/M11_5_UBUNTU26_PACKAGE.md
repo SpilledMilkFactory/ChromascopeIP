@@ -4,7 +4,7 @@
 
 ## Artifact, host, and version
 
-The M11.5 development candidate is `ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb`
+The M11.5 development candidate is `ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb`
 (package name `chromascopeip`, Ubuntu target marker `X-Chromascope-Target:
 Ubuntu-26.04-amd64`). M12.1 will coordinate the v1.0.0 version change. This
 candidate is NOT a signed release or a repackaged Debian 12/13 or Ubuntu 24.04 binary. The
@@ -32,9 +32,9 @@ python3 scripts/package_ubuntu26.py --build \
   --opencv-prefix "$HOME/.local/opt/opencv-5.1.0" \
   --output-dir build/packages
 python3 scripts/package_ubuntu26.py --inspect \
-  build/packages/ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb
+  build/packages/ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb
 sudo bash scripts/smoke_ubuntu26_chroot.sh \
-  build/packages/ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb
+  build/packages/ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb
 ```
 
 The package builder checks native OS ID/version and amd64 architecture,
@@ -72,7 +72,7 @@ independently provisioned machine. See Debian bug #787227 and M11.2.
 - No telemetry or automatic camera activation is introduced, and the package
   uses neither global `ld.so.conf` changes nor LD_LIBRARY_PATH workarounds.
 - The artifact uploaded after successful smoke is
-  `ChromascopeIP-0.1.3-Ubuntu26.04-amd64` (seven-day retention). On a failed
+  `ChromascopeIP-1.0.0-Ubuntu26.04-amd64` (seven-day retention). On a failed
   smoke, the distinct two-day artifact named
   `UNQUALIFIED-M11.5-Ubuntu26.04-amd64-diagnostics` is NOT release-qualified.
 - Manual GUI execution, real camera/codec compatibility, separate desktop

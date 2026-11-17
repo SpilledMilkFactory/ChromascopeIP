@@ -52,7 +52,7 @@ class DesktopQualificationM118Tests(unittest.TestCase):
         self.assertEqual(q.validate(item)['status'], 'INCOMPLETE_NOT_QUALIFIED')
 
     def test_known_package_basename_and_real_digest(self):
-        p = self.base / 'ChromascopeIP-0.1.3-Windows-x64.zip'
+        p = self.base / 'ChromascopeIP-1.0.0-Windows-x64.zip'
         p.write_bytes(b'not an actual zip but digest reflects bytes')
         item = q.template('windows10', COMMIT, p, None)
         self.assertEqual(item['package_sha256'], q.digest_file(p))

@@ -6,9 +6,9 @@ GitHub Actions checks, and does not alter first-party processing code.
 
 ## Artifact naming and provenance
 
-ChromascopeIP is still `0.1.3` in CMake. The development candidate is
-`ChromascopeIP-0.1.3-Debian13-amd64.deb` (dpkg package `chromascopeip`, version
-`0.1.3`, architecture `amd64`). M12.1 coordinates any future `1.0.0` version
+ChromascopeIP is still `1.0.0` in CMake. The development candidate is
+`ChromascopeIP-1.0.0-Debian13-amd64.deb` (dpkg package `chromascopeip`, version
+`1.0.0`, architecture `amd64`). M12.1 coordinates any future `1.0.0` version
 change. Do not rename this candidate to a v1.0 release or mistake it for the
 Debian 12 package: the two packages have separately built OpenCV libraries and
 system dependencies.
@@ -36,10 +36,10 @@ python3 scripts/package_debian13.py --build \
   --opencv-prefix "$HOME/.local/opt/opencv-5.1.0" \
   --output-dir build/packages
 python3 scripts/package_debian13.py --inspect \
-  build/packages/ChromascopeIP-0.1.3-Debian13-amd64.deb
-sha256sum build/packages/ChromascopeIP-0.1.3-Debian13-amd64.deb
+  build/packages/ChromascopeIP-1.0.0-Debian13-amd64.deb
+sha256sum build/packages/ChromascopeIP-1.0.0-Debian13-amd64.deb
 bash scripts/smoke_debian13_chroot.sh \
-  build/packages/ChromascopeIP-0.1.3-Debian13-amd64.deb
+  build/packages/ChromascopeIP-1.0.0-Debian13-amd64.deb
 ```
 
 The smoke script requires root inside the native Debian 13 job container.
@@ -97,7 +97,7 @@ procfs-enabled executable smoke **and** the fresh-Trixie APT/interpreter-driven
 CLI help, profiles and synthetic image processing must succeed. Failures remain
 visible in CI and retain a 2-day `UNQUALIFIED-M11.3-Debian13-amd64-diagnostics`
 artifact. Successful smoke uploads the separate 7-day development candidate
-`ChromascopeIP-0.1.3-Debian13-amd64` artifact. Neither is a signed public
+`ChromascopeIP-1.0.0-Debian13-amd64` artifact. Neither is a signed public
 release. Real GUI window/session, hardware-camera, codec, full licensing and
 actual desktop installation qualifications remain later milestones.
 

@@ -88,7 +88,7 @@ class PackageMatrixM117Tests(unittest.TestCase):
                          '--run-id', self.run_id, '--commit', self.commit])
 
     def test_missing_candidate_rejected(self):
-        shutil.rmtree(self.artifacts / 'ChromascopeIP-0.1.3-Debian13-amd64')
+        shutil.rmtree(self.artifacts / 'ChromascopeIP-1.0.0-Debian13-amd64')
         with self.assertRaisesRegex(matrix.MatrixError, 'Missing, extra'):
             matrix.scan(self.artifacts)
 
@@ -98,19 +98,19 @@ class PackageMatrixM117Tests(unittest.TestCase):
             matrix.scan(self.artifacts)
 
     def test_duplicate_or_extra_package_in_artifact_rejected(self):
-        (self.artifacts / 'ChromascopeIP-0.1.3-Windows-x64' / 'surprise.dll').write_bytes(b'evil')
+        (self.artifacts / 'ChromascopeIP-1.0.0-Windows-x64' / 'surprise.dll').write_bytes(b'evil')
         with self.assertRaisesRegex(matrix.MatrixError, 'exactly one'):
             matrix.scan(self.artifacts)
 
     def test_swapped_or_misnamed_package_rejected(self):
-        folder = self.artifacts / 'ChromascopeIP-0.1.3-Windows-x64'
-        (folder / 'ChromascopeIP-0.1.3-Windows-x64.zip').rename(folder / 'wrong.zip')
+        folder = self.artifacts / 'ChromascopeIP-1.0.0-Windows-x64'
+        (folder / 'ChromascopeIP-1.0.0-Windows-x64.zip').rename(folder / 'wrong.zip')
         with self.assertRaisesRegex(matrix.MatrixError, 'correctly named'):
             matrix.scan(self.artifacts)
 
     def test_symlinked_candidate_and_directory_rejected(self):
-        folder = self.artifacts / 'ChromascopeIP-0.1.3-Windows-x64'
-        item = folder / 'ChromascopeIP-0.1.3-Windows-x64.zip'
+        folder = self.artifacts / 'ChromascopeIP-1.0.0-Windows-x64'
+        item = folder / 'ChromascopeIP-1.0.0-Windows-x64.zip'
         outside = self.base / 'real.bin'
         item.rename(outside)
         item.symlink_to(outside)
@@ -118,8 +118,8 @@ class PackageMatrixM117Tests(unittest.TestCase):
             matrix.scan(self.artifacts)
 
     def test_empty_and_oversized_candidates_rejected(self):
-        folder = self.artifacts / 'ChromascopeIP-0.1.3-Windows-x64'
-        item = folder / 'ChromascopeIP-0.1.3-Windows-x64.zip'
+        folder = self.artifacts / 'ChromascopeIP-1.0.0-Windows-x64'
+        item = folder / 'ChromascopeIP-1.0.0-Windows-x64.zip'
         item.write_bytes(b'')
         with self.assertRaisesRegex(matrix.MatrixError, 'Empty or oversized'):
             matrix.scan(self.artifacts)
@@ -129,13 +129,13 @@ class PackageMatrixM117Tests(unittest.TestCase):
                 matrix.scan(self.artifacts)
 
     def test_wrong_ubuntu_target_detected_from_real_control(self):
-        package = self.artifacts / 'ChromascopeIP-0.1.3-Ubuntu24.04-amd64' / 'ChromascopeIP-0.1.3-Ubuntu24.04-amd64.deb'
+        package = self.artifacts / 'ChromascopeIP-1.0.0-Ubuntu24.04-amd64' / 'ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb'
         self._write_deb(package, 'Ubuntu26.04-amd64')
         with self.assertRaisesRegex(matrix.MatrixError, 'target marker'):
             matrix.validate_metadata(package, 'Ubuntu24.04-amd64')
 
     def test_version_drift_detected_from_real_control(self):
-        package = self.artifacts / 'ChromascopeIP-0.1.3-Debian12-amd64' / 'ChromascopeIP-0.1.3-Debian12-amd64.deb'
+        package = self.artifacts / 'ChromascopeIP-1.0.0-Debian12-amd64' / 'ChromascopeIP-1.0.0-Debian12-amd64.deb'
         self._write_deb(package, 'Debian12-amd64', version='0.1.4')
         with self.assertRaisesRegex(matrix.MatrixError, 'version mismatch'):
             matrix.validate_metadata(package, 'Debian12-amd64')
@@ -147,7 +147,7 @@ class PackageMatrixM117Tests(unittest.TestCase):
             matrix.validate(self.artifacts, self.run_id, 'garbage')
 
     def test_no_success_report_created_on_validation_failure(self):
-        (self.artifacts / 'ChromascopeIP-0.1.3-Windows-x64' / 'ChromascopeIP-0.1.3-Windows-x64.zip').unlink()
+        (self.artifacts / 'ChromascopeIP-1.0.0-Windows-x64' / 'ChromascopeIP-1.0.0-Windows-x64.zip').unlink()
         with self.assertRaises(matrix.MatrixError):
             matrix.main(['--artifacts-dir', str(self.artifacts), '--report', str(self.report),
                          '--run-id', self.run_id, '--commit', self.commit])
@@ -169,7 +169,7 @@ class PackageMatrixM117Tests(unittest.TestCase):
 
     def test_debian12_artifact_now_explicitly_named(self):
         workflow = (ROOT / '.github/workflows/ci-debian.yml').read_text()
-        self.assertIn('name: ChromascopeIP-0.1.3-Debian12-amd64', workflow)
+        self.assertIn('name: ChromascopeIP-1.0.0-Debian12-amd64', workflow)
 
     @staticmethod
     def _step(yaml_text, step_label):
@@ -249,8 +249,8 @@ class PackageMatrixM117Tests(unittest.TestCase):
         producers = {name: (folder / name).read_text()
                      for name in ('ci-debian.yml', 'ci-ubuntu.yml', 'ci-windows.yml')}
         original = (folder / 'package-matrix.yml').read_text()
-        wrong_path = original.replace('path: build/package-matrix/ChromascopeIP-0.1.3-Windows-x64',
-                                      'path: build/package-matrix/ChromascopeIP-0.1.3-Windows-x64.zip', 1)
+        wrong_path = original.replace('path: build/package-matrix/ChromascopeIP-1.0.0-Windows-x64',
+                                      'path: build/package-matrix/ChromascopeIP-1.0.0-Windows-x64.zip', 1)
         wrong_decompress = original.replace('skip-decompress: true', 'skip-decompress: false', 1)
         for altered in (wrong_path, wrong_decompress):
             with self.assertRaises(AssertionError):
@@ -278,7 +278,7 @@ class PackageMatrixM117Tests(unittest.TestCase):
         step = self._step(source, label)
         self.assertEqual(self._input(step, 'archive'), 'true')
         self.assertEqual(self._input(step, 'name'),
-                         'ChromascopeIP-0.1.3-M11.7-Matrix-Report')
+                         'ChromascopeIP-1.0.0-M11.7-Matrix-Report')
         self.assertEqual(self._input(step, 'path'), 'build/package-matrix-report.json')
         self.assertEqual(self._input(step, 'if-no-files-found'), 'error')
 

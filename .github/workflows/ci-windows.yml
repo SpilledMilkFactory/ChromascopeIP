@@ -228,7 +228,7 @@ jobs:
             --output-dir build/packages
           if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP build failed.' }
           python scripts/package_windows_x64.py --inspect `
-            build/packages/ChromascopeIP-0.1.3-Windows-x64.zip
+            build/packages/ChromascopeIP-1.0.0-Windows-x64.zip
           if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP inspection failed.' }
 
       - name: Smoke-test relocated portable Windows CLI without developer PATH
@@ -236,8 +236,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $target = Join-Path $env:RUNNER_TEMP 'chromascope-m116-relocated'
-          Expand-Archive -LiteralPath 'build/packages/ChromascopeIP-0.1.3-Windows-x64.zip' -DestinationPath $target
-          $bin = Join-Path $target 'ChromascopeIP-0.1.3-Windows-x64/bin'
+          Expand-Archive -LiteralPath 'build/packages/ChromascopeIP-1.0.0-Windows-x64.zip' -DestinationPath $target
+          $bin = Join-Path $target 'ChromascopeIP-1.0.0-Windows-x64/bin'
           $cli = Join-Path $bin 'chromascope-cli.exe'
           $gui = Join-Path $bin 'chromascope-gui.exe'
           if (-not (Test-Path -LiteralPath $gui -PathType Leaf)) { throw 'Portable GUI missing.' }
@@ -282,8 +282,8 @@ jobs:
       - name: Upload smoke-qualified Windows x64 ZIP candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ChromascopeIP-0.1.3-Windows-x64.zip
-          path: build/packages/ChromascopeIP-0.1.3-Windows-x64.zip
+          name: ChromascopeIP-1.0.0-Windows-x64.zip
+          path: build/packages/ChromascopeIP-1.0.0-Windows-x64.zip
           archive: false
           if-no-files-found: error
           retention-days: 7
@@ -293,7 +293,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: UNQUALIFIED-M11.6-Windows-x64-diagnostics
-          path: build/packages/ChromascopeIP-0.1.3-Windows-x64.zip
+          path: build/packages/ChromascopeIP-1.0.0-Windows-x64.zip
           # Diagnostic artifacts MUST retain their UNQUALIFIED name:
           # archive:false would silently rename to the raw package filename.
           archive: true

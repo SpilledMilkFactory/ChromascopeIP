@@ -19,7 +19,8 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = '0.1.3'
+from runpy import run_path
+VERSION = run_path(str(Path(__file__).resolve().parent / 'release_identity.py'))['VERSION']
 ARCHIVE = f'ChromascopeIP-{VERSION}-Windows-x64.zip'
 TOP = f'ChromascopeIP-{VERSION}-Windows-x64'
 OPEN_CV_COMMIT = 'e4f78fbcf1a773fbed69e14500e8b734963eb585'

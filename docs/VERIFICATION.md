@@ -1676,3 +1676,29 @@ commit. No public release is created. The M11.9 third-party license and NOTICE
 review, any incomplete M11.8 desktop/device evidence, and subsequent signing,
 tagging and publication requirements stay **BLOCKED/PENDING** as appropriate.
 See [M12.2 qualification guide](M12_2_FINAL_RC_MATRIX.md).
+
+
+## M12.3 (#86) — Linux clean-install engineering acceptance (fast-track)
+
+The maintainer reports running the release-candidate packages on fresh Debian
+12/13 and Ubuntu 24.04/26.04 VMs successfully with working installed GUI/CLI.
+Four distribution-specific CI APT/chroot/CLI clean-install smokes and all 20
+M12.2 release-candidate checks passed. The reported VM tests supplement, but
+do not replace, the automated checks; they do **not** establish the exact
+commit/package hash of each historical manual download or unreported steps
+such as package removal/reinstallation.
+
+M12.3 documents the existing evidence and offers the optional, private,
+strict `scripts/qualify_linux_install_m123.py` record workflow. Its four
+per-VM JSON files are **not required for Issue #86 engineering acceptance**.
+If used, the tool correctly leaves unobserved cases `NOT_TESTED`, requires
+same-run package digests, and cannot be treated as independent certification.
+It should not delay release staging or force repeating already performed VM
+install/GUI checks. M12.3 sign-off requires the reported four-VM behavior,
+established native smokes and **green checks on the M12.3 PR**.
+
+M11.9 redistribution/license approval, outstanding device-specific evidence,
+release signing and publication remain **separate unresolved gates**; no
+acceptance of #86 implies release authorization. The M12.2 Python baseline was
+**343** tests and native CTest baseline **150** (28 camera-labeled); M12.3 adds
+15 Python regressions and changes no native production or packaging code.

@@ -120,3 +120,15 @@ previous **185 Python quality tests** plus the 11 new M11.3 quality tests (**196
 M11.3 is accepted only after both Debian matrix jobs and all other required
 GitHub checks pass, the Trixie `.deb` survives the isolated clean-install
 smoke, and manual application regression verification remains unchanged.
+
+
+### M12.3 final candidate VM acceptance cross-reference
+
+The native debootstrap/APT smoke described above remains a required CI
+precondition, not a substitute for a clean, booted desktop VM. For the
+**v1.0.0** release candidate, see [M12.3 four-distro clean-install acceptance](M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md)
+for exact same-run package-hash verification, real installed GUI/CLI tests,
+privacy checks, removal/reinstall and reviewed operator evidence. The
+maintainer reports successful fresh-VM testing; unrecorded cases remain
+`NOT_TESTED`. There is no new package-builder logic or implicit permission
+to publish while M11.9 redistribution reviews remain outstanding.

@@ -9,6 +9,19 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 > boundaries. Historical M10.1–M10.7 issue notes below remain as development
 > records, not a statement that those features are unavailable today.
 
+## M12.3 — four Linux clean-install VM acceptance (Issue #86)
+
+The maintainer reports successful fresh-VM installation and GUI/CLI testing on
+Debian 12/13 and Ubuntu 24.04/26.04. The existing distribution-specific APT
+smokes and same-run Release Candidate CI provide independent automated package
+evidence. See the [M12.3 clean-install acceptance guide](docs/M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md).
+The private nine-case JSON evidence tool is **optional**; generating four
+records or recovering old VM package digests is **not required for Issue #86
+engineering acceptance**. Exact correspondence between historical VM downloads
+and a particular CI source commit is not independently established. Unperformed
+checks must not be represented as passed. M11.9 redistribution review and
+final public-release approval remain separate, unresolved gates.
+
 ## M12.2 — same-source final automated release-candidate matrix (Issue #85)
 
 `Release Candidate CI` reuses the complete native five-package matrix and

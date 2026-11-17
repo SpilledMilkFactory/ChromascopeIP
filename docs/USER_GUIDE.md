@@ -25,9 +25,16 @@ The window offers **Still image**, **Recorded video**, and **Live camera** works
 
 Shortcuts do not fire while editing text or interacting with modal dialogs. The Help button provides the same contextual assistance. In a wide window, drag the separator to resize the controls panel; on a narrow/high-DPI window, controls and preview stack vertically. Zoom and pan affect **presentation**, not stored-image coordinates. The file picker limits scanned/displayed entries and refuses symlinks; selecting a model file does not load it. See [M10.1 GUI detail](M10_1_GUI_EXPERIENCE.md).
 
+**Installed-app note (M11.1):** Package staging omits the historical
+Skittles photos and ONNX model weights pending redistribution review. When
+those four samples cannot be found, the corresponding example buttons are
+disabled; use **Browse** to select a local image. Developer checkouts retain
+sample buttons when run from their root. No source-path constant is compiled
+into installed applications. See [installation and staging](M11_1_INSTALL_STAGING.md).
+
 ## Still-image analysis
 
-1. Choose **Still image** and open one of the four archived Skittles images or browse to a local JPEG, PNG, BMP, TIFF or WebP supported by the validated predecode path.
+1. Choose **Still image** and browse to a local JPEG, PNG, BMP, TIFF or WebP supported by the validated predecode path. In a development checkout, the four archived Skittles examples are also offered if present.
 2. Choose `skittles` for circle/HSV color classification, or choose a registered filter/segmentation profile for pixel processing. The `object` and `person` profiles use **CPU NanoDet** and require a separately supplied, SHA-256-verified ONNX model.
 3. Change profile-specific options and select **Re-run analysis** where available. Preview controls and overlays can be changed without modifying the original source file.
 4. Export an annotated image only with the appropriate explicit Save action. Inspect output destinations before saving; exported files persist independently of the in-memory session.

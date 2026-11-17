@@ -28,6 +28,7 @@ message(STATUS "ChromascopeIP OpenCV: ${OpenCV_VERSION} at ${OpenCV_DIR}")
 add_library(chromascope_core STATIC
     src/core/Detection.cpp
     src/core/ImageIO.cpp
+    src/core/InstallResources.cpp
     src/core/ImageHeader.cpp
     src/core/ResourceBudget.cpp
     src/core/ImageFrame.cpp
@@ -133,9 +134,9 @@ if(CHROMASCOPE_BUILD_GUI)
     add_executable(chromascope-gui src/gui/main.cpp)
     target_link_libraries(chromascope-gui PRIVATE ChromascopeIP::Core chromascope_imgui)
     chromascope_apply_quality(chromascope-gui)
-    target_compile_definitions(chromascope-gui PRIVATE
-        CHROMASCOPE_SAMPLE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples/skittles")
 endif()
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ChromascopeInstall.cmake")
 
 if(BUILD_TESTING AND CHROMASCOPE_BUILD_TESTS)
     add_subdirectory(tests)

@@ -1152,3 +1152,21 @@ GUI/CLI acceptance and six hosted CI checks. The documentation tests validate
 consistency with selected source contracts; **they are not** a substitute for
 manual camera/platform verification or a comprehensive documentation accuracy
 proof. See [M10.8 guide index](DOCUMENTATION_INDEX.md).
+
+## M11.1 (#75) — relocatable install-stage qualification
+
+The install foundation adds `chromascope_unit_install_resources` (a native
+path-discovery and absent-sample regression), plus `chromascope_install_stage`
+(a CMake install and relocated-prefix layout/rights smoke). The native count
+increases from **147 to 149**, with **28 camera-labeled** unchanged.
+`tests/quality/test_install_staging_m111.py` adds five source-policy tests
+(153 to **158 Python tests**). The installation smoke does not claim runtime
+library bundling or success on a clean target distro. See
+[M11.1 install staging](M11_1_INSTALL_STAGING.md).
+
+```sh
+ctest --test-dir build/presets/linux-release \
+  -R 'chromascope_(unit_install_resources|install_stage)' --output-on-failure
+python3 -m unittest discover -s tests/quality \
+  -p 'test_install_staging_m111.py' -v
+```

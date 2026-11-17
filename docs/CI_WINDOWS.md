@@ -106,3 +106,20 @@ cache key and provenance stamp reject stale three-module archives. A standalone
 installed-package CMake consumer tests PNG, MSMF backend registration, and a
 built-in MJPEG/AVI synthetic round trip. This does **not** establish which
 Windows multimedia formats or camera hardware work on Windows 10/11.
+
+
+## M11.6 — portable Windows x64 development candidate (#80)
+
+The original M1.6 CLI-only check is preserved, but M11.6 adds a separate
+Windows GUI-enabled `windows-release` configuration, native CTests,
+pinned static GLFW 3.4, pinned Dear ImGui 1.93.0 and a Windows x64 ZIP
+with complete PE import/CRT dependency inspection. Both frontends are
+installed; only approved app-local VC143 runtime DLLs from signed Microsoft
+redist sources may be copied. The ZIP contains explicit runtime documentation
+and a SHA-256 manifest, not unreviewed OpenCV/GLFW DLLs, models or fixtures.
+
+Hosted Windows Server 2022 CI unpacks the candidate and exercises the relocated
+CLI under a restricted PATH. This **does not** certify Windows 10/11 native GUI,
+camera, media, codecs or user-machine compatibility. Successful candidates and
+`UNQUALIFIED` failure diagnostics use separate artifact names; M11.8/M11.9/M12
+remain mandatory. Read [M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md).

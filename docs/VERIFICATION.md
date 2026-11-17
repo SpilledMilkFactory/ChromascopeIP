@@ -1476,3 +1476,32 @@ review remain necessary. Expect 149 native CTests, 28 camera CTests and 222
 Python quality tests (13 new M11.5 tests). No model or historical media is
 redistributed. This is a 0.1.3 candidate, not an approved v1.0.0 release.
 See [M11.5 guide](M11_5_UBUNTU26_PACKAGE.md).
+
+
+## M11.5 (#79) acceptance recorded — November 17, 2026
+
+Maintainer-confirmed 13/13 new Ubuntu 26.04 package quality tests,
+222/222 complete Python tests, 149/149 Release GUI/CLI/sanitizer CTests,
+28/28 camera CTests and intact manual GUI/CLI behavior. All six hosted
+GitHub Actions checks passed, including native Resolute package and smoke,
+then PR #79 was merged. The four Linux development distributions are
+qualified at their respective CI gates; this is not v1.0.0 public sign-off.
+
+## M11.6 (#80) — portable Windows x64 ZIP (pending hosted acceptance)
+
+The new Windows Server 2022 / MSVC2022 x64 GUI-enabled configuration must
+build CLI and GUI against static OpenCV 5.1.0, static GLFW 3.4 and pinned
+Dear ImGui 1.93.0 and pass all registered CTests. The portable ZIP must be
+reproducibly staged, inspect both executables' and bundled CRT DLLs' PE32+
+imports, reject unknown imports/missing CRT and unapproved media/model assets,
+record a SHA-256 manifest and explicit runtime/third-party notice inventory.
+Only approved Microsoft x64 VC143 runtime files from the installed VS2022
+redistribution folder may be staged app-local. Hosted CI must extract/relocate
+and successfully launch CLI help, version, profile listing and processing
+of a generated synthetic BMP under a PATH
+without development OpenCV or VS directories. Interactive GUI, real Windows
+10/11 and camera qualification, redist licensing sign-off and SBOM remain
+M11.8/M11.9/M12. Existing Debian 12/13, Ubuntu 24.04/26.04 and six required
+GitHub checks must stay green. Native Linux baseline: 149 CTests / 28 camera;
+Python quality suite increases from 222 by the M11.6 additions. See
+[M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md).

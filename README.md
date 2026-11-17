@@ -69,7 +69,18 @@ Noble root and runs clean CLI smokes. Debian 12/13 packages and the Ubuntu
 ONNX weights are bundled. This candidate is not the v1.0.0 release. See the
 [M11.4 Ubuntu 24.04 package guide](docs/M11_4_UBUNTU24_PACKAGE.md).
 
-## M11.5 Ubuntu 26.04 AMD64 development package (Issue #79; pending acceptance)
+## M11.6 Windows x64 portable ZIP (Issue #80; pending acceptance)
+
+The Windows Server 2022 / VS2022 CI now builds the GUI as well as the CLI,
+using statically linked pinned OpenCV 5.1.0, GLFW 3.4 and Dear ImGui 1.93.0.
+The new `ChromascopeIP-0.1.3-Windows-x64.zip` candidate includes both
+frontends, an explicit PE import and app-local VC143 runtime dependency
+inventory, notices, SHA-256 manifest and an isolated relocated CLI smoke.
+Windows 10/11 interactive desktop and camera testing, full redistribution
+sign-off and final v1.0.0 qualification remain future gates. See
+[M11.6 Windows portable ZIP](docs/M11_6_WINDOWS_PORTABLE_ZIP.md).
+
+## M11.5 Ubuntu 26.04 AMD64 development package (Issue #79; accepted and merged)
 
 Resolute builds a separate native `ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb`
 with source-pinned OpenCV 5.1.0, Ubuntu 26.04 dependency metadata, a private

@@ -1319,3 +1319,26 @@ Unknown PE imports, missing required native CRT and extra ZIP DLLs remain
 fatal. Extra unused files present in the authenticated source folder are not. Native baseline stays
 149 CTests / 28 camera regressions; only a real hosted MSVC ZIP build and
 relocated smoke can qualify this packaging correction.
+
+
+## M11.7 — whole-package-matrix CI and offline inspector
+
+The new `Package Matrix CI` PR/dispatch workflow calls the existing Debian,
+Ubuntu and Windows native CI workflows at the same revision, waits for all
+five smoke-qualified candidates, downloads their raw v7 artifacts using pinned
+`download-artifact@v8` and re-inspects each `.deb`/`.zip` with the platform's
+existing offline inspector. A single missing or unqualified artifact fails
+the matrix; report upload requires all checks to pass. It does not replace
+any existing native CTest or the six long-standing checks.
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_package_matrix_m117.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+python3 scripts/check_ci_policy.py
+```
+
+Matrix regression tests use actual `dpkg-deb`-created synthetic package
+control files and deliberately mock **only** expensive full ELF/PE inspector
+internals for fixture-specific policy cases. Actual production CI invokes
+all five unmocked inspectors and the native producer smokes. See
+[M11.7 package matrix](M11_7_PACKAGE_MATRIX.md).

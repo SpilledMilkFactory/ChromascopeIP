@@ -1561,3 +1561,24 @@ build/ZIP/inspect cycle, and refusal to build for an unreviewed PE import.
 **Expected: 24 Windows-specific / 246 total Python tests, 149 native CTests,
 28 camera tests.** The real hosted Windows ZIP and relocated CLI smoke are
 still mandatory; M11.6 remains BLOCKED until all six checks pass.
+
+
+## M11.7 — complete matrix qualification (#81; implementation awaiting CI)
+
+The maintainer accepted M11.6 after 24/24 focused Windows ZIP quality tests,
+246/246 full Python quality tests, 149/149 native CTests per established
+configuration, manual GUI/CLI verification and six green GitHub Actions
+checks; PR #80 was merged. This is the accepted starting baseline.
+
+M11.7 introduces a *separate* `Package Matrix CI` workflow with three
+same-commit reusable native workflows and a final job that independently
+validates all five exact, smoke-qualified package artifacts. It refuses missing,
+extra, stale/misnamed, unsafe, version-mismatched or structurally invalid
+inputs. The artifact report records run ID, source commit, bytes and SHA-256.
+
+**Acceptance still pending:** 262 Python quality tests (246 + 16 matrix
+regressions), unchanged 149 native CTests/28 camera CTests, all original six
+CI checks, plus all five native package smokes and the new final whole-matrix
+artifact check. This is not public release approval, Windows 10/11 client GUI
+qualification, camera device qualification, signing, rights/SBOM approval or
+v1.0.0 version freeze. See [M11.7](M11_7_PACKAGE_MATRIX.md).

@@ -18,7 +18,21 @@ def check_workflow(path):
     if re.search(r"(?m)^\s+[a-z-]+:\s*write\s*$", content):
         errors.append("unexpected write token permission")
     for ref in USE.findall(content):
-        if ref.startswith("./") or ref.startswith("docker://"):
+        if ref.startswith("./.github/workflows/"):
+            # Reusable workflows are first-party, pinned to this same commit.
+            # Only explicitly reviewed CI entry points may be invoked.
+            allowed = {"./.github/workflows/ci-debian.yml",
+                       "./.github/workflows/ci-ubuntu.yml",
+                       "./.github/workflows/ci-windows.yml"}
+            if ref not in allowed:
+                errors.append(f"unapproved reusable workflow: {ref}")
+            else:
+                target = path.parent / Path(ref).name
+                if not target.is_file() or not re.search(
+                        r"(?m)^  workflow_call:\s*$",
+                        target.read_text(encoding="utf-8")):
+                    errors.append(f"nonreusable workflow: {ref}")
+        elif ref.startswith("./") or ref.startswith("docker://"):
             errors.append(f"unsupported local/container action reference: {ref}")
         elif not SHA.fullmatch(ref):
             errors.append(f"action must use full commit SHA: {ref}")

@@ -117,6 +117,25 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # M11.9 drafts are *evidence*, not a legal/redistribution PASS.
+      # Full manual notices, codec, toolchain, and patent review remains open.
+      - name: Generate offline M11.9 artifact-derived SBOM drafts
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/audit_redistribution_m119.py \
+            --artifacts-dir build/package-matrix \
+            --matrix-report build/package-matrix-report.json \
+            --output-dir build/redistribution-m119
+
+      - name: Upload M11.9 review-required SBOM evidence (not clearance)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ChromascopeIP-0.1.3-M11.9-SBOM-Drafts-REVIEW-REQUIRED
+          path: build/redistribution-m119/
+          archive: true
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Summarize matrix-only qualification
         run: |
           {

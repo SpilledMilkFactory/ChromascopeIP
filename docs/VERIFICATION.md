@@ -1619,3 +1619,19 @@ recorded after explicit operator work and local review. No hardware runs in
 quality CI. A GitHub Actions PASS alone is not Windows 10/11 or live-device
 certification. All six records must refer to the same source commit and
 qualified package digests before a manual-evidence report can be generated.
+
+
+## M11.9 (#83) — Binary dependency and notice inventory
+
+The maintainer reports M11.8 local GUI/CLI success, successful smoke-testing
+of native packages in fresh OS VMs, twelve green hosted checks and merge.
+These observations do not constitute independent per-device attestation or
+redistribution-rights approval. M11.9 introduces *artifact-derived* offline
+CycloneDX 1.6 draft inventories and explicit human review gates without
+changing the production application or qualified package builders.
+
+**Pending:** generate SBOM evidence from actual five same-run CI artifacts;
+verify pinned source/third-party notices, Linux distro FFmpeg and codec builds,
+Windows static components and VC143 licensing, and resolve any missing notices
+or legal requirements. `REVIEW_REQUIRED` is not a release PASS. M12 signing,
+version promotion and release remain blocked until applicable clearances.

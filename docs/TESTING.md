@@ -1170,3 +1170,62 @@ ctest --test-dir build/presets/linux-release \
 python3 -m unittest discover -s tests/quality \
   -p 'test_install_staging_m111.py' -v
 ```
+
+
+## M11.2 (#76) — Debian 12 package and native clean-install testing
+
+M11.2 has 21 Python quality tests (`test_debian12_package_m112.py`),
+including five regression cases for transitive OpenCV dependencies (FLANN),
+missing modules, incompatible ABI, cycles and prefix escape; the expected
+Python total is **179**. The native suite remains **149 CTests**,
+including two M11.1 staging/resource tests; camera subset remains **28**.
+Run `python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
+The existing Debian 12 CI matrix leg builds a Debian package from the pinned
+OpenCV build, inspects the package, creates a new Debian 12 minbase root with
+`debootstrap`, installs using apt and smoke-tests both executable loaders and
+CLI help/profile/synthetic BMP processing. This *does not* open a real GUI,
+access cameras, load models or establish redistribution license sign-off.
+See [M11.2 packaging instructions](M11_2_DEBIAN12_PACKAGE.md).
+
+### M11.2 — Debian 12 transitive loader correction (CI follow-up)
+
+The initially assembled Debian 12 `.deb` installed successfully but its CLI
+failed to locate `libopencv_videoio.so.501` inside the clean Bookworm root.
+The package now uses private, relative **DT_RPATH** instead of non-transitive
+DT_RUNPATH and statically audits both staged and re-extracted package ELF
+metadata plus all OpenCV SONAME links. The focused Python tests include a
+real, compiler-generated ELF dependency chain that proves RUNPATH failure
+and RPATH success without OpenCV or camera access. The isolated chroot
+remains the real-runtime acceptance gate.
+
+```sh
+python3 -m unittest discover -s tests/quality -p test_debian12_package_m112.py -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+Expected: **21 focused / 179 total Python tests**, 149 native CTests.
+
+### M11.2 unchanged Debian loader failure — diagnostic qualification follow-up
+
+The November 17 Bookworm clean-install CI still cannot start the installed CLI
+(`libopencv_videoio.so.501`), despite successful package construction and static
+RPATH/SO-name inspection. The CI smoke now requires actual `ld-linux` `--list`
+resolution and emits bounded `LD_DEBUG=libs` on failed startup; it never
+substitutes `LD_LIBRARY_PATH` to pass. A failed package is retained for up to
+2 days as a conspicuously **UNQUALIFIED** diagnostic artifact. The tested
+release artifact remains gated by successful smoke. Python quality baseline:
+**182** (24 Debian packaging tests); native remains **149**.
+
+
+### M11.2 — proc-less Bookworm chroot `$ORIGIN` regression correction
+
+Loader diagnostics established that missing `/proc/self/exe` in the minbase
+chroot, **not missing OpenCV data in the .deb**, caused direct startup failure.
+M11.2 now verifies (a) ordinary native execution from the extracted package
+on the Debian 12 CI host with procfs and package-private videoio, and
+(b) interpreter-driven execution against the fresh Bookworm APT-installed
+libraries for CLI help, profiles and synthetic BMP. CI does not request
+privileged containers or mount `/proc` from the host. The interpreter-driven
+chroot invocation is not a substitute for ordinary kernel exec on a full
+Bookworm machine; M11.8/M12 retain that final manual/native release gate.
+Expected: **27 focused / 185 total Python tests**, 149 native CTests.

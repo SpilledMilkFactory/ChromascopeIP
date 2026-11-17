@@ -1352,3 +1352,68 @@ custom prefixes and `DESTDIR` on Linux; run full sanitizer/static-analysis,
 model/provenance gates and all six existing CI jobs. M11.1 deliberately does
 **not** bundle OpenCV, codecs or DLLs. Only M11.2 onward can qualify clean
 installed execution. See [M11.1 staging guide](M11_1_INSTALL_STAGING.md).
+
+
+## M11.2 (#76) — Debian 12 AMD64 package acceptance (PENDING)
+
+Previous M11.1 accepted baseline: 149/149 native CTests in each of three modes,
+28/28 camera tests, 158/158 Python quality tests and six green GitHub Actions
+checks, followed by merge confirmation. New M11.2 expected baseline: **149
+native**, **28 camera** and **179 Python quality** tests.
+
+The M11.2 CI packaging correction closes the private OpenCV library graph
+recursively from the five requested modules, including DNN -> FLANN where
+required by ELF metadata. Five additional quality regressions guard the
+closure and preserve failure on missing, incompatible or out-of-prefix modules.
+
+Acceptance requires native Debian 12 AMD64 `.deb` construction from the pinned
+OpenCV 5.1.0 source revision, valid dpkg metadata, isolated OpenCV SONAME closure,
+Debian system dependencies derived by `dpkg-shlibdeps`, no media/model bundles,
+and successful clean Debian 12 minbase apt-install + CLI processing smoke **without
+a development OpenCV prefix**. This source contribution does not assert that
+its Debian 12 package or six new CI results have passed yet. See
+[M11.2 Debian 12 packaging](M11_2_DEBIAN12_PACKAGE.md). GUI desktop, physical
+cameras, release dependency notices, SBOM and final binary qualification remain
+future M11.8/M11.9/M12 gates.
+
+### M11.2 follow-up: installed Bookworm ELF loader resolution (PENDING)
+
+The Debian 12 package now builds and installs in a fresh Bookworm chroot,
+but `chromascope-cli` previously failed to find `libopencv_videoio.so.501`.
+The corrected package uses private `$ORIGIN`-relative `DT_RPATH` for transitive
+OpenCV resolution, inspects the installed tree and re-extracted package ELF
+tags and SONAME links, and prints bounded dynamic-loader diagnostics upon
+clean-install failure. This is a narrowly scoped Debian 12 package exception,
+not a global runtime-loader configuration change. Re-run native Debian 12
+packaging and full clean-install CLI smoke before accepting #76.
+
+Expected M11.2 follow-up: **149 native / 28 camera / 179 Python** tests.
+Manual GUI/video/camera qualification and licensing sign-off remain pending.
+
+### M11.2 unchanged loader failure — evidence required to unblock
+
+November 17: clean Bookworm APT installation succeeded but CLI startup still
+failed loading `libopencv_videoio.so.501`; source-presence, SONAME links, and
+ELF DT_RPATH inspection alone were insufficient. Next CI run must show the
+actual executable interpreter `--list` resolution and, on startup failure,
+`LD_DEBUG=libs` search paths. The optional failed package artifact is named
+**UNQUALIFIED** and is not a release candidate. Do not close #76 until native
+clean-install execution, synthetic processing, and all six checks pass.
+Expected: 24 focused Debian Python tests, 182 total Python tests, 149 CTests.
+
+
+### M11.2 — verified proc-less chroot cause and two-sided smoke (PENDING)
+
+The Debian 12 test chroot lacks `/proc/self/exe`. Real ELF inspection and a
+controlled minimal-chroot reproduction confirmed `$ORIGIN` cannot be resolved
+on a direct kernel exec there; the same binary works when given to its ELF
+interpreter, or with executable location visible through procfs. See
+Debian bug #787227. No Debian packaging payload or RPATH change is needed.
+
+Acceptance now requires **ordinary native CLI startup** from the extracted
+`.deb` on Debian 12 with `/proc/self/exe` available, with the private OpenCV
+videoio path verified, PLUS full fresh-Bookworm APT installation and
+interpreter-driven CLI help, profile, synthetic BMP processing. The latter is
+not ordinary kernel exec inside the proc-less chroot. Do not waive any
+pre-existing gates. Expected: 27 focused / 185 Python, 149 native, 28 camera,
+and all six GitHub checks. M11.2 is blocked pending green CI.

@@ -171,6 +171,139 @@ class PackageMatrixM117Tests(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/ci-debian.yml').read_text()
         self.assertIn('name: ChromascopeIP-0.1.3-Debian12-amd64', workflow)
 
+    @staticmethod
+    def _step(yaml_text, step_label):
+        """Read one CI step without requiring a third-party YAML library."""
+        marker = '      - name: ' + step_label + '\n'
+        if yaml_text.count(marker) != 1:
+            raise AssertionError(f'Expected one step: {step_label}')
+        return yaml_text.split(marker, 1)[1].split('\n      - name: ', 1)[0]
+
+    @staticmethod
+    def _input(block, key):
+        import re
+        matches = re.findall(r'(?m)^          ' + re.escape(key) + r': (.+)$', block)
+        if len(matches) != 1:
+            raise AssertionError(f'Expected one input {key}: {matches}')
+        return matches[0].strip()
+
+    @staticmethod
+    def _raw_contracts():
+        return (
+            ('ci-debian.yml', 'Upload tested Debian 12 candidate package',
+             'Download Debian 12 package from this run', 'Debian12-amd64', '.deb'),
+            ('ci-debian.yml', 'Upload tested Debian 13 candidate package',
+             'Download Debian 13 package from this run', 'Debian13-amd64', '.deb'),
+            ('ci-ubuntu.yml', 'Upload tested Ubuntu 24.04 candidate package',
+             'Download Ubuntu 24.04 package from this run', 'Ubuntu24.04-amd64', '.deb'),
+            ('ci-ubuntu.yml', 'Upload tested Ubuntu 26.04 candidate package',
+             'Download Ubuntu 26.04 package from this run', 'Ubuntu26.04-amd64', '.deb'),
+            ('ci-windows.yml', 'Upload smoke-qualified Windows x64 ZIP candidate',
+             'Download Windows x64 package from this run', 'Windows-x64', '.zip'),
+        )
+
+    def _check_raw_contracts(self, workflow_texts, consumer_text):
+        for workflow, producer_step, consumer_step, target, suffix in self._raw_contracts():
+            source = self._step(workflow_texts[workflow], producer_step)
+            destination = self._step(consumer_text, consumer_step)
+            stem = f'ChromascopeIP-{matrix.VERSION}-{target}'
+            filename = stem + suffix
+            # GitHub upload-artifact@v7 archive:false IGNORES the name input,
+            # naming the actual artifact after the uploaded file's basename.
+            self.assertEqual(self._input(source, 'archive'), 'false')
+            self.assertEqual(Path(self._input(source, 'path')).name, filename)
+            self.assertEqual(self._input(source, 'name'), filename)
+            self.assertEqual(self._input(source, 'if-no-files-found'), 'error')
+            self.assertIn('uses: actions/upload-artifact@', source)
+            self.assertIn('uses: actions/download-artifact@', destination)
+            self.assertEqual(self._input(destination, 'name'), filename)
+            self.assertEqual(self._input(destination, 'path'),
+                             'build/package-matrix/' + stem)
+            self.assertEqual(self._input(destination, 'skip-decompress'), 'true')
+            self.assertNotIn('github-token:', destination)
+            self.assertNotIn('run-id:', destination)
+            self.assertNotIn('pattern:', destination)
+
+    def test_raw_artifact_producers_match_all_five_actual_download_names(self):
+        folder = ROOT / '.github/workflows'
+        producers = {name: (folder / name).read_text()
+                     for name in ('ci-debian.yml', 'ci-ubuntu.yml', 'ci-windows.yml')}
+        self._check_raw_contracts(producers, (folder / 'package-matrix.yml').read_text())
+
+    def test_extensionless_artifact_download_is_detected_for_each_platform(self):
+        folder = ROOT / '.github/workflows'
+        producers = {name: (folder / name).read_text()
+                     for name in ('ci-debian.yml', 'ci-ubuntu.yml', 'ci-windows.yml')}
+        original = (folder / 'package-matrix.yml').read_text()
+        for _, _, _, target, suffix in self._raw_contracts():
+            expected = f'name: ChromascopeIP-{matrix.VERSION}-{target}{suffix}'
+            self.assertEqual(original.count(expected), 1)
+            modified = original.replace(expected,
+                                        f'name: ChromascopeIP-{matrix.VERSION}-{target}', 1)
+            with self.subTest(target=target):
+                with self.assertRaises(AssertionError):
+                    self._check_raw_contracts(producers, modified)
+
+    def test_raw_download_path_and_decompression_drift_are_rejected(self):
+        folder = ROOT / '.github/workflows'
+        producers = {name: (folder / name).read_text()
+                     for name in ('ci-debian.yml', 'ci-ubuntu.yml', 'ci-windows.yml')}
+        original = (folder / 'package-matrix.yml').read_text()
+        wrong_path = original.replace('path: build/package-matrix/ChromascopeIP-0.1.3-Windows-x64',
+                                      'path: build/package-matrix/ChromascopeIP-0.1.3-Windows-x64.zip', 1)
+        wrong_decompress = original.replace('skip-decompress: true', 'skip-decompress: false', 1)
+        for altered in (wrong_path, wrong_decompress):
+            with self.assertRaises(AssertionError):
+                self._check_raw_contracts(producers, altered)
+
+    def test_unqualified_uploads_cannot_masquerade_as_qualified_raw_packages(self):
+        folder = ROOT / '.github/workflows'
+        for workflow in ('ci-debian.yml', 'ci-ubuntu.yml', 'ci-windows.yml'):
+            source = (folder / workflow).read_text()
+            import re
+            steps = re.findall(r'(?m)^      - name: (Upload UNQUALIFIED [^\n]+)$', source)
+            self.assertGreaterEqual(len(steps), 1)
+            for label in steps:
+                with self.subTest(workflow=workflow, step=label):
+                    step = self._step(source, label)
+                    self.assertTrue(self._input(step, 'name').startswith('UNQUALIFIED-'))
+                    self.assertEqual(self._input(step, 'archive'), 'true')
+                    self.assertEqual(self._input(step, 'if-no-files-found'), 'ignore')
+                    self.assertEqual(self._input(step, 'retention-days'), '2')
+                    self.assertIn('if: failure()', step)
+
+    def test_qualified_report_upload_honors_its_name(self):
+        source = (ROOT / '.github/workflows/package-matrix.yml').read_text()
+        label = 'Upload qualified matrix validation report (not a release)'
+        step = self._step(source, label)
+        self.assertEqual(self._input(step, 'archive'), 'true')
+        self.assertEqual(self._input(step, 'name'),
+                         'ChromascopeIP-0.1.3-M11.7-Matrix-Report')
+        self.assertEqual(self._input(step, 'path'), 'build/package-matrix-report.json')
+        self.assertEqual(self._input(step, 'if-no-files-found'), 'error')
+
+    def test_raw_name_contract_matches_real_offline_artifact_layout(self):
+        # Model upload-v7 raw filename identity and download-v8 directory
+        # placement, then pass the result to the ACTUAL matrix scanner.
+        folder = ROOT / '.github/workflows'
+        workflows = {name: (folder / name).read_text()
+                     for name in ('ci-debian.yml', 'ci-ubuntu.yml', 'ci-windows.yml')}
+        consumer = (folder / 'package-matrix.yml').read_text()
+        with tempfile.TemporaryDirectory() as tmp:
+            destination = Path(tmp) / 'matrix'
+            destination.mkdir()
+            for workflow, upload, download, _, _ in self._raw_contracts():
+                upstream = self._step(workflows[workflow], upload)
+                downstream = self._step(consumer, download)
+                # upload-artifact@v7 archive:false: ignores explicit name
+                effective_name = Path(self._input(upstream, 'path')).name
+                self.assertEqual(effective_name, self._input(downstream, 'name'))
+                path = Path(self._input(downstream, 'path'))
+                package = destination / path.name / effective_name
+                package.parent.mkdir()
+                package.write_bytes(b'raw-package')
+            self.assertEqual(len(matrix.scan(destination)), 5)
+
     def test_docs_and_no_public_release_promotion(self):
         doc = (ROOT / 'docs/M11_7_PACKAGE_MATRIX.md').read_text()
         for word in ('workflow_dispatch', 'pull_request', 'five', 'M11.8', 'M11.9', 'unqualified'):

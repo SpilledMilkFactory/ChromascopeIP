@@ -1342,3 +1342,16 @@ control files and deliberately mock **only** expensive full ELF/PE inspector
 internals for fixture-specific policy cases. Actual production CI invokes
 all five unmocked inspectors and the native producer smokes. See
 [M11.7 package matrix](M11_7_PACKAGE_MATRIX.md).
+
+### M11.7 raw-artifact transfer regression
+
+The full package-matrix regression now derives each `download-artifact@v8`
+`name` from the corresponding `upload-artifact@v7` raw file basename (the
+`.deb`/`.zip` suffix is mandatory). Negative tests reject extensionless
+names, mismatched directories, accidental unwrapping, and a mislabeled
+UNQUALIFIED diagnostic. Qualified artifacts remain raw; UNQUALIFIED
+artifacts and the named matrix report use GitHub's archived mode so their
+specified labels are retained. Hosted full-matrix execution remains required.
+The correction raises the M11.7-focused suite to **22 tests** and the full
+Python quality suite to **268 tests** (262 previously + six artifact-transfer
+regressions).

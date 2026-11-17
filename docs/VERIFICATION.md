@@ -1582,3 +1582,22 @@ CI checks, plus all five native package smokes and the new final whole-matrix
 artifact check. This is not public release approval, Windows 10/11 client GUI
 qualification, camera device qualification, signing, rights/SBOM approval or
 v1.0.0 version freeze. See [M11.7](M11_7_PACKAGE_MATRIX.md).
+
+### M11.7 artifact transfer CI correction (2026-11-17)
+
+The first M11.7 Package Matrix CI run successfully built and smoke-tested
+all five native packages, but validation stopped at the first download:
+`Artifact not found for name: ChromascopeIP-0.1.3-Debian12-amd64`.
+The source log actually recorded artifact
+`ChromascopeIP-0.1.3-Debian12-amd64.deb`. `upload-artifact@v7`
+`archive: false` ignores its explicit `name:` and names the artifact after
+the file. All five downloader names have been aligned with their actual
+`.deb`/`.zip` artifact names. Additional regression tests verify all five
+producer-consumer contracts, exact download layout, digest enforcement and
+distinct names for UNQUALIFIED archives and the matrix report. This does not
+claim that the corrected workflow has passed; native hosted acceptance is
+still required.
+
+**Correction regression baseline:** 22 M11.7-focused tests and 268 total
+Python quality tests (262 + six). Existing native CTests remain 149, including
+28 camera-labeled tests. Full hosted matrix acceptance is pending.

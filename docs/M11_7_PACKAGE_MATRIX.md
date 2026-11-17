@@ -28,11 +28,31 @@ artifact, cross-run PAT, or an unrelated workflow's previous successful build.
 
 The final `validate` job has `needs: [debian, ubuntu, windows]` and may start
 only when **all three** reusable workflow jobs succeed. It then downloads
-five **exactly named** artifacts from the **current run** using pinned
+five **exactly named raw-file** artifacts (including their `.deb`/`.zip` extensions)
+from the **current run** using pinned
 `actions/download-artifact@v8` (necessary because the existing pinned
 `upload-artifact@v7` uses `archive: false` to retain raw `.deb`/`.zip` files).
-Digest mismatch is fatal by default. The earlier Debian 12 unnamed `artifact`
-output is explicitly named `ChromascopeIP-0.1.3-Debian12-amd64` for this gate.
+Digest mismatch is fatal by default.
+
+**M11.7 CI failure correction (2026-11-17):** The first matrix run built
+and uploaded all five qualified packages, but its first download requested
+`ChromascopeIP-0.1.3-Debian12-amd64` whereas GitHub stored the artifact as
+`ChromascopeIP-0.1.3-Debian12-amd64.deb`. With `upload-artifact@v7` and
+`archive: false`, the artifact **name is the uploaded file basename**;
+its configured `name:` input is ignored. The CI upload logs confirm this
+behavior for all five targets. The corrected consumer requests the exact
+`.deb`/`.zip` names and places each downloaded raw file into its matching
+extensionless directory for `validate_package_matrix.py`. `download-artifact@v8`
+retains the actual package bytes (`skip-decompress: true`) and fails closed on
+a digest mismatch. No cross-run credentials or artifact fallback are used.
+
+Qualified package uploads remain unwrapped single files. An **UNQUALIFIED**
+diagnostic upload now uses `archive: true` so GitHub actually retains its
+explicitly unqualified name: with `archive: false`, even a failed candidate
+was silently published under the same filename-shaped artifact name as a
+qualified package. The matrix report also uses `archive: true` to retain its
+intended named-report identity. These are artifact-labeling changes, not
+changes to native package construction or verification.
 
 ## Five required candidates
 
@@ -66,7 +86,8 @@ SBOM, approval to redistribute or release publication.
 
 ## Manual reproduction with downloaded files
 
-Keep each *raw package* in a directory named exactly like the artifact name,
+Keep each *raw package* in a directory named after the filename with its
+extension removed (not the raw GitHub artifact name),
 e.g. `build/package-matrix/ChromascopeIP-0.1.3-Windows-x64/` contains exactly
 `ChromascopeIP-0.1.3-Windows-x64.zip`. Install `dpkg-dev`, `binutils`, and
 `patchelf` on Linux; no OpenCV development installation is needed for inspect.

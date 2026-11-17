@@ -9,6 +9,18 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 > boundaries. Historical M10.1–M10.7 issue notes below remain as development
 > records, not a statement that those features are unavailable today.
 
+## M12.4 — Windows 10/11 portable ZIP engineering acceptance (Issue #87)
+
+The maintainer reports successful manual extraction and GUI/CLI use of the
+ChromascopeIP 1.0.0 Windows x64 ZIP on Windows 10 and Windows 11. The existing
+MSVC native CTests, PE/CRT ZIP inspection, relocated CLI smoke, and full
+20-check Release Candidate CI remain the automated qualification evidence.
+See [M12.4 Windows ZIP acceptance](docs/M12_4_WINDOWS_ZIP_ACCEPTANCE.md).
+No new Windows JSON attestation files, historical commit reconstruction, or
+repetition of already completed testing is required for engineering sign-off.
+Physical-camera/codec coverage not reported remains unverified; M11.9
+redistribution clearance and public release approval remain separate.
+
 ## M12.3 — four Linux clean-install VM acceptance (Issue #86)
 
 The maintainer reports successful fresh-VM installation and GUI/CLI testing on

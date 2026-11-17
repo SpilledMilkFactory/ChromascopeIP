@@ -123,3 +123,15 @@ CLI under a restricted PATH. This **does not** certify Windows 10/11 native GUI,
 camera, media, codecs or user-machine compatibility. Successful candidates and
 `UNQUALIFIED` failure diagnostics use separate artifact names; M11.8/M11.9/M12
 remain mandatory. Read [M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md).
+
+## M11.6 Windows GUI MSVC compilation regression (issue #80)
+
+The first GUI-enabled Windows Server 2022 build failed in `src/gui/main.cpp`
+before ZIP construction. Windows RPC's `small` macro collided with a local
+OpenCV image variable; Windows' legacy OpenGL headers also lacked the
+`GL_CLAMP_TO_EDGE` token. M11.6 now uses `resized_bgr` and a local OpenGL
+constant (`0x812F`) compatible with the existing 3.3 context. Three new
+quality tests include a synthetic syntax-only compile with the Windows macro
+and old-header symbol constraints. MSVC compilation and portable ZIP smoke
+remain pending CI verification; this correction does not declare Windows
+10/11 interactive GUI compatibility.

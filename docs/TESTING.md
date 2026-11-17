@@ -1291,3 +1291,15 @@ A Windows 10/11 GUI or camera success claim is not part of this smoke test.
 Run `python3 -m unittest discover -s tests/quality -p 'test_windows_zip_m116.py' -v`
 and the complete quality suite; 149 native/28 camera CTests are unchanged.
 See [M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md).
+
+
+### M11.6 Windows GUI first-build regression (issue #80)
+
+The new Windows GUI-enabled MSVC build exercises source previously excluded
+from Windows CI. On Windows RPC headers, `small` may be defined as `char`,
+and legacy `<GL/gl.h>` does not provide `GL_CLAMP_TO_EDGE`. Run the targeted
+quality tests (`test_windows_zip_m116.py`), including a synthetic C++ syntax
+check with those two constraints, followed by the complete Python suite. The
+expected focused M11.6 test count is **16** (previously 13), and the full
+Python suite is **238** (previously 235). Retain 149 native CTests and 28
+camera tests; Windows GUI-enabled MSVC CTests and ZIP smoke are still required.

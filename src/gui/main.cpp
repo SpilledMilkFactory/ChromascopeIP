@@ -56,6 +56,11 @@
 
 namespace {
 
+// Windows' legacy GL/gl.h does not declare GL_CLAMP_TO_EDGE (OpenGL 1.2).
+// Our GLFW OpenGL 3.3 context supports this parameter; keep the token local
+// rather than adding a global GL_* macro or changing the graphics backend.
+constexpr GLint kTextureClampToEdge = 0x812F;
+
 struct Texture {
     GLuint id = 0;
     int width = 0;
@@ -79,21 +84,22 @@ struct Texture {
         if (bgr.empty()) return;
         source_width = bgr.cols;
         source_height = bgr.rows;
-        cv::Mat small, rgba;
+        // Avoid the Windows RPC macro spelling as a local identifier.
+        cv::Mat resized_bgr, rgba;
         const int side = std::max(bgr.rows, bgr.cols);
         if (side > 1800) {
             const double scale = 1800.0 / side;
-            cv::resize(bgr, small, {}, scale, scale, cv::INTER_AREA);
-        } else small = bgr;
-        cv::cvtColor(small, rgba, cv::COLOR_BGR2RGBA);
+            cv::resize(bgr, resized_bgr, {}, scale, scale, cv::INTER_AREA);
+        } else resized_bgr = bgr;
+        cv::cvtColor(resized_bgr, rgba, cv::COLOR_BGR2RGBA);
         width = rgba.cols;
         height = rgba.rows;
         glGenTextures(1, &id);
         glBindTexture(GL_TEXTURE_2D, id);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, kTextureClampToEdge);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, kTextureClampToEdge);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rgba.data);

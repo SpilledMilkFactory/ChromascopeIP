@@ -238,5 +238,65 @@ class WindowsZipM116Tests(unittest.TestCase):
             self.assertIn(phrase.lower(), guide.lower())
 
 
+    def test_windows_gui_texture_avoids_rpc_small_macro(self):
+        gui = (ROOT / 'src/gui/main.cpp').read_text(encoding='utf-8')
+        texture = gui.split('struct Texture {', 1)[1].split('struct App {', 1)[0]
+        # Windows SDK RPC headers can define `small` as `char`.
+        self.assertNotRegex(texture, r'\bsmall\b')
+        self.assertIn('cv::Mat resized_bgr, rgba;', texture)
+        self.assertIn('cv::resize(bgr, resized_bgr,', texture)
+        self.assertIn('cv::cvtColor(resized_bgr, rgba,', texture)
+
+    def test_windows_gui_legacy_gl_header_constant(self):
+        gui = (ROOT / 'src/gui/main.cpp').read_text(encoding='utf-8')
+        texture = gui.split('struct Texture {', 1)[1].split('struct App {', 1)[0]
+        self.assertIn('constexpr GLint kTextureClampToEdge = 0x812F;', gui)
+        self.assertIn('GL_TEXTURE_WRAP_S, kTextureClampToEdge', texture)
+        self.assertIn('GL_TEXTURE_WRAP_T, kTextureClampToEdge', texture)
+        self.assertNotIn('GL_CLAMP_TO_EDGE);', texture)
+        self.assertIn('GLFW_CONTEXT_VERSION_MAJOR, 3', gui)
+        self.assertIn('GLFW_CONTEXT_VERSION_MINOR, 3', gui)
+
+    def test_gui_texture_compiles_with_rpc_macro_and_legacy_gl(self):
+        # Exercise the REAL Texture definition under the conflicting Windows
+        # macro and a mock OpenGL 1.1 header without GL_CLAMP_TO_EDGE.
+        # No native OpenCV, GLFW or Windows runner is required for this test.
+        import subprocess
+        compiler = shutil.which('g++') or shutil.which('clang++')
+        if not compiler:
+            self.skipTest('GCC/Clang unavailable; hosted MSVC GUI build remains mandatory')
+        gui = (ROOT / 'src/gui/main.cpp').read_text(encoding='utf-8')
+        snippet = gui.split('struct Texture {', 1)[1].split('struct App {', 1)[0]
+        constant = 'constexpr GLint kTextureClampToEdge = 0x812F;'
+        fake_headers = r'''#include <algorithm>
+#define small char
+namespace cv {
+struct Mat {int rows=10, cols=10; unsigned char* data=nullptr;
+            bool empty() const {return false;}};
+struct Size {};
+constexpr int INTER_AREA=1, COLOR_BGR2RGBA=2;
+void resize(const Mat&, Mat&, Size, double, double, int);
+void cvtColor(const Mat&, Mat&, int);
+}
+using GLuint = unsigned int;
+using GLint = int;
+constexpr int GL_TEXTURE_2D=1, GL_TEXTURE_MIN_FILTER=2, GL_TEXTURE_MAG_FILTER=3;
+constexpr int GL_LINEAR=4, GL_TEXTURE_WRAP_S=5, GL_TEXTURE_WRAP_T=6;
+constexpr int GL_UNPACK_ALIGNMENT=7, GL_RGBA8=8, GL_RGBA=9, GL_UNSIGNED_BYTE=10;
+void glDeleteTextures(int, const GLuint*);
+void glGenTextures(int, GLuint*);
+void glBindTexture(int, GLuint);
+void glTexParameteri(int, int, int);
+void glPixelStorei(int, int);
+void glTexImage2D(int, int, int, int, int, int, int, int, const void*);
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / 'gui_texture_macro_check.cpp'
+            file.write_text(fake_headers + '\n' + constant +
+                            '\nstruct Texture {' + snippet + '\n')
+            completed = subprocess.run([compiler, '-std=c++20', '-fsyntax-only',
+                                        str(file)], capture_output=True, text=True)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+
 if __name__ == '__main__':
     unittest.main()

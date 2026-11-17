@@ -108,3 +108,24 @@ M11.7 and M11.8 cover downstream Windows packaging and real Windows client
 qualification as specified by their GitHub issues; M11.9 consolidates
 redistribution notices, third-party license validation and SBOM. M12 handles
 v1.0.0 identity, final release qualification and publication.
+
+## M11.6 Windows GUI compiler correction (issue #80)
+
+The first hosted `windows-release` build encountered MSVC compilation errors
+in `src/gui/main.cpp` before ZIP construction. Windows RPC headers can define
+`small` as the keyword `char`, so a texture-upload local named `small`
+was expanded into invalid C++. The texture staging variable is now named
+`resized_bgr` without changing resize, BGR-to-RGBA conversion or upload.
+
+The Windows SDK's legacy `<GL/gl.h>` also omits the OpenGL 1.2 constant
+`GL_CLAMP_TO_EDGE`. The GUI now uses a translation-unit-local `GLint` constant
+with the defined value `0x812F`, supported by the already requested GLFW
+OpenGL 3.3 context. No global GL macro, loader, graphics backend, or window
+context policy was changed.
+
+Three M11.6 Python tests guard the macro collision and the missing legacy GL
+symbol; a GCC/Clang syntax-only synthetic compilation extracts the actual
+`Texture` definition, defines `small` as `char` and deliberately omits
+`GL_CLAMP_TO_EDGE`. This is not a substitute for MSVC. The Windows GUI-enabled
+CTest, package generation, PE import validation and relocated CLI smoke remain
+required before accepting issue #80.

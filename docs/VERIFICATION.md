@@ -1505,3 +1505,18 @@ M11.8/M11.9/M12. Existing Debian 12/13, Ubuntu 24.04/26.04 and six required
 GitHub checks must stay green. Native Linux baseline: 149 CTests / 28 camera;
 Python quality suite increases from 222 by the M11.6 additions. See
 [M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md).
+
+
+## M11.6 (#80) — Windows GUI MSVC first-build correction (pending CI)
+
+The first M11.6 Windows Server 2022 GUI-enabled CMake build failed compiling
+`src/gui/main.cpp`, before package generation. A `small` local in the texture
+upload path conflicts with Windows RPC's `small` macro (`char`); the Windows
+SDK's legacy OpenGL headers do not declare `GL_CLAMP_TO_EDGE`. I renamed the
+local to `resized_bgr` and used a local `GLint` constant with OpenGL value
+`0x812F` while preserving the requested 3.3 context and texture behavior.
+The focused M11.6 policy suite adds three checks (16 total, including an
+actual syntax-only C++ macro/legacy-GL compile), raising the expected Python
+quality suite to 238. The native baseline remains 149 CTests and 28 camera
+regressions. The actual Windows GUI-enabled build, portable ZIP qualification
+and all six hosted CI checks must still pass before issue #80 can be merged.

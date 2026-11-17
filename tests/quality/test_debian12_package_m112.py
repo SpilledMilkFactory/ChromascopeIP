@@ -104,5 +104,73 @@ class Debian12PackagePolicyTests(unittest.TestCase):
             self.assertIn(token, doc)
 
 
+class OpenCVRuntimeClosureTests(unittest.TestCase):
+    """Mock ELF metadata, not dependency policy: no OpenCV or root required."""
+
+    def bundle(self, dependencies=None, *, missing=(), wrong_abi=(), extra=()):
+        from contextlib import ExitStack
+        from unittest.mock import patch as mock_patch
+
+        dependencies = dependencies or {}
+        with tempfile.TemporaryDirectory() as temp:
+            opencv = Path(temp) / 'opencv'
+            source = opencv / 'lib'
+            source.mkdir(parents=True)
+            modules = set(pack.MODULES) | {'flann', 'features2d'} | set(extra)
+            for module in modules - set(missing):
+                (source / f'libopencv_{module}.so.5.1.0').write_bytes(module.encode())
+
+            def fake_dynamic(path):
+                name = path.name.removeprefix('libopencv_').split('.so.')[0]
+                abi = '999' if name in wrong_abi else '501'
+                return f'libopencv_{name}.so.{abi}', dependencies.get(name, [])
+
+            with ExitStack() as stack:
+                stack.enter_context(mock_patch.object(pack, 'dynamic_info', side_effect=fake_dynamic))
+                stack.enter_context(mock_patch.object(pack, 'cmd', return_value=''))
+                result = pack.copy_opencv(opencv, Path(temp) / 'stage')
+                return (set(result), set(p.name for p in (Path(temp) / 'stage').iterdir()))
+
+    def test_transitive_flann_and_features2d_are_bundled_without_unrelated_modules(self):
+        found, files = self.bundle({
+            'dnn': ['libopencv_flann.so.501', 'libopencv_core.so.501'],
+            'flann': ['libopencv_features2d.so.501'],
+            'features2d': ['libopencv_core.so.501'],
+        }, extra=('photo',))
+        expected = {f'libopencv_{module}.so.501'
+                    for module in (*pack.MODULES, 'flann', 'features2d')}
+        self.assertEqual(found, expected)
+        self.assertIn('libopencv_flann.so.5.1.0', files)
+        self.assertNotIn('libopencv_photo.so.5.1.0', files)
+
+    def test_missing_required_transitive_flann_rejected(self):
+        with self.assertRaisesRegex(pack.PackageError, 'flann'):
+            self.bundle({'dnn': ['libopencv_flann.so.501']}, missing=('flann',))
+
+    def test_incompatible_abi_and_invalid_dependency_rejected(self):
+        with self.assertRaisesRegex(pack.PackageError, 'Incompatible OpenCV ABI'):
+            self.bundle({'dnn': ['libopencv_flann.so.501']}, wrong_abi=('flann',))
+        with self.assertRaisesRegex(pack.PackageError, 'Unsupported OpenCV runtime dependency'):
+            self.bundle({'dnn': ['libopencv_flann.so.999']})
+        with self.assertRaisesRegex(pack.PackageError, 'Unsupported OpenCV runtime dependency'):
+            self.bundle({'dnn': ['libopencv_flann.so.501.bad']})
+
+    def test_cycles_do_not_duplicate_libraries(self):
+        found, _ = self.bundle({'dnn': ['libopencv_flann.so.501'],
+                                'flann': ['libopencv_dnn.so.501']})
+        self.assertEqual(len(found), len(pack.MODULES) + 1)
+
+    def test_external_symlink_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'opencv/lib').mkdir(parents=True)
+            (root / 'foreign/libopencv_core.so.5.1.0').parent.mkdir()
+            (root / 'foreign/libopencv_core.so.5.1.0').write_bytes(b'x')
+            (root / 'opencv/lib/libopencv_core.so.501').symlink_to(
+                root / 'foreign/libopencv_core.so.5.1.0')
+            with self.assertRaisesRegex(pack.PackageError, 'escapes verified prefix'):
+                pack.copy_opencv(root / 'opencv', root / 'stage')
+
+
 if __name__ == '__main__':
     unittest.main()

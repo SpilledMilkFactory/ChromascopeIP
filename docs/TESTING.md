@@ -1174,8 +1174,10 @@ python3 -m unittest discover -s tests/quality \
 
 ## M11.2 (#76) — Debian 12 package and native clean-install testing
 
-M11.2 adds eight offline Python quality tests (`test_debian12_package_m112.py`),
-so the expected Python total is **166**. The native suite remains **149 CTests**,
+M11.2 has 13 offline Python quality tests (`test_debian12_package_m112.py`),
+including five regression cases for transitive OpenCV dependencies (FLANN),
+missing modules, incompatible ABI, cycles and prefix escape; the expected
+Python total is **171**. The native suite remains **149 CTests**,
 including two M11.1 staging/resource tests; camera subset remains **28**.
 Run `python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
 The existing Debian 12 CI matrix leg builds a Debian package from the pinned

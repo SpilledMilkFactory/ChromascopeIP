@@ -1359,7 +1359,12 @@ installed execution. See [M11.1 staging guide](M11_1_INSTALL_STAGING.md).
 Previous M11.1 accepted baseline: 149/149 native CTests in each of three modes,
 28/28 camera tests, 158/158 Python quality tests and six green GitHub Actions
 checks, followed by merge confirmation. New M11.2 expected baseline: **149
-native**, **28 camera** and **166 Python quality** tests.
+native**, **28 camera** and **171 Python quality** tests.
+
+The M11.2 CI packaging correction closes the private OpenCV library graph
+recursively from the five requested modules, including DNN -> FLANN where
+required by ELF metadata. Five additional quality regressions guard the
+closure and preserve failure on missing, incompatible or out-of-prefix modules.
 
 Acceptance requires native Debian 12 AMD64 `.deb` construction from the pinned
 OpenCV 5.1.0 source revision, valid dpkg metadata, isolated OpenCV SONAME closure,

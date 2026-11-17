@@ -39,7 +39,7 @@ sha256sum build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
 
 The packager **refuses** a wrong host/version/architecture, mismatched
 application configuration or OpenCV source marker, missing executable, unsafe
-staging symlink, existing output filename, nonallowlisted OpenCV dependency,
+staging symlink, existing output filename, unresolvable OpenCV dependency,
 or unresolved dpkg-shlibdeps mapping. It never downloads dependencies, touches
 user-created media, changes the source installation, or overwrites an artifact.
 It creates its package root in a temporary output-directory workspace, invokes
@@ -47,13 +47,25 @@ It creates its package root in a temporary output-directory workspace, invokes
 
 ### Runtime closure and metadata
 
-The package stages `/usr/bin/chromascope-cli` and `chromascope-gui` and five
-pinned OpenCV 5.1.0 shared libraries (`core`, `imgproc`, `imgcodecs`, `videoio`,
-`dnn`) under `/usr/lib/x86_64-linux-gnu/chromascopeip/`. If the pinned OpenCV
-installation also contains a separate `geometry` shared module, it is included
-explicitly. SONAME links are local; executable RUNPATH is relative to `$ORIGIN`
-and OpenCV library RUNPATH uses `$ORIGIN`. No development-machine RPATH or
-`LD_LIBRARY_PATH` is needed for the installed application.
+The package stages `/usr/bin/chromascope-cli` and `chromascope-gui` plus a
+**transitive ELF `DT_NEEDED` closure** of the pinned OpenCV 5.1.0 shared
+runtime. The five requested modules (`core`, `imgproc`, `imgcodecs`, `videoio`,
+`dnn`) are mandatory roots, not an exhaustive list of OpenCV modules: for
+example, the pinned Debian 12 build's DNN library requires the separate
+`libopencv_flann.so.501` runtime. The packager follows all `libopencv_*`
+dependencies recursively, including those of newly discovered modules, and
+stages only modules reachable from the five required roots. It does not
+silently copy unrelated installed OpenCV libraries.
+
+Every required OpenCV dependency must resolve uniquely **inside the verified
+OpenCV prefix**, to an actual OpenCV 5.1.0 shared library with the expected
+compatible SONAME/ABI. Missing, mismatched or noncanonical dependencies fail
+package construction; no system OpenCV fallback or allowlist bypass is used.
+SONAME links are private; executable RUNPATH is relative to `$ORIGIN` and
+private library RUNPATH uses `$ORIGIN`. No development-machine RPATH or
+`LD_LIBRARY_PATH` is needed for the installed application. The dynamic
+provenance manifest and SHA-256 inventory list the actual closure shipped,
+not an outdated hard-coded five-module list.
 
 `dpkg-shlibdeps` analyzes **both installed executables and every bundled
 private shared library** and derives external `Depends` from Debian 12's
@@ -111,7 +123,8 @@ clean installation on the final frozen source revision.
 
 - 149 existing native CTests, including two M11.1 install-stage tests, retain
   their normal behavior in Release, CLI-only Release and ASan/UBSan configurations.
-- Eight new Python packaging-policy checks bring quality total from 158 to **166**;
+- Thirteen Python packaging-policy checks (eight original plus five recursive
+  dependency-closure regressions) bring quality total from 158 to **171**;
   camera-specific count remains **28**.
 - Debian 12 CI now builds and inspects a candidate package **and requires an
   isolated clean-install CLI smoke** after the existing Release/CLI-only tests.

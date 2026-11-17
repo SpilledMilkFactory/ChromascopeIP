@@ -115,39 +115,68 @@ def dynamic_info(path):
 
 
 def copy_opencv(opencv, private):
+    """Stage the recursive DT_NEEDED OpenCV closure of the required modules.
+
+    BUILD_LIST describes *requested* OpenCV modules, not necessarily every
+    shared module built as one of their dependencies (e.g. DNN -> FLANN).
+    Never copy all installed libraries: only the verified, reachable closure.
+    """
     private.mkdir(parents=True, exist_ok=True)
+    library_root = (opencv / 'lib').resolve()
     names = {}
-    # Explicit allowlist. geometry is an optional separate shared module in some
-    # OpenCV 5 builds; it is included only when actually installed as an ELF .so.
-    for module in (*MODULES, 'geometry'):
+    pending = list(MODULES)
+    visited = set()
+    abi = None
+
+    while pending:
+        module = pending.pop(0)
+        require(re.fullmatch(r'[a-z0-9_]+', module) is not None,
+                f'Invalid required OpenCV module name: {module}')
+        if module in visited:
+            continue
+        visited.add(module)
+
         candidates = list((opencv / 'lib').glob(f'libopencv_{module}.so.*'))
         resolved = {p.resolve() for p in candidates if p.is_file()}
-        if module in MODULES:
-            require(len(resolved) == 1, f'Expected exactly one OpenCV shared library for {module}')
-        else:
-            require(len(resolved) <= 1, 'Ambiguous optional OpenCV geometry runtime')
-        if not resolved:
-            continue
+        require(len(resolved) == 1,
+                f'Expected exactly one installed OpenCV 5.1.0 shared library for {module}; '
+                f'found {len(resolved)}')
         original = resolved.pop()
-        require(original.is_relative_to((opencv / 'lib').resolve()),
+        require(original.is_relative_to(library_root) and original.is_file(),
                 f'OpenCV library escapes verified prefix: {original}')
-        require(original.name.startswith(f'libopencv_{module}.so.') and
-                original.name.endswith('.5.1.0'),
+        require(original.name == f'libopencv_{module}.so.5.1.0',
                 f'Unexpected OpenCV library revision: {original.name}')
-        soname, _ = dynamic_info(original)
-        require(soname is not None and re.fullmatch(rf'libopencv_{module}\.so\.[0-9]+', soname),
-                f'Missing/invalid OpenCV SONAME: {original.name}')
+        soname, needed = dynamic_info(original)
+        match = re.fullmatch(rf'libopencv_{re.escape(module)}\.so\.([0-9]+)', soname or '')
+        require(match is not None, f'Missing/invalid OpenCV SONAME: {original.name}')
+        if abi is None:
+            abi = match.group(1)
+        require(match.group(1) == abi, f'Incompatible OpenCV ABI in {soname}')
         require(soname not in names, f'Duplicate OpenCV SONAME: {soname}')
+
+        # Determine the entire closure before accepting the bundle. An unknown
+        # or missing opencv_* dependency is a hard error, not a system fallback.
+        for entry in needed:
+            if not entry.startswith('libopencv_'):
+                continue
+            required = re.fullmatch(r'libopencv_([a-z0-9_]+)\.so\.([0-9]+)', entry)
+            require(required is not None and required.group(2) == abi,
+                    f'Unsupported OpenCV runtime dependency: {entry}')
+            if required.group(1) not in visited:
+                pending.append(required.group(1))
+
         staged = private / original.name
         shutil.copy2(original, staged)
         (private / soname).symlink_to(original.name)
         cmd(['patchelf', '--set-rpath', '$ORIGIN', staged])
         names[soname] = staged
+
     for library in names.values():
         _, needed = dynamic_info(library)
         for entry in needed:
             if entry.startswith('libopencv_'):
-                require(entry in names, f'Bundled OpenCV runtime has missing private dependency: {entry}')
+                require(entry in names,
+                        f'Bundled OpenCV runtime has missing private dependency: {entry}')
     require(len(names) >= len(MODULES), 'Incomplete OpenCV module set')
     return names
 
@@ -206,7 +235,7 @@ def dependencies(stage, private, names, work):
     return deps
 
 
-def write_control(stage, version, deps):
+def write_control(stage, version, deps, names):
     control = stage / 'DEBIAN'
     control.mkdir()
     fields = (
@@ -230,8 +259,9 @@ def write_control(stage, version, deps):
     shutil.copyfile(ROOT / 'licenses/OpenCV-Protobuf-BSD-3-Clause.txt',
                     notices / 'OpenCV-embedded-Protobuf-BSD-3-Clause.txt')
     (stage / DOC / 'OPENCV_RUNTIME_PROVENANCE.txt').write_text(
-        'OpenCV 5.1.0 private shared runtime: core, imgproc, imgcodecs, videoio, dnn.\n'
-        'Pinned source commit: ' + COMMIT + '\n'
+        'OpenCV 5.1.0 private shared runtime modules (recursive ELF dependency closure):\n'
+        + ''.join(f'- {name}\n' for name in sorted(names))
+        + 'Pinned source commit: ' + COMMIT + '\n'
         'Upstream license: https://github.com/opencv/opencv/blob/' + COMMIT + '/LICENSE\n'
         'Bundled Protobuf notice: 3rdparty/protobuf/LICENSE at that commit.\n'
         'OS-provided FFmpeg/image-codec and graphics libraries are declared as Debian dependencies.\n'
@@ -278,7 +308,7 @@ def build_package(build, opencv, output):
         names = copy_opencv(opencv, private)
         ensure_clean_files(stage)
         deps = dependencies(stage, private, names, work)
-        write_control(stage, version, deps)
+        write_control(stage, version, deps, names)
         pending = work / filename
         cmd(['dpkg-deb', '--root-owner-group', '--build', stage, pending])
         print(inspect(pending, expected_version=version))

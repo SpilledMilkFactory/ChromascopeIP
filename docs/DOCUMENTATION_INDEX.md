@@ -17,6 +17,7 @@
 | Ubuntu 26.04 maintainers: package, inspect, and Resolute clean-install smoke | [M11.5 Ubuntu 26.04 package](M11_5_UBUNTU26_PACKAGE.md) | [M11.4 Noble packaging](M11_4_UBUNTU24_PACKAGE.md), [Dependency provenance](THIRD_PARTY_PROVENANCE.md) |
 | Windows x64 maintainers: portable GUI/CLI ZIP and audited app-local CRT | [M11.6 Windows portable ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md) | [Windows CI](CI_WINDOWS.md), [Dependency provenance](THIRD_PARTY_PROVENANCE.md) |
 | Release maintainers: one-run five-package CI matrix and offline artifact checks | [M11.7 package matrix](M11_7_PACKAGE_MATRIX.md) | [Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md), [Verification](VERIFICATION.md) |
+| Desktop QA: interactive GUI and physical camera evidence on Windows 10/11 and Linux | [M11.8 desktop/device qualification](M11_8_DESKTOP_DEVICE_QUALIFICATION.md) | [M9.7 real-device verification](M9_7_LIVE_DEVICE_QUALIFICATION.md), [M11.7 package matrix](M11_7_PACKAGE_MATRIX.md) |
 | Contributors/security reporters | [Contributing](../CONTRIBUTING.md), [Security policy](../SECURITY.md) | [Dependency provenance](THIRD_PARTY_PROVENANCE.md), [Media rights](MEDIA_RIGHTS.md) |
 
 **Document scope:** M10.8 is documentation and offline link/contract regression coverage. It does not add camera access, exports, inference, or change CLI/GUI behavior. At M10.7, 147 native CTests, 28 camera-labeled, 140 Python quality tests and six hosted Actions checks formed the accepted baseline. Keep manual hardware observations separate from synthetic CI success.

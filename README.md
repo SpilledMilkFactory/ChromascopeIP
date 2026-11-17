@@ -69,7 +69,16 @@ Noble root and runs clean CLI smokes. Debian 12/13 packages and the Ubuntu
 ONNX weights are bundled. This candidate is not the v1.0.0 release. See the
 [M11.4 Ubuntu 24.04 package guide](docs/M11_4_UBUNTU24_PACKAGE.md).
 
-## M11.6 Windows x64 portable ZIP (Issue #80; pending acceptance)
+## M11.7 complete five-platform package matrix (Issue #81; pending acceptance)
+
+The new [M11.7 package matrix guide](docs/M11_7_PACKAGE_MATRIX.md) documents
+an additional read-only GitHub Actions gate: native Debian 12/13, Ubuntu
+24.04/26.04 and Windows x64 packages are constructed and smoke-qualified in
+**one workflow run**, then all five downloaded artifacts are independently
+reinspected and a SHA-256/run/commit report is produced. This is development
+qualification, not a signed release or Windows 10/11 desktop certification.
+
+## M11.6 Windows x64 portable ZIP (Issue #80; accepted and merged)
 
 The Windows Server 2022 / VS2022 CI now builds the GUI as well as the CLI,
 using statically linked pinned OpenCV 5.1.0, GLFW 3.4 and Dear ImGui 1.93.0.

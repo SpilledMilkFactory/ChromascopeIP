@@ -7,6 +7,7 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -170,7 +171,7 @@ jobs:
         if: matrix.version == '13'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ChromascopeIP-0.1.3-Debian13-amd64
+          name: ChromascopeIP-0.1.3-Debian13-amd64.deb
           path: build/packages/ChromascopeIP-0.1.3-Debian13-amd64.deb
           archive: false
           if-no-files-found: error
@@ -183,7 +184,9 @@ jobs:
         with:
           name: UNQUALIFIED-M11.3-Debian13-amd64-diagnostics
           path: build/packages/ChromascopeIP-0.1.3-Debian13-amd64.deb
-          archive: false
+          # Diagnostic artifacts MUST retain their UNQUALIFIED name:
+          # archive:false would silently rename to the raw package filename.
+          archive: true
           if-no-files-found: ignore
           retention-days: 2
 
@@ -192,6 +195,7 @@ jobs:
         if: matrix.version == '12'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          name: ChromascopeIP-0.1.3-Debian12-amd64.deb
           path: build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
           archive: false
           if-no-files-found: error
@@ -206,7 +210,9 @@ jobs:
         with:
           name: UNQUALIFIED-M11.2-Debian12-amd64-diagnostics
           path: build/packages/ChromascopeIP-0.1.3-Debian12-amd64.deb
-          archive: false
+          # Diagnostic artifacts MUST retain their UNQUALIFIED name:
+          # archive:false would silently rename to the raw package filename.
+          archive: true
           if-no-files-found: ignore
           retention-days: 2
 

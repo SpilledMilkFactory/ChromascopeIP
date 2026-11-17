@@ -1535,3 +1535,29 @@ redistributable before packaging. Three new tests raise focused Windows
 policy coverage to 19 and total Python quality coverage to 241; native tests
 remain 149 (28 camera-specific). M11.6 stays BLOCKED until the Windows ZIP
 build, dependency audit, relocated CLI smoke and six hosted checks pass.
+
+
+## M11.6 (#80) — VC143 source-inventory / PE-import boundary (pending CI)
+
+The next hosted Windows Server 2022 job again completed both frontends' MSVC
+Release builds and CTests and signed Microsoft VC143 source validation, but
+failed on `vcruntime140_threads.dll` in the same folder that previously
+contained the unrelated `vccorlib140.dll`. These repeated false rejections
+stemmed from treating every Microsoft redistributable source DLL as a mandatory
+member of ChromascopeIP's narrow native runtime policy. **The source directory
+is not the package dependency manifest.**
+
+The correction inventories reviewed native CRT source files without rejecting
+other installed DLL names. The actual application and transitive CRT PE import
+tables, not the directory listing, determine which reviewed runtimes are
+copied. `vcruntime140_threads.dll` is allowed for genuine C11 threads imports
+but is otherwise excluded; managed `vccorlib140.dll`, debug CRT and unreviewed
+imports remain prohibited. CI continues validating every Microsoft source DLL
+signature and package inspection revalidates the exact PE dependency inventory
+and recomputes the necessary runtime closure to reject unneeded bundled DLLs.
+Five new tests cover arbitrary unused source DLL names, true thread-satellite
+imports, duplicate/symlink rejection, a complete synthetic recursive
+build/ZIP/inspect cycle, and refusal to build for an unreviewed PE import.
+**Expected: 24 Windows-specific / 246 total Python tests, 149 native CTests,
+28 camera tests.** The real hosted Windows ZIP and relocated CLI smoke are
+still mandatory; M11.6 remains BLOCKED until all six checks pass.

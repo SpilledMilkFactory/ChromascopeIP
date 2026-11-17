@@ -139,11 +139,37 @@ folder contained `vccorlib140.dll`. Microsoft documents this as a managed-
 code runtime. Its presence in the signed VC143 *source folder* does not
 mean that ChromascopeIP, a native C++ application, imports it.
 
-`verify_redist_path()` ignores only this explicitly identified unused source
-entry. It is **not** added to the native `CRT` allowlist: any actual ordinary
-or delayed PE import of `vccorlib140.dll` remains a packaging error. Other
-unexpected DLL filenames, unsafe symlinks, missing required runtime DLLs,
-non-Microsoft signatures in CI, and unreviewed DLLs in the ZIP remain errors.
-Only native CRT DLLs demanded by inspected PE imports are copied app-local.
+That first correction ignored the single unused filename, but the next
+Windows CI run exposed the underlying design problem on a second genuine
+Microsoft runtime, `vcruntime140_threads.dll`.
+
+The corrected package builder treats the Microsoft VC143 directory as a
+**source inventory**, not an exhaustive allowlist of DLLs permitted in our ZIP.
+Unused files are ignored, irrespective of their names. Eligible native CRT
+source files must be regular files with unambiguous case-insensitive names;
+the source directory must have the expected VS2022/x64 path and **every DLL
+in it is Authenticode-verified by CI** before packaging. PE import inspection
+(normal and delay-load, recursively including selected runtime libraries)
+determines exactly which reviewed native DLLs are copied. Unknown imports,
+missing imported DLLs, managed or debug CRT imports, unsafe files and extra ZIP
+DLLs remain errors. ZIP inspection recomputes the required recursive runtime
+closure from the packaged PE binaries; an otherwise approved but unused CRT
+DLL is rejected even if a manifest attempts to list it. Microsoft's `vcruntime140_threads.dll` is eligible only if
+actually imported (C11 `<threads.h>` satellite); unused copies are excluded.
+
+This removes the hard-coded per-filename exemption mechanism and makes new
+unused Microsoft source files harmless without expanding the package payload.
+The end-to-end synthetic build test verifies both recursive selection and
+exclusion, while a separate negative test proves an unauthorized PE import
+prevents ZIP creation.
 This fix does not establish a successful portable ZIP until GitHub Actions
 builds, inspects and launches the relocated candidate without developer PATH.
+
+
+### Remaining hosted acceptance gate
+
+The corrected source-inventory filter and PE dependency closure are verified
+with synthetic PE32+ binaries and a complete ZIP round-trip on Linux. These do
+not replace native MSVC package construction. M11.6 is not accepted until the
+real hosted ZIP is built and inspected, both executables are present, and the
+relocated CLI launches and processes a synthetic BMP without developer PATH.

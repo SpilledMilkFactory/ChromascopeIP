@@ -1308,10 +1308,14 @@ camera tests; Windows GUI-enabled MSVC CTests and ZIP smoke are still required.
 ### M11.6 Windows VC143 source-folder regression (issue #80)
 
 Run `python3 -m unittest discover -s tests/quality -p 'test_windows_zip_m116.py' -v`
-(**19 tests**, previously 16) and the full quality suite (**241 tests**, previously
-238). The added tests use a synthetic `Microsoft.VC143.CRT` folder containing
-`vccorlib140.dll` to verify it is ignored as an unused source-file entry,
-while direct and delayed PE imports of it still fail closed. Unexpected DLLs
-and missing mandatory `vcruntime140.dll` remain fatal. Native baseline stays
+(**24 tests**, previously 19) and the full quality suite (**246 tests**, previously
+241). The initial one-off `vccorlib140.dll` filter failed on the next
+legitimate VC143 file, `vcruntime140_threads.dll`; the packager now distinguishes
+unused *source inventory* entries from actual PE imports and ZIP members.
+Five new cases include a complete synthetic PE32+ build-to-ZIP round-trip,
+recursive runtime DLL closure, an unreviewed-import ZIP failure, optional C11
+thread runtime selection, source-name collisions and symlink rejection.
+Unknown PE imports, missing required native CRT and extra ZIP DLLs remain
+fatal. Extra unused files present in the authenticated source folder are not. Native baseline stays
 149 CTests / 28 camera regressions; only a real hosted MSVC ZIP build and
 relocated smoke can qualify this packaging correction.

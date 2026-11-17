@@ -1,5 +1,6 @@
 """M11.6: portable Windows x64 ZIP, PE dependencies, CI and redistribution policy."""
 import importlib.util
+from argparse import Namespace
 import io
 import json
 from pathlib import Path
@@ -100,9 +101,13 @@ class WindowsZipM116Tests(unittest.TestCase):
                 (good / dll).write_bytes(b'fake')
             self.assertEqual(set(pack.verify_redist_path(good)),
                              {'vcruntime140.dll', 'msvcp140.dll'})
-            (good / 'glfw3.dll').write_bytes(b'fake')
-            with self.assertRaisesRegex(pack.PackageError, 'Unexpected redistributable'):
-                pack.verify_redist_path(good)
+            (good / 'glfw3.dll').write_bytes(b'unused source entry')
+            # An unrelated entry must not make the *source directory* fail.
+            # It remains prohibited as an actual PE import or packaged DLL.
+            self.assertEqual(set(pack.verify_redist_path(good)),
+                             {'vcruntime140.dll', 'msvcp140.dll'})
+            with self.assertRaisesRegex(pack.PackageError, 'Unreviewed'):
+                pack.classify_imports({'glfw3.dll'}, pack.verify_redist_path(good))
 
     def test_stage_forbids_images_models_and_unsafe_symlinks(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -187,6 +192,17 @@ class WindowsZipM116Tests(unittest.TestCase):
                 self.assertIn(pack.TOP + '/manifest.json', z.namelist())
             with self.assertRaises(pack.PackageError):
                 pack.make_zip(stage, output)
+            # Even if a crafted manifest lists a valid-but-unneeded native
+            # CRT DLL, ZIP inspection must reject the extra library.
+            output.unlink()
+            (stage / 'bin/vcruntime140_threads.dll').write_bytes(pe_binary('kernel32.dll'))
+            imports = {f'bin/{file.name}': sorted(pack.read_pe_imports(file))
+                       for file in (stage / 'bin').iterdir()}
+            pack.write_manifest(stage, imports, {'vcruntime140.dll',
+                                                 'vcruntime140_threads.dll'})
+            pack.make_zip(stage, output)
+            with self.assertRaisesRegex(pack.PackageError, 'Unused or missing'):
+                pack.inspect(output)
 
     def test_zip_rejects_traversal_duplicate_and_unqualified_name(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -272,7 +288,7 @@ class WindowsZipM116Tests(unittest.TestCase):
                 pack.classify_imports(pack.read_pe_imports(executable), available)
         self.assertIsNone(pack.CRT.fullmatch('vccorlib140.dll'))
 
-    def test_redist_source_still_rejects_unreviewed_or_missing_native_crt(self):
+    def test_redist_source_ignores_unused_but_rejects_missing_native_crt(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = (Path(tmp) / 'VC' / 'Redist' / 'MSVC' / '14.44.00000' /
                       'x64' / 'Microsoft.VC143.CRT')
@@ -282,12 +298,152 @@ class WindowsZipM116Tests(unittest.TestCase):
             with self.assertRaisesRegex(pack.PackageError, 'Incomplete'):
                 pack.verify_redist_path(folder)
             (folder / 'vcruntime140.dll').write_bytes(b'native fixture')
-            (folder / 'untrusted.dll').write_bytes(b'invalid fixture')
-            with self.assertRaisesRegex(pack.PackageError, 'Unexpected redistributable'):
-                pack.verify_redist_path(folder)
+            (folder / 'untrusted.dll').write_bytes(b'irrelevant source entry')
+            self.assertNotIn('untrusted.dll', pack.verify_redist_path(folder))
+            with self.assertRaisesRegex(pack.PackageError, 'Unreviewed'):
+                pack.classify_imports({'untrusted.dll'}, pack.verify_redist_path(folder))
             (folder / 'untrusted.dll').unlink()
             self.assertEqual(set(pack.verify_redist_path(folder)),
                              {'vcruntime140.dll', 'msvcp140.dll'})
+
+
+    def test_vc143_directory_inventory_is_not_a_dependency_allowlist(self):
+        # Model VS servicing differences without whack-a-mole exceptions.
+        # Non-native source entries, however named, are inert until actually
+        # imported, at which point they must fail the PE-import classifier.
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = (Path(tmp) / 'VC/Redist/MSVC/14.44/x64/Microsoft.VC143.CRT')
+            folder.mkdir(parents=True)
+            for name in ('vcruntime140.dll', 'msvcp140.dll', 'vccorlib140.dll',
+                         'vcruntime140_threads.dll', 'future_redist.dll',
+                         'xcustom.dll', 'GLFW3.DLL', 'vcruntime140d.dll'):
+                (folder / name).write_bytes(b'source fixture')
+            eligible = pack.verify_redist_path(folder)
+            self.assertEqual(set(eligible), {'vcruntime140.dll', 'msvcp140.dll',
+                                              'vcruntime140_threads.dll'})
+            for name in ('vccorlib140.dll', 'future_redist.dll', 'xcustom.dll',
+                         'glfw3.dll', 'vcruntime140d.dll'):
+                with self.subTest(name=name), self.assertRaisesRegex(pack.PackageError, 'Unreviewed'):
+                    pack.classify_imports({name}, eligible)
+            self.assertEqual(pack.classify_imports({'kernel32.dll'}, eligible), set())
+
+    def test_thread_satellite_only_selected_when_really_imported(self):
+        # Microsoft documents vcruntime140_threads.dll as a /MD C11 threads
+        # satellite. Do not bundle it just because a VS update installs it.
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = Path(tmp) / 'sample.exe'
+            available = {'vcruntime140_threads.dll': Path(tmp) / 'vcruntime140_threads.dll'}
+            binary.write_bytes(pe_binary('KERNEL32.dll'))
+            self.assertEqual(pack.classify_imports(pack.read_pe_imports(binary), available), set())
+            binary.write_bytes(pe_binary('KERNEL32.dll', delay=('VCRUNTIME140_THREADS.dll',)))
+            self.assertEqual(pack.classify_imports(pack.read_pe_imports(binary), available),
+                             {'vcruntime140_threads.dll'})
+            with self.assertRaisesRegex(pack.PackageError, 'Missing app-local'):
+                pack.classify_imports(pack.read_pe_imports(binary), {})
+            self.assertIsNone(pack.CRT.fullmatch('vcruntime140_threadsd.dll'))
+
+    def test_case_collision_and_native_source_symlinks_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = (Path(tmp) / 'VC/Redist/MSVC/14.44/x64/Microsoft.VC143.CRT')
+            folder.mkdir(parents=True)
+            for name in ('vcruntime140.dll', 'msvcp140.dll'):
+                (folder / name).write_bytes(b'fixture')
+            (folder / 'MSVCP140.DLL').write_bytes(b'case collision')
+            with self.assertRaisesRegex(pack.PackageError, 'Ambiguous'):
+                pack.verify_redist_path(folder)
+            (folder / 'MSVCP140.DLL').unlink()
+            (folder / 'vcruntime140.dll').unlink()
+            try:
+                (folder / 'vcruntime140.dll').symlink_to(folder / 'msvcp140.dll')
+            except OSError:
+                self.skipTest('Symlink creation unavailable')
+            with self.assertRaisesRegex(pack.PackageError, 'Unsafe native CRT source'):
+                pack.verify_redist_path(folder)
+
+    def test_full_packager_uses_pe_closure_not_source_folder_contents(self):
+        # Drive the REAL build -> selection -> ZIP -> inspect pipeline with
+        # synthetic PE32+ files. Only the Windows toolchain/configure/install
+        # steps are simulated; this catches errors beyond verify_redist_path.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / 'VC/Redist/MSVC/14.44/x64/Microsoft.VC143.CRT'
+            folder.mkdir(parents=True)
+            for name in ('vcruntime140.dll', 'msvcp140.dll',
+                         'vcruntime140_threads.dll', 'vccorlib140.dll',
+                         'microsoft_future.dll', 'glfw3.dll'):
+                (folder / name).write_bytes(pe_binary('KERNEL32.dll'))
+            # The first imported VC DLL depends on another VC DLL; the extra
+            # thread satellite is NOT imported and should NOT be copied.
+            (folder / 'vcruntime140.dll').write_bytes(pe_binary('KERNEL32.dll',
+                                                               'MSVCP140.dll'))
+            build_dir = root / 'build'
+            build_dir.mkdir()
+            opencv = root / 'opencv'
+            opencv.mkdir()
+            output_dir = root / 'packages'
+            def fake_install(*argv):
+                self.assertEqual(argv[0:2], ('cmake', '--install'))
+                stage = Path(argv[argv.index('--prefix') + 1])
+                (stage / 'bin').mkdir(parents=True)
+                for name in pack.APP_EXES:
+                    (stage / 'bin' / name).write_bytes(pe_binary('KERNEL32.dll',
+                                                               'VCRUNTIME140.dll'))
+                return ''
+            def fake_extras(stage, glfw, imgui):
+                for rel in pack.REQUIRED_DOCS[:-1]:
+                    file = stage / rel
+                    file.parent.mkdir(parents=True, exist_ok=True)
+                    file.write_text('fixture\n')
+            args = Namespace(build_dir=build_dir, opencv_prefix=opencv,
+                             vc_redist_dir=folder, output_dir=output_dir,
+                             glfw_license=root / 'glfw-license', imgui_license=root / 'imgui-license')
+            with patch.object(pack, 'verify_build'), patch.object(pack, 'command', side_effect=fake_install), \
+                 patch.object(pack, 'stage_extras', side_effect=fake_extras):
+                pack.build(args)
+            archive = output_dir / pack.ARCHIVE
+            evidence = pack.inspect(archive)
+            self.assertEqual(evidence['bundled_crt'], ['msvcp140.dll', 'vcruntime140.dll'])
+            with zipfile.ZipFile(archive) as zipped:
+                names = zipped.namelist()
+                for name in ('vccorlib140.dll', 'vcruntime140_threads.dll',
+                             'microsoft_future.dll', 'glfw3.dll'):
+                    self.assertNotIn(pack.TOP + '/bin/' + name, names)
+                manifest = json.loads(zipped.read(pack.TOP + '/manifest.json'))
+                self.assertEqual(manifest['bundled_msvc_dlls'],
+                                 ['msvcp140.dll', 'vcruntime140.dll'])
+                self.assertIn('msvcp140.dll', manifest['imported_dlls']['bin/vcruntime140.dll'])
+
+    def test_unreviewed_import_fails_before_archive_even_if_source_present(self):
+        # A directory may contain a genuine Microsoft managed DLL. It must
+        # never enter a ZIP merely because it exists in the source folder.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / 'VC/Redist/MSVC/14.44/x64/Microsoft.VC143.CRT'
+            folder.mkdir(parents=True)
+            for name in ('vcruntime140.dll', 'msvcp140.dll', 'vccorlib140.dll'):
+                (folder / name).write_bytes(pe_binary('kernel32.dll'))
+            build_dir = root / 'build'; build_dir.mkdir()
+            opencv = root / 'opencv'; opencv.mkdir()
+            output_dir = root / 'packages'
+            def fake_install(*argv):
+                stage = Path(argv[argv.index('--prefix') + 1])
+                (stage / 'bin').mkdir(parents=True)
+                for name in pack.APP_EXES:
+                    (stage / 'bin' / name).write_bytes(pe_binary('VCCORLIB140.dll'))
+                return ''
+            def fake_extras(stage, glfw, imgui):
+                for rel in pack.REQUIRED_DOCS[:-1]:
+                    item = stage / rel
+                    item.parent.mkdir(parents=True, exist_ok=True)
+                    item.write_text('fixture\n')
+            args = Namespace(build_dir=build_dir, opencv_prefix=opencv,
+                             vc_redist_dir=folder, output_dir=output_dir,
+                             glfw_license=root / 'glfw-license', imgui_license=root / 'imgui-license')
+            with patch.object(pack, 'verify_build'), patch.object(pack, 'command', side_effect=fake_install), \
+                 patch.object(pack, 'stage_extras', side_effect=fake_extras):
+                with self.assertRaisesRegex(pack.PackageError, 'Unreviewed'):
+                    pack.build(args)
+            self.assertFalse((output_dir / pack.ARCHIVE).exists())
 
     def test_windows_gui_texture_avoids_rpc_small_macro(self):
         gui = (ROOT / 'src/gui/main.cpp').read_text(encoding='utf-8')

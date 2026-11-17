@@ -43,11 +43,11 @@ SYSTEM_DLLS = frozenset('''
     powrprof.dll hid.dll dbghelp.dll userenv.dll psapi.dll
     api-ms-win-core-path-l1-1-0.dll
 '''.split())
-CRT = re.compile(r'(?:vcruntime140(?:_1)?|msvcp140(?:_[a-z0-9_]+)?|concrt140|vcomp140)\.dll\Z')
-# Official VC143 CRT folders also contain managed-code runtimes. Their mere
-# presence must not trigger packaging failure or authorize bundling. Actual
-# PE imports remain restricted to CRT above and reviewed Windows system DLLs.
-UNUSED_REDIST_DLLS = frozenset({'vccorlib140.dll'})
+# Reviewed Microsoft VC143 native runtime families. The _threads satellite
+# implements the C11 <threads.h> runtime introduced in VS2022 17.8; it is
+# packaged ONLY if a PE import (ordinary or delay-loaded) actually names it.
+# Managed vccorlib140.dll and debug runtimes remain outside this allowlist.
+CRT = re.compile(r'(?:vcruntime140(?:_1|_threads)?|msvcp140(?:_[a-z0-9_]+)?|concrt140|vcomp140)\.dll\Z')
 RESTRICTED = {'.onnx', '.mp4', '.avi', '.mov', '.mkv', '.jpg', '.jpeg',
               '.png', '.bmp', '.webp', '.webm', '.pth', '.pt', '.pb'}
 REQUIRED_DOCS = (f'{DOCDIR}/LICENSE',
@@ -220,20 +220,25 @@ def verify_redist_path(directory):
     path = directory.resolve(strict=True)
     if path.name.lower() != 'microsoft.vc143.crt' or path.parent.name.lower() != 'x64' or 'redist' not in str(path).lower():
         raise PackageError('Use the Visual Studio 2022 x64/Microsoft.VC143.CRT redistributable directory')
+    # The official Microsoft directory is an inventory, NOT a list of app
+    # dependencies. Its contents can change between VS2022 servicing releases.
+    # Only reviewed native CRT names become eligible sources; unknown/managed
+    # or future files are inert. classify_imports() remains the sole gate for
+    # actual executable and transitive DLL imports, and ensure_allowed() and
+    # inspect() independently prohibit extra DLLs in the finished archive.
+    # The hosted CI authenticates EVERY DLL in this directory, not just the
+    # selected ones. We still reject symlinks/duplicates for eligible sources.
     result = {}
-    for file in path.glob('*.dll'):
-        if file.is_symlink():
-            raise PackageError('Unexpected redistributable library: ' + file.name)
-        key = file.name.lower()
-        if key in UNUSED_REDIST_DLLS:
-            # Present in some signed Microsoft.VC143.CRT folders, but not a
-            # reviewed native ChromascopeIP dependency. Do not make it available
-            # to the recursive PE-import-based bundler.
+    for file in path.iterdir():
+        if file.suffix.lower() != '.dll':
             continue
+        key = file.name.lower()
         if not CRT.fullmatch(key):
-            raise PackageError('Unexpected redistributable library: ' + file.name)
+            continue  # Never copy unrelated files solely because they exist.
+        if file.is_symlink() or not file.is_file():
+            raise PackageError('Unsafe native CRT source: ' + file.name)
         if key in result:
-            raise PackageError('Ambiguous runtime DLL filename')
+            raise PackageError('Ambiguous runtime DLL filename: ' + key)
         result[key] = file
     if 'vcruntime140.dll' not in result or 'msvcp140.dll' not in result:
         raise PackageError('Incomplete Microsoft.VC143.CRT source')
@@ -409,6 +414,19 @@ def inspect(archive):
             for dll in bundled:
                 if not CRT.fullmatch(dll):
                     raise PackageError('Unreviewed ZIP DLL: ' + dll)
+            # Recompute the minimum transitive import closure INDEPENDENTLY
+            # from the manifest: even an approved Microsoft DLL is not allowed
+            # in the ZIP when no executable or required DLL imports it.
+            required = set()
+            pending = [imports['bin/' + name] for name in APP_EXES]
+            while pending:
+                for dll in classify_imports(pending.pop(), bundled):
+                    if dll in required:
+                        continue
+                    required.add(dll)
+                    pending.append(imports['bin/' + dll])
+            if bundled != required:
+                raise PackageError('Unused or missing app-local CRT in Windows ZIP')
         return {'files': len(files), 'bundled_crt': sorted(bundled),
                 'sha256': sha(archive.read_bytes())}
 
@@ -418,6 +436,8 @@ def build(args):
     opencv = args.opencv_prefix.resolve(strict=True)
     verify_build(build_dir, opencv)
     available = verify_redist_path(args.vc_redist_dir)
+    print(f'VC143 source: {len(available)} reviewed native DLL candidates; '
+          'only actual PE imports will be bundled.', flush=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output = args.output_dir / ARCHIVE
     if output.exists() or output.is_symlink():
@@ -445,6 +465,9 @@ def build(args):
                        if path.suffix.lower() in ('.exe', '.dll')}
         if set(all_imports) != EXPECTED | {'bin/' + dll for dll in needed}:
             raise PackageError('Unexpected staged executable or DLL')
+        print('Verified native PE dependency closure: ' +
+              (', '.join(sorted(needed)) if needed else '(no app-local VC143 DLL imports)'),
+              flush=True)
         write_runtime_notes(stage, all_imports, needed)
         ensure_allowed(stage)
         write_manifest(stage, all_imports, needed)

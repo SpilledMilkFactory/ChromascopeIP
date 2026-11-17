@@ -1258,3 +1258,19 @@ The Debian 12/13 gates and Ubuntu 26.04 build/test checks remain unchanged.
 
 Run `python3 -m unittest discover -s tests/quality -p 'test_ubuntu24_package_m114.py' -v`
 and the complete quality suite. See [M11.4 guide](M11_4_UBUNTU24_PACKAGE.md).
+
+## M11.5 (#79) — Ubuntu 26.04 AMD64 package qualification
+
+On the `ubuntu-26.04` native matrix runner, compile and test GUI+CLI and CLI-only
+Release (149 CTests each) before running `scripts/package_ubuntu26.py --build`
+and `--inspect`, then `sudo bash scripts/smoke_ubuntu26_chroot.sh` against the
+new Resolute package. The independent fresh APT root must resolve Ubuntu 26.04
+external libraries, private OpenCV SONAME links, help/profile listing and a
+generated BMP without historic fixtures, ONNX or camera hardware. Native CLI
+execution on a host with `/proc` and ELF interpreter-mediated chroot execution
+are distinct gates. A failed package is uploaded only as UNQUALIFIED diagnostics.
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_ubuntu26_package_m115.py' -v`
+(13 new tests) and the complete quality suite (222 tests). The existing 149
+native and 28 camera-labeled CTests are unchanged. Preserve the Debian 12/13
+and Ubuntu 24.04 package workflows. See [M11.5 guide](M11_5_UBUNTU26_PACKAGE.md).

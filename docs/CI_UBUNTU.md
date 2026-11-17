@@ -82,3 +82,24 @@ original GUI/CLI CTests precede this package qualification. The Ubuntu 26.04
 matrix job remains a build/test-only gate until M11.5. The package contains
 private source-pinned OpenCV modules but excludes unapproved media and models;
 it is not a final v1.0.0 release. See [M11.4 guide](M11_4_UBUNTU24_PACKAGE.md).
+
+## M11.5 Ubuntu 26.04 AMD64 native development package (#79)
+
+The independent `ubuntu-26.04` matrix job builds `ChromascopeIP-0.1.3-Ubuntu26.04-amd64.deb`
+after its GUI-enabled and CLI-only 149-CTest suites pass. The package uses the
+native Resolute toolchain, pinned OpenCV 5.1.0 and Ubuntu 26.04-generated APT
+dependencies; it never repackages the Noble or Debian artifacts.
+
+`package_ubuntu26.py` checks OpenCV provenance, recursively bundles the required
+private ELF modules, verifies transitive `$ORIGIN` RPATH and SONAME links, and
+re-extracts and audits the completed `.deb`. `smoke_ubuntu26_chroot.sh` creates a
+fresh Resolute minbase with main/universe, updates and security pockets, installs
+the candidate with APT, verifies ELF loading, native host `/proc` startup and
+interpreter-mediated chroot help/profiles/generated BMP processing. The minbase
+chroot has no `/proc`: interpreter launch there is not ordinary kernel startup.
+
+The qualified artifact is uploaded only after smoke succeeds. Failed builds may
+upload a two-day `UNQUALIFIED` diagnostic candidate, never a release package.
+No restricted historical photographs, video fixtures or ONNX weights are bundled.
+M11.8/M11.9/M12 remain responsible for desktop/hardware qualification, final
+licensing/SBOM and the 1.0.0 release. See [the M11.5 guide](M11_5_UBUNTU26_PACKAGE.md).

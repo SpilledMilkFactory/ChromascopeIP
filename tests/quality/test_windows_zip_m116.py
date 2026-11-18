@@ -163,6 +163,7 @@ class WindowsZipM116Tests(unittest.TestCase):
             target = stage / pack.DOCDIR / 'docs' / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text('fixture user guide\n')
+        pack.NOTICES['install_notices'](stage / pack.DOCDIR / 'licenses')
         pack.write_runtime_notes(stage, {f'bin/{name}': sorted(pack.read_pe_imports(bin_dir/name))
                                          for name in pack.APP_EXES}, {dll})
         imports = {f'bin/{file.name}': sorted(pack.read_pe_imports(file))
@@ -177,7 +178,7 @@ class WindowsZipM116Tests(unittest.TestCase):
             root = Path(tmp); _, output = self.make_package(root)
             evidence = pack.inspect(output)
             self.assertEqual(evidence['bundled_crt'], ['vcruntime140.dll'])
-            self.assertEqual(evidence['files'], 11 + len(pack.SHIPPED_USER_GUIDES))
+            self.assertEqual(evidence['files'], 11 + len(pack.SHIPPED_USER_GUIDES) + len(pack.NOTICES['notice_payloads']()) - 4)
 
     def test_zip_blocks_internal_docs_even_with_matching_manifest(self):
         # Inspection must reject missing guides or an internal sign-off file
@@ -426,6 +427,7 @@ class WindowsZipM116Tests(unittest.TestCase):
                     file = stage / rel
                     file.parent.mkdir(parents=True, exist_ok=True)
                     file.write_text('fixture\n')
+                pack.NOTICES['install_notices'](stage / pack.DOCDIR / 'licenses')
             args = Namespace(build_dir=build_dir, opencv_prefix=opencv,
                              vc_redist_dir=folder, output_dir=output_dir,
                              glfw_license=root / 'glfw-license', imgui_license=root / 'imgui-license')
@@ -468,6 +470,7 @@ class WindowsZipM116Tests(unittest.TestCase):
                     item = stage / rel
                     item.parent.mkdir(parents=True, exist_ok=True)
                     item.write_text('fixture\n')
+                pack.NOTICES['install_notices'](stage / pack.DOCDIR / 'licenses')
             args = Namespace(build_dir=build_dir, opencv_prefix=opencv,
                              vc_redist_dir=folder, output_dir=output_dir,
                              glfw_license=root / 'glfw-license', imgui_license=root / 'imgui-license')

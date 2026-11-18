@@ -17,7 +17,7 @@ class ReleaseSignoffM125Tests(unittest.TestCase):
     def test_dated_review_and_no_fabricated_clearance(self):
         for phrase in ('2026-11-17', 'RELEASE SIGN-OFF BLOCKED',
                        'source and documented-dependency review',
-                       'not supplied with this source archive',
+                       'five historical packages inspected',
                        'No historical commit reconstruction'):
             self.assertIn(phrase, ' '.join(self.guide.split()))
         self.assertNotIn('ALL DEPENDENCIES CLEARED', self.guide)
@@ -42,7 +42,8 @@ class ReleaseSignoffM125Tests(unittest.TestCase):
         for name in ('package_debian12.py', 'package_debian13.py',
                      'package_ubuntu24.py', 'package_ubuntu26.py',
                      'package_windows_x64.py'):
-            self.assertIn('OpenCV-Zoo-NanoDet-Apache-2.0.txt', read('scripts/'+name))
+            self.assertIn('OpenCV-5.1.0-Apache-2.0.txt', read('scripts/'+name))
+            self.assertNotIn("ROOT / 'licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt'", read('scripts/'+name))
         self.assertIn('does not prove', self.guide)
         for term in ('Protobuf', 'GLFW', 'ImGui', 'NOTICE', 'REDIST'):
             self.assertIn(term, self.guide)

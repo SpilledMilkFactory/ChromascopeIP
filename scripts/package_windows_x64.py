@@ -21,6 +21,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 from runpy import run_path
 VERSION = run_path(str(Path(__file__).resolve().parent / 'release_identity.py'))['VERSION']
+NOTICES = run_path(str(ROOT / 'scripts/third_party_notices.py'))
 ARCHIVE = f'ChromascopeIP-{VERSION}-Windows-x64.zip'
 TOP = f'ChromascopeIP-{VERSION}-Windows-x64'
 OPEN_CV_COMMIT = 'e4f78fbcf1a773fbed69e14500e8b734963eb585'
@@ -287,15 +288,17 @@ def ensure_allowed(stage):
 def stage_extras(stage, glfw_license, imgui_license):
     dest = stage / DOCDIR / 'licenses'
     dest.mkdir(parents=True, exist_ok=True)
+    NOTICES['install_notices'](dest)
     for source, filename, marker in (
         (glfw_license, 'GLFW-3.4-Zlib.txt', 'altered source versions must be plainly marked'),
         (imgui_license, 'DearImGui-1.93.0-MIT.txt', 'Permission is hereby granted'),
     ):
         text = source.read_text(encoding='utf-8')
-        if len(text) < 200 or marker.lower() not in text.lower():
+        if (len(text) < 200 or marker.lower() not in text.lower() or
+                text.encode('utf-8') != NOTICES['notice_payloads']()[filename]):
             raise PackageError('Pinned dependency license is missing/incompatible: ' + str(source))
         (dest / filename).write_text(text, encoding='utf-8')
-    shutil.copyfile(ROOT / 'licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt',
+    shutil.copyfile(ROOT / 'licenses/OpenCV-5.1.0-Apache-2.0.txt',
                     dest / 'OpenCV-5.1.0-Apache-2.0.txt')
     shutil.copyfile(ROOT / 'licenses/OpenCV-Protobuf-BSD-3-Clause.txt',
                     dest / 'OpenCV-embedded-Protobuf-BSD-3-Clause.txt')
@@ -401,6 +404,10 @@ def inspect(archive):
                 raise PackageError('Windows ZIP SHA-256 mismatch: ' + name)
         if not EXPECTED.issubset(files):
             raise PackageError('Missing CLI or GUI executable')
+        try:
+            NOTICES['verify_notices'](lambda name: files[DOCDIR + '/licenses/' + name])
+        except ValueError as exc:
+            raise PackageError(str(exc)) from exc
         for name in REQUIRED_DOCS:
             if name not in files:
                 raise PackageError('Missing Windows ZIP documentation/license: ' + name)

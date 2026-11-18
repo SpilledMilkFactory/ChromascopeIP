@@ -30,7 +30,7 @@ Explain the issue, the change, observable behavior, reproducible verification, s
 
 ## Sensitive input and third-party materials
 
-Never upload credentials, private photos/recordings, personal model files, or unapproved third-party content in a PR. Original Skittles fixtures have **unresolved redistribution rights**: first-party MIT coverage does not transfer rights to the photographs. See [media rights](docs/MEDIA_RIGHTS.md), [license audit](docs/LICENSE_AUDIT.md), and [security reporting](SECURITY.md). Report vulnerabilities privately, not as public exploit descriptions.
+Never upload credentials, private photos/recordings, personal model files, or unapproved third-party content in a PR. The maintainer confirms authorship of the original Skittles photographs; first-party source MIT coverage does not grant unrestricted reuse of those photographs. See [media rights](docs/MEDIA_RIGHTS.md), [license audit](docs/LICENSE_AUDIT.md), and [security reporting](SECURITY.md). Report vulnerabilities privately, not as public exploit descriptions.
 
 ## Code of conduct
 

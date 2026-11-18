@@ -73,3 +73,5 @@ This directory preserves the detailed pre-release decisions, regression contract
 - [M10 5 THREAT BOUNDARY AUDIT](milestones/M10_5_THREAT_BOUNDARY_AUDIT.md)
 - [M10 6 MALFORMED MEDIA FUZZ](milestones/M10_6_MALFORMED_MEDIA_FUZZ.md)
 - [M10 7 SANITIZER STATIC SOAK](milestones/M10_7_SANITIZER_STATIC_SOAK.md)
+
+- [M12.5 review of 2026-11-17](M12_5_REVIEW_2026_11_17.md) — retained pre-remediation security/licensing findings.

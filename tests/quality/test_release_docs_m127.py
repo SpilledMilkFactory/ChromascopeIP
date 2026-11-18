@@ -120,7 +120,7 @@ class ReleaseDocsM127Tests(unittest.TestCase):
         self.assertIn('do not', readiness.lower())
         self.assertIn('re-run', readiness.lower())
         self.assertIn('release_tag_m126.py', readiness)
-        self.assertIn('OPEN', self.read('docs/MEDIA_RIGHTS.md'))
+        self.assertIn('OWNER_CONFIRMED', self.read('docs/MEDIA_RIGHTS.md'))
 
     def test_doc_index_readme_and_test_integration(self):
         idx = self.read('docs/DOCUMENTATION_INDEX.md')

@@ -1,5 +1,27 @@
 # M1.8 — source, media, and third-party license audit
 
+## Current disposition — 2026-11-18
+
+The [coordinated clearance report](M11_9_M12_5_CLEARANCE_REPORT.md) supersedes
+outstanding-status statements in the historical entries below. All five
+historical packages have been inspected. OpenCV LICENSE/COPYRIGHT and embedded
+notices are sourced from the pinned revision and now installed and checked by
+content. `third_party_notice_sources.json` records their origins and hashes;
+`clearance_artifact_inventory.json` records actual historical dependencies and
+compiled build declarations. Linux private OpenCV contains more than the five
+requested modules: its closure also includes FLANN and geometry. Windows embeds
+OpenCV/GLFW/ImGui and ships five VC143 DLLs (14.44.35211.0 in the inspected ZIP).
+
+The maintainer's own-camera authorship confirmation resolves the four-photo
+rights finding; original bytes and photographic regression tests are retained.
+It is not a blanket MIT license for the photos. Unapproved model weights remain
+excluded. Native package notices do not grant maintainer Microsoft licensing
+eligibility. Formal per-artifact decisions and final security approval remain
+pending. Linux OpenCV disables IPP/IW and has an explicitly identified security patch; upstream
+source pins, exact-source staging and release authorization gates are preserved.
+
+## Historical audit entries (superseded status, preserved evidence)
+
 **Issue #10 | Audit snapshot: November 9, 2026 | Status: PARTIAL — outstanding media permissions and release inventories**
 
 I reviewed the current project files and build configurations; I did not perform a legal opinion, contact copyright holders, or inspect every future target OS binary package.

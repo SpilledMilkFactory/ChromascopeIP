@@ -11,6 +11,16 @@ a **historical staged revision**, not necessarily the final M12.8 release SHA.
 M12.7 is a documentation issue, and can merge separately from actual license,
 codec/security and tag/signing decisions.
 
+## Current clearance checkpoint — 2026-11-18
+
+The [coordinated clearance report](M11_9_M12_5_CLEARANCE_REPORT.md) records
+notice corrections, verified decoder exclusions, owner-confirmed photographs,
+and unresolved parser/security and licensing decisions. The historical template
+still has 29 PENDING decisions; do not relabel it as approved. Use the corrected
+source for final qualification and re-run the full exact-source staging workflow.
+No new VM source-reconstruction forms are required. The older action lists below
+are historical planning context where the current clearance report supersedes them.
+
 ## 1. Reuse current staging evidence, without hunting old commits
 
 The user-supplied `staged_artifacts_from_github.zip` contains a nested
@@ -37,7 +47,7 @@ create additional historical VM test forms.
 
 | Review family | Concrete work required |
 | --- | --- |
-| Pinned OpenCV (4 Linux + Windows) | Obtain `LICENSE`, any `NOTICE`, `COPYRIGHT`, bundled `3rdparty` texts and build configuration from the **exact pinned OpenCV 5.1.0 source revision**. Compare with each package's included notices. The current packagers copy the standard NanoDet Apache text under an OpenCV-specific filename; that alone is insufficient. Add missing legally required notices and rebuild. |
+| Pinned OpenCV (4 Linux + Windows) | Obtain `LICENSE`, any `NOTICE`, `COPYRIGHT`, bundled `3rdparty` texts and build configuration from the **exact pinned OpenCV 5.1.0 source revision**. Compare with each package's included notices. The corrected packagers use pinned OpenCV LICENSE/COPYRIGHT and embedded notices. Rebuild final packages and inspect those exact notice bytes. |
 | Codec, embedded Protobuf, system FFmpeg (4 Linux + Windows) | Review `libopencv_imgcodecs`, `libopencv_videoio`, DNN, built-in codecs and static/dynamic dependencies. For distro-provided FFmpeg distinguish system packages from copied binaries, record actual runtime versions and licensing, and identify enabled decoders. Collect embedded Protobuf and other third-party attribution. |
 | ImGui/GLFW and graphics libraries (4 Linux + Windows) | Confirm the exact ImGui/GLFW versions actually incorporated in each GUI build, license texts and any embedded font/stb notices. Windows already ships `DearImGui-1.93.0-MIT.txt` and `GLFW-3.4-Zlib.txt`; independently check completeness and Linux installed notices. |
 | Windows Microsoft VC143 and SDK/media | Check the five DLL candidates and exact imported subset in the ZIP, REDIST list/version/hash and applicable Visual Studio 2022 entitlement. Review Media Foundation/SDK components and codec rights; do not assume OS SDK DLLs are redistributable. |

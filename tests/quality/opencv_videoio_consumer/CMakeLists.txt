@@ -15,3 +15,14 @@ add_executable(opencv_dnn_consumer dnn_probe.cpp)
 target_include_directories(opencv_dnn_consumer SYSTEM PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(opencv_dnn_consumer PRIVATE ${OpenCV_LIBS})
 target_compile_features(opencv_dnn_consumer PRIVATE cxx_std_20)
+
+if(NOT WIN32)
+    add_executable(opencv_magicyuv_consumer
+        "${CMAKE_CURRENT_LIST_DIR}/../../integration/test_magicyuv_policy.cpp")
+    target_include_directories(opencv_magicyuv_consumer SYSTEM PRIVATE ${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(opencv_magicyuv_consumer PRIVATE ${OpenCV_LIBS})
+    target_compile_features(opencv_magicyuv_consumer PRIVATE cxx_std_20)
+    target_compile_definitions(opencv_magicyuv_consumer PRIVATE
+        CHROMASCOPE_MAGICYUV_HEX="${CMAKE_CURRENT_LIST_DIR}/../../fixtures/magicyuv.avi.hex"
+        CHROMASCOPE_CFHD_HEX="${CMAKE_CURRENT_LIST_DIR}/../../fixtures/cfhd.avi.hex")
+endif()

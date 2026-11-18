@@ -299,6 +299,11 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
                 return meta
             if '--contents' in args:
                 return files
+            if '--extract' in args:
+                stage = Path(args[-1])
+                pack.NOTICES['install_notices'](stage / pack.DOC / 'licenses')
+                (stage / pack.DOC / 'OPENCV_RUNTIME_PROVENANCE.txt').write_text(
+                    'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n')
             return ''
 
         with patch.object(pack.Path, 'is_file', return_value=True), \
@@ -392,6 +397,9 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
                 dest = root / file
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text('synthetic fixture only\n')
+            pack.NOTICES['install_notices'](root / pack.DOC / 'licenses')
+            (root / pack.DOC / 'OPENCV_RUNTIME_PROVENANCE.txt').write_text(
+                'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n')
             control = root / 'DEBIAN/control'
             control.parent.mkdir(parents=True)
             control.write_text('Package: chromascopeip\nVersion: 1.0.0\n'

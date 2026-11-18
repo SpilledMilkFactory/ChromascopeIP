@@ -2,6 +2,19 @@
 # The historical JPEGs remain in samples/skittles; no duplicate media copies.
 set(CHROMASCOPE_TEST_FIXTURE_ROOT "${PROJECT_SOURCE_DIR}/samples/skittles")
 
+if(NOT WIN32)
+    add_executable(chromascope_magicyuv_policy integration/test_magicyuv_policy.cpp)
+    target_include_directories(chromascope_magicyuv_policy SYSTEM PRIVATE ${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(chromascope_magicyuv_policy PRIVATE ${OpenCV_LIBS})
+    target_compile_features(chromascope_magicyuv_policy PRIVATE cxx_std_20)
+    chromascope_apply_quality(chromascope_magicyuv_policy)
+    target_compile_definitions(chromascope_magicyuv_policy PRIVATE
+        CHROMASCOPE_MAGICYUV_HEX="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/magicyuv.avi.hex"
+        CHROMASCOPE_CFHD_HEX="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cfhd.avi.hex")
+    add_test(NAME chromascope_magicyuv_policy COMMAND chromascope_magicyuv_policy)
+    set_tests_properties(chromascope_magicyuv_policy PROPERTIES LABELS "security;videoio;regression" TIMEOUT 30)
+endif()
+
 function(chromascope_add_cpp_test name source labels timeout_seconds)
     add_executable(${name} "${source}")
     target_link_libraries(${name} PRIVATE ChromascopeIP::Core)

@@ -1,0 +1,17 @@
+ChromascopeIP local modification to OpenCV 5.1.0
+
+Upstream commit: e4f78fbcf1a773fbed69e14500e8b734963eb585
+Linux builds exclude MagicYUV, CineForm and SANM before FFmpeg stream
+probing and reject these codecs and non-video decoders again in the
+selected playback context (CVE-2026-8461, CVE-2026-125268, CVE-2026-125266).
+Audio decoding during probing is excluded. Other video codecs retain
+the upstream behavior. Windows builds disable FFmpeg and are unmodified.
+Patch: scripts/opencv_linux_patches/disable-magicyuv.patch
+Patch SHA-256: 2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d
+Modification authored for ChromascopeIP, 2026; Apache-2.0, like OpenCV.
+
+This software is based in part on the work of the Independent JPEG Group.
+
+The notice collection includes optional build components. Presence of a license
+text does not assert that the corresponding component is in every package;
+consult that package's SBOM and compiled OpenCV build configuration.

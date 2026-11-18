@@ -13,8 +13,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from runpy import run_path
 
 ROOT = Path(__file__).resolve().parents[1]
+NOTICES = run_path(str(ROOT / 'scripts/third_party_notices.py'))
 COMMIT = "e4f78fbcf1a773fbed69e14500e8b734963eb585"
 MODULES = ("core", "imgproc", "imgcodecs", "videoio", "dnn")
 LIBDIR = Path("usr/lib/x86_64-linux-gnu/chromascopeip")
@@ -101,7 +103,9 @@ def validate_source(build, opencv):
     require(meta.is_file(), 'Missing verified OpenCV build marker')
     marker = meta.read_text(encoding='utf-8')
     for item in (f'commit={COMMIT}', 'modules=core,imgproc,imgcodecs,videoio,dnn',
-                 'video_backend=ffmpeg', 'dnn_backend=opencv_cpu', 'consumer_probe=PASS'):
+                 'video_backend=ffmpeg', 'dnn_backend=opencv_cpu', 'consumer_probe=PASS',
+                 'magicyuv_policy=disabled-before-probe-and-playback', 'ipp=OFF',
+                 'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d'):
         require(item in marker.splitlines(), f'OpenCV build marker missing {item}')
     rev = opencv / '.chromascope-opencv-source-revision'
     require(rev.is_file() and rev.read_text().strip() == COMMIT,
@@ -318,7 +322,8 @@ def write_control(stage, version, deps, names):
     (control / 'control').write_text(fields, encoding='utf-8')
     notices = stage / DOC / 'licenses'
     notices.mkdir(exist_ok=True, parents=True)
-    shutil.copyfile(ROOT / 'licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt',
+    NOTICES['install_notices'](notices)
+    shutil.copyfile(ROOT / 'licenses/OpenCV-5.1.0-Apache-2.0.txt',
                     notices / 'OpenCV-5.1.0-Apache-2.0.txt')
     shutil.copyfile(ROOT / 'licenses/OpenCV-Protobuf-BSD-3-Clause.txt',
                     notices / 'OpenCV-embedded-Protobuf-BSD-3-Clause.txt')
@@ -327,6 +332,8 @@ def write_control(stage, version, deps, names):
         + ''.join(f'- {name}\n' for name in sorted(names))
         + 'Pinned source commit: ' + COMMIT + '\n'
         'Upstream license: https://github.com/opencv/opencv/blob/' + COMMIT + '/LICENSE\n'
+        'Local modifications: unsafe decoders excluded before probing/playback; Intel IPP disabled.\n'
+        'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n'
         'Bundled Protobuf notice: 3rdparty/protobuf/LICENSE at that commit.\n'
         'OS-provided FFmpeg/image-codec and graphics libraries are declared as Debian dependencies.\n'
         'Binary/component redistribution inventory and final security review remain M11.9/M12 gates.\n',
@@ -358,6 +365,13 @@ def inspect(package, expected_version=None):
         extracted = Path(temp) / 'payload'
         cmd(['dpkg-deb', '--extract', package, extracted])
         validate_runtime_tree(extracted)
+        try:
+            provenance = (extracted / DOC / 'OPENCV_RUNTIME_PROVENANCE.txt').read_text()
+            require('security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d' in provenance,
+                    'Missing packaged OpenCV decoder mitigation provenance')
+            NOTICES['verify_notices'](lambda name: (extracted / DOC / 'licenses' / name).read_bytes())
+        except (ValueError, OSError) as exc:
+            raise PackageError(str(exc)) from exc
     return meta
 
 

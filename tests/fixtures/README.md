@@ -31,3 +31,26 @@ Synthetic codec and malformed-input regressions likewise run only against
 newly generated media under `build/`. None of these tests establishes
 redistribution permission; the original release-blocking provenance policy
 remains unchanged.
+
+## Authorship evidence — 2026-11-18
+
+The maintainer confirmed taking all four photographs with their own camera.
+The original hashes, image bytes and all photographic regressions are unchanged.
+The former permission hold is superseded by this owner statement; see
+[media rights](../../docs/MEDIA_RIGHTS.md). The source-code MIT grant does not
+automatically grant unrestricted reuse of these separately owned photographs.
+
+The `magicyuv.avi.hex` and `cfhd.avi.hex` fixtures are original constant blue
+frames encoded locally using FFmpeg's ordinary encoders, without exploit data.
+The Linux decoder-policy probe materializes them in its test working directory,
+uses a misleading `.mp4` suffix, and tests both ordinary and hostile codec
+options. They are test inputs only and are never installed. Reproduction:
+
+```bash
+ffmpeg -f lavfi -i color=c=blue:s=32x32:r=1 -frames:v 1 -c:v magicyuv -pix_fmt gbrp -threads 1 NEW.avi
+ffmpeg -f lavfi -i color=c=blue:s=64x64:r=1 -frames:v 1 -c:v cfhd -pix_fmt yuv422p10le -threads 1 NEW.avi
+```
+
+Container metadata can differ across FFmpeg versions; the committed hex bytes
+are the test identity. These fixtures demonstrate enforceable rejection of valid
+encoded input, not exploit reproduction or complete codec memory safety.

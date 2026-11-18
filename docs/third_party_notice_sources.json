@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "opencv_commit": "e4f78fbcf1a773fbed69e14500e8b734963eb585",
+  "imgui_commit": "c1aaac65e896a45f81f47a4d68f9959e0f86c859",
+  "files": [
+    {
+      "path": "licenses/OpenCV-5.1.0-Apache-2.0.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/LICENSE"
+    },
+    {
+      "path": "licenses/OpenCV-5.1.0-COPYRIGHT.txt",
+      "sha256": "5b8559278fabdb2d38e5251facf259e394f5dc2c604c5e91c1b3befb99ecbc11",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/COPYRIGHT"
+    },
+    {
+      "path": "licenses/OpenCV-Protobuf-BSD-3-Clause.txt",
+      "sha256": "6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/protobuf/LICENSE"
+    },
+    {
+      "path": "licenses/OpenCV-FlatBuffers-Apache-2.0.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/flatbuffers/LICENSE.txt"
+    },
+    {
+      "path": "licenses/OpenCV-LAPACK.txt",
+      "sha256": "d56bd4441b999b80c88df04faf0d8b3d7d3b2bd781cf91242c4188e8a6d0f8be",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/clapack/lapack_LICENSE"
+    },
+    {
+      "path": "licenses/OpenCV-DLPack.txt",
+      "sha256": "3e8f6bc39276a586d60c8c5aaece2ff989262181cf2b3d2a128db58f97a9300c",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/dlpack/LICENSE"
+    },
+    {
+      "path": "licenses/OpenCV-OpenJPEG.txt",
+      "sha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/openjpeg/LICENSE"
+    },
+    {
+      "path": "licenses/OpenCV-libjpeg-turbo.txt",
+      "sha256": "96f5b328adbb78eeaaec6980d73fd558cb1e4d62560ed615646bc3cf5e532430",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/libjpeg-turbo/LICENSE.md"
+    },
+    {
+      "path": "licenses/OpenCV-libjpeg-IJG.txt",
+      "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/libjpeg-turbo/README.ijg"
+    },
+    {
+      "path": "licenses/OpenCV-libpng.txt",
+      "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/libpng/LICENSE"
+    },
+    {
+      "path": "licenses/OpenCV-libtiff.txt",
+      "sha256": "0e27c2382d7b8147972bbb746e04059a1152c8d0fda9d03ef1399d1a433c4ade",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/libtiff/LICENSE.md"
+    },
+    {
+      "path": "licenses/OpenCV-libwebp.txt",
+      "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/libwebp/COPYING"
+    },
+    {
+      "path": "licenses/OpenCV-zlib.txt",
+      "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/zlib/LICENSE"
+    },
+    {
+      "path": "licenses/OpenCV-zlib-ng.txt",
+      "sha256": "6c9f0d975b41afaa34d22f55bb8986ce69e5cb7ad327cb2b28820cd425edf5ee",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/zlib-ng/LICENSE.md"
+    },
+    {
+      "path": "licenses/OpenCV-ITT-BSD-3-Clause.txt",
+      "sha256": "cf48cdd9ed87c2031b68fb1b9f4cfb55d00dcf815b21a30bf8304aa1e5e6f76a",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/ittnotify/src/ittnotify/BSD-3-Clause.txt"
+    },
+    {
+      "path": "licenses/DearImGui-1.93.0-MIT.txt",
+      "sha256": "173506a2d6f7fb67990d257fb2507f188690eca39060c39469ae7bef43aae2a3",
+      "source": "https://github.com/ocornut/imgui/blob/c1aaac65e896a45f81f47a4d68f9959e0f86c859/LICENSE.txt"
+    },
+    {
+      "path": "licenses/DearImGui-imstb_rectpack-MIT.txt",
+      "sha256": "7169810d8b6cf25c9bc0d1067ecce30bbff74a1ccafdfe37ccbe1ee7849d5c36",
+      "source": "https://github.com/ocornut/imgui/blob/c1aaac65e896a45f81f47a4d68f9959e0f86c859/imstb_rectpack.h",
+      "extraction": "MIT alternative A license block"
+    },
+    {
+      "path": "licenses/DearImGui-imstb_textedit-MIT.txt",
+      "sha256": "7169810d8b6cf25c9bc0d1067ecce30bbff74a1ccafdfe37ccbe1ee7849d5c36",
+      "source": "https://github.com/ocornut/imgui/blob/c1aaac65e896a45f81f47a4d68f9959e0f86c859/imstb_textedit.h",
+      "extraction": "MIT alternative A license block"
+    },
+    {
+      "path": "licenses/DearImGui-imstb_truetype-MIT.txt",
+      "sha256": "7169810d8b6cf25c9bc0d1067ecce30bbff74a1ccafdfe37ccbe1ee7849d5c36",
+      "source": "https://github.com/ocornut/imgui/blob/c1aaac65e896a45f81f47a4d68f9959e0f86c859/imstb_truetype.h",
+      "extraction": "MIT alternative A license block"
+    },
+    {
+      "path": "licenses/DearImGui-ProggyFonts-MIT.txt",
+      "sha256": "5570dfe6174e86ee261c9d88d53e89dcdf6ec0d6e1e64ac2349de7ce8f8c4a4f",
+      "source": "https://github.com/ocornut/imgui/blob/c1aaac65e896a45f81f47a4d68f9959e0f86c859/imgui_draw.cpp",
+      "extraction": "Both embedded font copyright declarations with MIT permission terms"
+    },
+    {
+      "path": "licenses/GLFW-3.4-Zlib.txt",
+      "sha256": "149704059b5d0bf551637e50042dd4de9c2cae921021f6636298911e3a5f9462",
+      "source": "https://github.com/glfw/glfw/blob/7b6aead9fb88b3623e3b3725ebb42670cbe4c579/LICENSE.md"
+    },
+    {
+      "path": "licenses/OpenCV-HarfBuzz.txt",
+      "sha256": "ba8f810f2455c2f08e2d56bb49b72f37fcf68f1f4fade38977cfd7372050ad64",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/harfbuzz/COPYING"
+    },
+    {
+      "path": "licenses/OpenCV-SoftFloat-FDLIBM.txt",
+      "sha256": "27adefc3d001216b8be5af628e3583575fedc22ea6f41917e3008c8ed8cb8ce2",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/modules/core/src/softfloat.cpp",
+      "extraction": "All leading license/copyright comments, before first preprocessor code"
+    },
+    {
+      "path": "licenses/OpenCV-FLANN-BSD.txt",
+      "sha256": "d3fa52e351af8b169fa03d1cdabb59c01ee5d5e94bc0648981a854a4c2c39b43",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/modules/flann/include/opencv2/flann/defines.h",
+      "extraction": "All leading license/copyright comments, before first preprocessor code"
+    },
+    {
+      "path": "licenses/OpenCV-CHROMASCOPE-MODIFICATIONS.txt",
+      "sha256": "8f215dfebcc0f8bf59dac197c37d44eea9d6d92c32e9828d95cb86cd213710fa",
+      "source": "ChromascopeIP local modification; scripts/opencv_linux_patches/disable-magicyuv.patch"
+    },
+    {
+      "path": "licenses/OpenCV-ITT-COPYRIGHT.txt",
+      "sha256": "252c9f0235ab95538b588d9375b93f16374c5007f7d4f47d56645da3de9f195c",
+      "source": "https://github.com/opencv/opencv/blob/e4f78fbcf1a773fbed69e14500e8b734963eb585/3rdparty/ittnotify/include/ittnotify.h",
+      "extraction": "Original leading copyright and dual-license declaration; choose BSD-3-Clause with full accompanying terms"
+    }
+  ]
+}

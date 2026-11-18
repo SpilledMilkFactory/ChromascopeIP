@@ -145,6 +145,9 @@ class Debian13PackagePolicyTests(unittest.TestCase):
                 dest = stage / pack.DOC / name
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text('synthetic only\n')
+            pack.NOTICES['install_notices'](stage / pack.DOC / 'licenses')
+            (stage / pack.DOC / 'OPENCV_RUNTIME_PROVENANCE.txt').write_text(
+                'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n')
             control = stage / 'DEBIAN/control'; control.parent.mkdir(parents=True)
             control.write_text('Package: chromascopeip\nVersion: 1.0.0\n'
                                'Architecture: amd64\nDepends: libc6 (>= 2.36)\n'

@@ -114,6 +114,25 @@ def file_component(name, digest, label):
             'properties': [{'name': 'chromascope:payloadRole', 'value': label}]}
 
 
+def embedded_build_information(payload):
+    """Read OpenCV's compiled report without executing an untrusted binary.
+
+    These are build-time declarations, never installed OS package versions.
+    Static internals absent from this report still require source review.
+    """
+    marker = b'General configuration for OpenCV 5.1.0'
+    start = payload.find(marker)
+    if start < 0:
+        return {}
+    block = payload[start:start + 32768].split(b'\0', 1)[0].decode('utf-8', errors='replace')
+    fields = {}
+    for line in block.splitlines():
+        match = re.fullmatch(r'\s+(ZLib|JPEG|WEBP|PNG|TIFF|JPEG 2000|HarfBuzz|Intel IPP|Intel IPP IW|Lapack|Trace|Protobuf|Flatbuffers|FFMPEG|avcodec|avformat|avutil|swscale|GStreamer|Media Foundation):\s+(.+)', line)
+        if match:
+            fields[match[1]] = match[2].strip()
+    return fields
+
+
 def lib_component(name, version=None, license_id=None, provenance=None, scope='required'):
     ref = 'dep:' + name.lower().replace(' ', '-')
     comp = {'type': 'library', 'name': name, 'bom-ref': ref, 'scope': scope}
@@ -153,6 +172,8 @@ def linux_inventory(path):
         linked = {}
         notices = {}
         libs = []
+        build_information = {}
+        security_patch = None
         for rel, item, kind in entries:
             if kind == 'symlink':
                 continue
@@ -167,6 +188,12 @@ def linux_inventory(path):
                 linked[rel] = read_elf_needed(item)
             if re.search(r'libopencv_[a-z0-9_]+\.so\.5\.1\.0$', rel):
                 libs.append(rel)
+            if rel.endswith('/libopencv_core.so.5.1.0'):
+                build_information = embedded_build_information(item.read_bytes())
+            if rel.endswith('/OPENCV_RUNTIME_PROVENANCE.txt'):
+                match = re.search(r'(?m)^security_patch_sha256=([0-9a-f]{64})$', item.read_text())
+                if match:
+                    security_patch = match[1]
         need({'chromascope-cli', 'chromascope-gui'} <=
              {Path(k).name for k in linked}, 'Missing installed GUI/CLI')
         need(libs, 'No bundled OpenCV private runtime discovered')
@@ -178,6 +205,8 @@ def linux_inventory(path):
                                    if not dep.startswith('libopencv_')})
         return {'files': files, 'notices': notices, 'linked': linked,
                 'bundled_libraries': bundled, 'external_sonames': external_sonames,
+                'opencv_build_information': build_information,
+                'opencv_security_patch_sha256': security_patch,
                 'debian_dependencies': split_deps(fields['Depends'])}
 
 
@@ -201,9 +230,12 @@ def windows_inventory(path):
         manifest = json.loads(z.read(prefix + 'manifest.json'))
         files = []
         notices = {}
+        build_information = {}
         for name in sorted(names):
             rel = name[len(prefix):]
             payload = z.read(name)
+            if rel.endswith('chromascope-gui.exe'):
+                build_information = embedded_build_information(payload)
             digest = hashlib.sha256(payload).hexdigest()
             if rel != 'manifest.json':
                 need(manifest.get('sha256', {}).get(rel) == digest,
@@ -221,6 +253,7 @@ def windows_inventory(path):
         return {'files': files, 'notices': notices,
                 'linked': manifest['imported_dlls'],
                 'bundled_libraries': sorted(manifest['bundled_msvc_dlls']),
+                'opencv_build_information': build_information,
                 'external_sonames': sorted({name for names in manifest['imported_dlls'].values()
                                             for name in names if name not in manifest['bundled_msvc_dlls']}),
                 'static_sources': {'opencv': manifest['opencv_commit'],
@@ -252,10 +285,13 @@ def create_bom(target, package_hash, inventory, run_id, commit):
                            {'name':'chromascope:sourceCommit','value':commit},
                            {'name':'chromascope:githubRunId','value':run_id}]}
     components = []
+    if inventory.get('opencv_security_patch_sha256'):
+        root['properties'].append({'name': 'chromascope:opencvSecurityPatchSha256',
+                                   'value': inventory['opencv_security_patch_sha256']})
     if target.startswith('Windows'):
         components += [lib_component('OpenCV', '5.1.0', 'Apache-2.0',
                                      'statically linked; pinned source revision'),
-                       lib_component('Protobuf (OpenCV embedded)', None, 'BSD-3-Clause',
+                       lib_component('Protobuf (OpenCV embedded)', '3.19.1', 'BSD-3-Clause',
                                      'static build; exact transitive source inventory still requires review'),
                        lib_component('GLFW', '3.4', 'Zlib', 'static source pin'),
                        lib_component('Dear ImGui', '1.93.0', 'MIT', 'static source pin')]
@@ -264,13 +300,25 @@ def create_bom(target, package_hash, inventory, run_id, commit):
     else:
         components += [lib_component('OpenCV', '5.1.0', 'Apache-2.0',
                                      'private ELF shared modules, source-pinned'),
-                       lib_component('Protobuf (OpenCV embedded)', None, 'BSD-3-Clause',
+                       lib_component('Protobuf (OpenCV embedded)', '3.19.1', 'BSD-3-Clause',
                                      'OpenCV build marker; exact linkage requires review')]
         components += [lib_component(n, None, None, 'bundled private OpenCV module')
                        for n in inventory['bundled_libraries']]
         components += [lib_component('apt-dependency:' + x, None, None,
                                      'declared package constraint, not resolved installed version')
                        for x in inventory['debian_dependencies']]
+        components += [lib_component('Dear ImGui', '1.93.0', 'MIT',
+                                     'statically incorporated GUI source pin')]
+    for key, value in inventory.get('opencv_build_information', {}).items():
+        if key == 'Protobuf' or not (value.startswith(('build', 'builtin/', 'sources')) or
+                                    key == 'Intel IPP' and value != 'NO' or
+                                    key == 'Lapack' and 'Built-In' in value or
+                                    key == 'Trace' and 'Intel ITT' in value):
+            continue
+        version = re.search(r'(?<![\w.])(\d+\.\d+\.\d+)(?![\w.])', value)
+        components.append(lib_component('OpenCV embedded: ' + ('Intel ITT' if key == 'Trace' else key),
+                                        version.group(1) if version else None, None,
+                                        'compiled OpenCV build declaration: ' + value))
     components += [lib_component('system:' + dep, None, None,
                                  'runtime PE/ELF import; OS-provided version unknown')
                    for dep in inventory['external_sonames']]
@@ -405,6 +453,7 @@ def audit(artifact_root, matrix_report, output_dir, review=None, require_clearan
                         'external_imports': inventory['external_sonames'],
                         'runtime_dependencies': inventory.get('debian_dependencies', []),
                         'notice_files': inventory['notices'],
+                        'opencv_build_information': inventory.get('opencv_build_information', {}),
                         'required_manual_topics': list(topics_for(target))})
     template = review_template(commit, recorded)
     unresolved = (validate_review(review, template) if review else

@@ -18,7 +18,7 @@ binary downloads. This is a development dependency decision, **not** release
 approval. Actual FFmpeg component licenses depend on distro build options
 and dynamically loaded dependencies, and media codec patent exposure needs
 review. I do not claim that binary distributions ship FFmpeg, video fixtures,
-ONNX models, or webcam backends. See [M4.1 backend evaluation](M4_1_VIDEOIO_DEPENDENCY.md).
+ONNX models, or webcam backends. See [M4.1 backend evaluation](history/milestones/M4_1_VIDEOIO_DEPENDENCY.md).
 
 ## Provenance evidence in this repository
 
@@ -45,7 +45,7 @@ ONNX** (`models/selected_model.json`). OpenCV Zoo's NanoDet directory expressly
 licenses **all directory files under Apache-2.0**, and the original NanoDet
 source also uses Apache-2.0. The published OpenCV-hosted ONNX SHA-256 is
 `4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186`.
-See [the selection decision](M5_1_MODEL_SELECTION.md),
+See [the selection decision](history/milestones/M5_1_MODEL_SELECTION.md),
 [model notices](../models/NANODET_NOTICES.md), and
 [Apache-2.0 license](../licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt).
 

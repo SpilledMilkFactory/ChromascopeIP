@@ -12,7 +12,7 @@ if(NOT status EQUAL 0 OR NOT err STREQUAL "")
     message(FATAL_ERROR "--privacy-info failed: ${status} / ${err}")
 endif()
 foreach(needle IN ITEMS "local privacy" "no upload" "no face recognition"
-    "audio discarded" "not securely erased" "docs/M7_6_LOCAL_PRIVACY.md")
+    "audio discarded" "not securely erased" "docs/PRIVACY_GUIDE.md")
     string(FIND "${out}" "${needle}" pos)
     if(pos EQUAL -1)
         message(FATAL_ERROR "Missing privacy disclosure: ${needle}")

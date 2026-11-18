@@ -49,7 +49,7 @@ statuses. It is not evidence that v1.0.0 has been published.
   drops audio. Device and codec support varies by operating system.
 - Third-party copyright notices, codec security, and redistribution review
   must be resolved before publication. See
-  [release readiness](M12_7_PUBLICATION_READINESS.md).
+  [release readiness](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M12_7_PUBLICATION_READINESS.md).
 
 [Unreleased]: ../README.md
 [1.0.0]: RELEASE_NOTES_1_0_0.md

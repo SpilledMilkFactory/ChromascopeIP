@@ -59,6 +59,21 @@ REQUIRED_DOCS = (f'{DOCDIR}/LICENSE',
                  'share/chromascopeip/models/selected_model.json',
                  'RUNTIME_DEPENDENCIES.md')
 
+SHIPPED_USER_GUIDES = frozenset((
+    'INSTALLATION_1_0_0.md',
+    'USER_GUIDE.md',
+    'CLI_REFERENCE.md',
+    'PRIVACY_GUIDE.md',
+    'TROUBLESHOOTING.md',
+    'RELEASE_EXAMPLES_1_0_0.md',
+    'RELEASE_NOTES_1_0_0.md',
+    'CHANGELOG.md',
+    'IMAGE_FILTER_PROFILES.md',
+    'SEGMENTATION_PROFILES.md',
+    'MEDIA_RIGHTS.md',
+    'RESOURCE_BUDGETS.md',
+))
+
 class PackageError(RuntimeError):
     pass
 
@@ -389,6 +404,14 @@ def inspect(archive):
         for name in REQUIRED_DOCS:
             if name not in files:
                 raise PackageError('Missing Windows ZIP documentation/license: ' + name)
+        # Repository-only engineering and release-review records never belong
+        # in a user-facing portable ZIP. CMake also enforces the positive list.
+        installed_guides = {name.removeprefix(f'{DOCDIR}/docs/')
+                            for name in files if name.startswith(f'{DOCDIR}/docs/')}
+        allowed_guides = SHIPPED_USER_GUIDES
+        if installed_guides != allowed_guides:
+            raise PackageError('Windows ZIP contains missing/unapproved user documentation: '
+                               + ', '.join(sorted(installed_guides ^ allowed_guides)))
         for name in files:
             if name.lower().endswith('.exe') and name.lower() not in EXPECTED:
                 raise PackageError('Unreviewed Windows ZIP executable: ' + name)

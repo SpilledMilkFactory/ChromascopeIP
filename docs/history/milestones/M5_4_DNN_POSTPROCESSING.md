@@ -23,7 +23,7 @@ labels are not guessed or silently replaced. The fixed mapping is maintained
 in `src/core/DnnPostprocessing.cpp` and has no runtime download requirement.
 
 Reference: https://github.com/opencv/opencv_zoo/blob/main/models/object_detection_nanodet/demo.cpp
-License and redistribution context: `docs/M5_1_MODEL_SELECTION.md`,
+License and redistribution context: `docs/history/milestones/M5_1_MODEL_SELECTION.md`,
 `models/NANODET_NOTICES.md`.
 
 ## Validation, confidence and ordering

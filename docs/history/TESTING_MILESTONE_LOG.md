@@ -1,0 +1,1547 @@
+> **Historical test evolution:** These dated milestone sections are archived for reproducibility. Refer to the [current test guide](../TESTING.md) for supported workflows and current test totals.
+
+> **Current quick start (v1.0.0 release candidate):** `cmake --preset linux-release`, `cmake --build --preset linux-release --parallel`, `ctest --preset linux-release --output-on-failure`, then `python3 -m unittest discover -s tests/quality -p 'test_*.py' -q`. The accepted M12.7 baseline reports 150 native and 407 Python tests, but re-check counts for the current revision. The sections below preserve historical test evolution and milestone-specific commands; older totals are historical, not current status. See [current verification](../VERIFICATION.md) and [engineering history](README.md).
+
+# Test architecture (M1.3)
+
+I organize CTest cases by the **behavior being verified**, not by whether they happen to call the shared C++ library. Each independent executable has its own failure report and can be filtered by labels in local development or GitHub Actions.
+
+## Source organization
+
+```text
+tests/
+├── CMakeLists.txt                # CTest registration and stable labels
+├── support/TestSupport.hpp      # Small dependency-free assertion harness
+├── unit/
+│   ├── test_color.cpp           # HSV boundaries and naming
+│   └── test_validation.cpp      # Invalid settings and image contracts
+├── integration/
+│   └── test_synthetic.cpp       # In-memory OpenCV circles and annotations
+├── regression/
+│   └── test_skittles.cpp        # M0.1/M0.3 historical-photo regressions
+├── fixtures/
+│   ├── README.md                # Provenance and expectations
+│   └── skittles.sha256          # Immutable original JPEG checksums
+└── cmake/
+    ├── verify_fixtures.cmake    # Fixture integrity check
+    └── check_cli_exports.cmake  # Real executable + PNG/JSON contract
+```
+
+The four source photographs remain under `samples/skittles/`. I don't duplicate them in `tests/fixtures/`. Synthetic inputs are constructed in memory; temporary exported artifacts go to the active build tree. I do not introduce a new test framework dependency in M1.3.
+
+## CTest suites and labels
+
+| Test name | Labels | Validates |
+| --- | --- | --- |
+| `chromascope_unit_color` | `unit;core` | Known HSV samples, hue-wrapping boundaries, color names |
+| `chromascope_unit_validation` | `unit;core;negative` | Configuration limits, non-color images, annotation geometry |
+| `chromascope_integration_synthetic` | `integration;core;synthetic` | Synthetic Hough circles, placement, color counts, overlay, blank image |
+| `chromascope_fixture_integrity` | `fixtures;regression` | SHA-256 of all four original photographs |
+| `chromascope_regression_skittles` | `regression;core;fixtures;samples` | Original sample counts and spatial red/orange regressions |
+| `chromascope_cli_help` | `cli;smoke` | CLI usage text |
+| `chromascope_cli_sample` | `cli;integration;fixtures` | CLI can analyze a known photograph |
+| `chromascope_cli_bad_input` | `cli;negative` | Missing image fails with nonzero exit |
+| `chromascope_cli_exports` | `cli;integration;fixtures` | PNG signature, JSON-file fields/counts, clean JSON stdout |
+
+I consider **all nine tests** required for M1.3 acceptance. This replaces the old combined `chromascope_core` test with four independently diagnosable checks, adds a fixture-integrity check, and adds an export-contract test. The existing CLI help/sample/bad-input cases remain.
+
+## Local commands
+
+```bash
+cmake --preset linux-release
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release
+
+# Focused test categories. These commands filter execution by CTest labels.
+ctest --test-dir build/presets/linux-release --output-on-failure -L unit
+ctest --test-dir build/presets/linux-release --output-on-failure -L integration
+ctest --test-dir build/presets/linux-release --output-on-failure -L regression
+ctest --test-dir build/presets/linux-release --output-on-failure -L cli
+
+# Enumerate test names/labels without running them.
+ctest --test-dir build/presets/linux-release -N -V
+
+# Existing manual build paths are supported.
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$HOME/.local/opt/opencv-5.1.0" \
+  -DCHROMASCOPE_BUILD_GUI=ON -DCHROMASCOPE_BUILD_TESTS=ON
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+```
+
+I can use `linux-debug` or `linux-cli-release` instead. The tests require **OpenCV 5.1.0** even when the GUI is disabled; they are part of the shared C++ processing system. The fixture integrity script can be invoked without OpenCV:
+
+```bash
+cmake \
+  -DCHROMASCOPE_FIXTURE_DIR="$PWD/samples/skittles" \
+  -DCHROMASCOPE_FIXTURE_MANIFEST="$PWD/tests/fixtures/skittles.sha256" \
+  -P tests/cmake/verify_fixtures.cmake
+```
+
+## Future CI and test-development rules
+
+I will keep `unit`, `integration`, `regression`, `fixtures`, `cli`, and `negative` as stable filterable labels as test suites grow. A test can belong to more than one category. I don't require a webcam, display server, cloud connection, downloaded model, or third-party service for any M1.3 test. Future media, inference, GUI, and camera tests will establish their own explicit fixture and hardware requirements, rather than silently relying on a developer machine.
+
+I add focused tests for each bug fixed. I use deterministic geometry and structural output assertions instead of asserting exact runtime milliseconds or arbitrary raster pixel matches. CLI JSON shape is checked using built-in CMake JSON parsing; the suite does **not** claim to validate every future schema field.
+
+The fixture-integrity test fails if any of the original JPEGs change, even if image decoding and approximate detection counts still work. I should only regenerate checksums after an explicit, reviewed decision to replace a test fixture. I won't silently update hashes to make a failing regression pass.
+
+For milestone acceptance I record the exact compiler, OpenCV version, build variant, number of passing CTests, GUI manual review (if relevant), and any unverified platforms in [`VERIFICATION.md`](../VERIFICATION.md). A CMake configuration-only check does **not** count as a compiled or executed C++ test.
+
+## M1.8 rights-manifest policy
+
+`python3 scripts/check_provenance.py` validates the four original JPEG checksums and conservatively prevents accidental approval for redistribution. `python3 scripts/check_provenance.py --release` is an intentionally failing future-release gate while image permissions remain unresolved. The normal six CI checks are unaffected by that unresolved legal determination. Five Python regression tests exercise both normal and negative cases.
+
+## M2.1 frame contract tests
+
+`chromascope_unit_image_frame` and `chromascope_integration_frame_cv` validate owned bytes, stride/padding, timestamps, orientation, OpenCV ROI copies, and safe rejection of mismatched formats. The suite increases from 9 to 11 tests; the nine established names are unchanged. Run `ctest --preset linux-release --output-on-failure`, `ctest --preset linux-cli-release --output-on-failure`, and the sanitizer preset where available.
+
+## M2.2 — General detection geometry and bridge regressions
+
+I added `chromascope_unit_detection_result` (`unit;core;detection;negative`)
+and `chromascope_integration_detection_result`
+(`integration;core;detection`). They test circle/box/polygon validation,
+ownership, non-finite and degenerate inputs, label/score contracts, and the
+Skittles compatibility conversion. The existing
+`chromascope_regression_skittles` now also asserts complete geometry/class/
+score equality after conversion for all four archived photographs.
+
+M2.1 had **11 CTests**; M2.2 expects **13**. The original test names and
+CLI export format are unchanged. For a focused run:
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L detection
+```
+
+## M2.3 processor registration
+
+The native CTest suite contains **17 tests** after M2.3. The `processor` label
+selects registry-schema validation, the built-in Skittles processor integration,
+and CLI profile enumeration/rejection. The historical Skittles regression also
+checks that registered and direct processing agree object by object on all
+four archived photographs. See [PROCESSOR_CONTRACT.md](../PROCESSOR_CONTRACT.md).
+
+## M2.4 worker-thread tests
+
+I added `chromascope_unit_processing_queue` (`unit;core;async;negative`) for
+cancellation, bounded latest-wins queueing, errors and recovery; and
+`chromascope_integration_processing_async` (`integration;core;async;fixtures`)
+for the real registered Skittles processor and its cancellation contract.
+I expect **19** native CTests. I run `ctest --preset linux-release` and the
+`linux-cli-sanitize` preset and inspect manual GUI responsiveness before merging.
+
+## M2.5 annotation contract and renderer checks
+
+I added `chromascope_unit_annotation` (`unit;core;annotation;negative`) and
+`chromascope_integration_annotation_renderer`
+(`integration;core;annotation;fixtures;regression`). The model test verifies
+ownership, shape/color retention and invalid inputs without invoking OpenCV.
+The integration test covers shapes, visibility flags, input immutability,
+misdimensioned and invalid-type images, and compares historical Skittles
+rendering pixel-for-pixel on all four original photographs in both label
+modes. I expect **21** native CTests after M2.5.
+
+I run the focused suite using:
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L annotation
+```
+
+The historic fixture redistribution release gate remains in effect.
+
+## M2.6 security/resource budget tests
+
+I added `chromascope_unit_resource_budget`, `chromascope_integration_resource_limits`,
+and two negative CLI option parsing tests. These extend the suite from 21 to **25**
+CTests. The `budget` label groups all four tests; the C++ unit test performs
+predecode format-header validation without OpenCV, and the integration test
+validates the live OpenCV 5.1.0 I/O/processing boundaries.
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L budget
+```
+
+All 25 tests must also pass in Release, CLI-only Release, and Linux
+ASan/UBSan configurations. See `RESOURCE_BUDGETS.md`.
+
+## M2.7 concurrency, lifecycle, coordinate and compatibility coverage
+
+I added five independent headless CTests on top of the 25 accepted M2.6 cases,
+bringing the expected total to **30**. The stable new filters are
+`concurrency`, `lifecycle`, `coordinate` and `compatibility` (also combined
+with existing `unit`, `integration`, `regression`, `async`, `frame`,
+`annotation` and `fixtures` labels as applicable). These tests exercise
+bounded queue behavior with coordinated simultaneous submitters, worker
+shutdown and snapshot ownership, stored-pixel geometry including OpenCV ROI
+rendering, and the backward-compatible legacy Skittles APIs. I do not replace
+any prior regression or change fixture checksums. See
+[M2_7_TEST_COVERAGE.md](milestones/M2_7_TEST_COVERAGE.md) for coverage, caveats and
+acceptance commands.
+
+## M3.1 — Generalized still-image filters
+
+I added five CTests to the 30 accepted M2.7 tests for **35 total**:
+
+| Test | Scope |
+| --- | --- |
+| `chromascope_unit_image_filter_contract` | Registry discovery/defaults, invalid filter values, output-raster validation |
+| `chromascope_integration_image_filters` | OpenCV pixel-equivalent transforms, ROI/metadata ownership, cancellation, immutability |
+| `chromascope_cli_image_filters` | All four CLI outputs, PNG/JSON export, configured Gaussian option |
+| `chromascope_cli_bad_filter_option` | Reject even Gaussian kernel |
+| `chromascope_cli_bad_filter_setting` | Reject unknown profile option |
+
+I keep the `filters` CTest label alongside `unit`, `integration`, `cli`, and
+`negative`. No display server, camera, or model files are required for these
+tests. Existing historical image, Skittles, coordinate, and worker-thread tests
+remain mandatory; I will not replace their baseline assertions.
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L filters
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+I will record native OpenCV 5.1.0, GCC, MSVC, and hosted CI results only after
+they actually run; preparing the patch does not establish native acceptance.
+
+## M3.2 geometry/segmentation coverage
+
+I added seven `segmentation`-labeled CTests covering processor registration,
+finite and cross-field options, OpenCV HSV hue-wrap, pixel ownership,
+mask metadata, contour polygons/boxes, annotation rendering, CLI annotated
+exports and raw-mask JSON exports, and invalid parameter combinations.
+The expected native suite now contains **42** CTests.
+
+```bash
+ctest --test-dir build/presets/linux-release --output-on-failure -L segmentation
+```
+
+I retain all 35 existing M3.1 tests unchanged apart from the processor-count
+expectation, which now correctly includes the two new registered processors.
+
+## M3.5 — CLI contracts and export paths
+
+The M3.5 update adds two headless CTests:
+
+| Test | Labels | Coverage |
+| --- | --- | --- |
+| `chromascope_unit_cli_output_paths` | `unit;cli;security;negative` | Pure C++ output path contracts, hard links, directory creation, and collision prevention |
+| `chromascope_cli_m3_5_contract` | `cli;integration;negative;security;regression;fixtures` | Real CLI profile settings, schema v1 for both JSON formats, stdout, PNGs/masks, explicit output directories, and invalid argument rejection |
+
+With these additions the expected suite grows from 46 to **48 tests**, subject
+to confirmation in the native build. The existing test names and suites remain
+registered and must all pass. Run:
+
+```bash
+ctest --test-dir build/presets/linux-release -L cli --output-on-failure
+ctest --test-dir build/presets/linux-release -R 'cli_m3_5|unit_cli_output_paths' --output-on-failure
+ctest --preset linux-release --output-on-failure
+```
+
+See [M3.5 CLI contract](milestones/M3_5_CLI_CONTRACT.md) for JSON schema and output behavior.
+
+## M3.6 — Still-image format, error and fixture regressions
+
+Issue #23 adds **five** independent headless CTests to the 48-test M3.5
+baseline, making **53 expected tests**. These supplement, rather than replace,
+existing resource-budget, original-Skittles, CLI, and provenance tests.
+
+| New test | Purpose |
+| --- | --- |
+| `chromascope_unit_still_image_headers` | Constructs minimal JPEG, PNG, BMP, classic TIFF (both endiannesses), and WebP (VP8/VP8L/VP8X) header records; rejects truncated, unsupported and malformed headers; verifies predecode budget enforcement. |
+| `chromascope_integration_still_image_formats` | Generates compact images in CTest's build tree and verifies codec header dimensions, BGR8 import, content-driven format recognition, grayscale/alpha PNG conversion, PNG export, empty/missing/corrupted/oversized input rejection. |
+| `chromascope_regression_still_image_fixtures` | Exercises original JPEG header/predecode/owned-frame/grayscale geometry for all four historical samples without mutating them. |
+| `chromascope_cli_still_image_errors` | Runs the real CLI with a valid JPEG renamed to `.bin`, plus empty, unsupported, truncated, unknown, missing and directory inputs; rejects erroneous outputs. |
+| `chromascope_fixture_tamper_regression` | Exercises the existing SHA-256 verification gate on isolated fixture copies, including bytes tampering, absent files, duplicate entries, and invalid digests. |
+
+JPEG/PNG/BMP are required codec tests. TIFF and WebP header contracts are
+always tested, while codec round-trips execute only when the pinned OpenCV
+build advertises a corresponding writer. A skipped optional codec is reported
+explicitly, not counted as evidence that its decoder works on that platform.
+No bundled TIFF/WebP binaries, network downloads, camera, GPU, GUI, or
+additional dependencies are required.
+
+```bash
+cmake --preset linux-release -DCHROMASCOPE_WARNINGS_AS_ERRORS=ON
+cmake --build --preset linux-release --parallel
+ctest --test-dir build/presets/linux-release -L formats --output-on-failure
+ctest --preset linux-release --output-on-failure
+cmake --preset linux-cli-release -DCHROMASCOPE_WARNINGS_AS_ERRORS=ON
+cmake --build --preset linux-cli-release --parallel
+ctest --preset linux-cli-release --output-on-failure
+cmake --preset linux-cli-sanitize
+cmake --build --preset linux-cli-sanitize --parallel
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+python3 scripts/check_provenance.py
+python3 scripts/check_ci_policy.py
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+git diff --check
+```
+
+All test-generated artifacts are confined to paths under the active build
+directory. The source JPEGs are never rewritten; their unresolved
+redistribution status remains release-blocking. See
+[still-image format and error coverage](milestones/M3_6_STILL_IMAGE_REGRESSIONS.md).
+
+
+## M4.1 isolated videoio consumer
+
+`chromascope_integration_videoio_backend` adds the `videoio;dependency;formats`
+labels and raises the expected CTest count from 53 to **54**. The single C++
+translation unit also serves as a completely independent CMake consumer for
+installed OpenCV on Linux and Windows. It verifies core/imgproc/imgcodecs
+operation, required platform backend registration, synthetic four-frame
+MJPEG/AVI round-trip, frame dimensions, and Linux FFmpeg decode.
+
+```bash
+ctest --test-dir build/presets/linux-release -L videoio --output-on-failure
+```
+
+The test requires no camera, GUI, downloaded video or historical photograph.
+Tests must execute with the **new** OpenCV 5.1.0 videoio-enabled prefix;
+expect configuration to fail against the old still-image-only installation.
+MSMF codec correctness and arbitrary containers remain future test scope.
+
+
+## M4.2 recorded VideoSource
+
+`chromascope_unit_video_source_contract` and
+`chromascope_integration_video_source` add the `video` label. The integration
+test generates five MJPEG frames in the build tree and verifies indexes,
+media-presentation timestamps, independent BGR8 ownership, repeatable EOF,
+and missing/corrupt-file errors. The expected suite grows from **54 to 56**.
+Run with OpenCV 5.1.0 videoio installed:
+
+```bash
+ctest --test-dir build/presets/linux-release -L video --output-on-failure
+ctest --test-dir build/presets/linux-release -L videoio --output-on-failure
+```
+
+See `docs/history/milestones/M4_2_VIDEO_SOURCE.md`. Full Release, CLI, sanitizer, static-analysis,
+policy/provenance, manual GUI regression and hosted Actions checks remain
+required for issue #25 acceptance.
+
+
+## M4.3 asynchronous decode, seek and cancellation
+
+`chromascope_unit_async_video_decoder` verifies immutable configuration and
+invalid-command rejection; `chromascope_integration_async_video_decoder`
+creates a 20-frame MJPEG/AVI recording under the active CTest build directory.
+It checks frame-count and byte limits, seeking with a full buffer, rapid
+successive seeks, cancellation, ordered reopen/EOF, timestamps and errors.
+The expected CTest count grows from **56 to 58**.
+
+```bash
+ctest --test-dir build/presets/linux-release -L async --output-on-failure
+ctest --test-dir build/presets/linux-release -L video --output-on-failure
+```
+
+Run all Release and sanitizer CTests, static analysis, CI/provenance checks,
+and unchanged GUI regressions before accepting M4.3. See
+`docs/history/milestones/M4_3_ASYNC_VIDEO.md`.
+
+
+## M4.4 recorded-video GUI player
+
+Adds `chromascope_unit_video_player_contract` and
+`chromascope_integration_video_player` (generated MJPEG video). Expected test
+suite: **60 CTests**; run `ctest -L video --output-on-failure` and full
+GUI Release, CLI Release, and CLI sanitizer configurations. Manual GUI
+verification of recorded-video navigation is required; see
+[M4_4_VIDEO_GUI.md](milestones/M4_4_VIDEO_GUI.md).
+
+
+## M4.5 recorded-video CLI contracts
+
+Two new tests increase the expected registered suite from 60 to **62**:
+
+- `chromascope_unit_cli_video_contract`: strict zero-based integer parsing,
+  OpenCV double cursor representability, and lossless PNG-only export.
+- `chromascope_cli_video_probe_extract`: real executable probing and indexed
+  synthetic MJPEG frame extraction, JSON v1 fields/stdout, pixel-equivalent PNG
+  validation, unsafe paths, invalid modes/arguments, out-of-range seeks, and
+  preserved source-video bytes. The helper generates video only in `build/`.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'unit_cli_video_contract|cli_video_probe_extract' --output-on-failure
+ctest --test-dir build/presets/linux-release -L video --output-on-failure
+```
+
+The tests intentionally use OpenCV's built-in MJPEG backend for a reproducible
+per-backend reference; no assertion is made that arbitrary compressed formats
+seek with perfect frame accuracy. See `docs/history/milestones/M4_5_CLI_VIDEO.md`.
+
+## M4.6 — Media-policy acceptance (#29)
+
+The registered suite contains **65 CTests** after this milestone (previously
+62). Run `ctest --test-dir build/presets/linux-release -R 'video_media_policy|integration_video_media|cli_video_media_contract' --output-on-failure`
+for the three M4.6 tests. The C++ policy test covers unknown FPS and synthetic
+variable frame intervals, the OpenCV integration test covers physical clockwise
+rotations and video-only media, and the CLI test checks additive JSON fields.
+All synthetic media stays in the build tree. See `docs/history/milestones/M4_6_VIDEO_MEDIA.md`.
+
+## M4.7 — Synthetic video fixtures and error paths
+
+The expected suite is **68 CTests**. Run
+`ctest --test-dir build/presets/linux-release -R
+'video_timing_boundaries|video_decoder_resilience|cli_video_error_paths'
+--output-on-failure` for the three M4.7 checks. The codec-backed tests
+create MJPEG/AVI media inside the build directory. The CLI test requires
+controlled nonzero exits and diagnostics for malformed inputs and invalid
+options, without source-video mutation or unsafe output creation. See
+`docs/history/milestones/M4_7_VIDEO_REGRESSIONS.md`.
+
+## M5.1 (#31) selected inference-model research policy
+
+`chromascope_model_selection_policy` is a **network-free, no-ONNX-required,
+CMake-script CTest** that verifies the model ID, exact published FP32 ONNX
+SHA-256, source identity, Apache-2.0 metadata, local full license text,
+required attribution notices and the fact that model weights are not bundled.
+The CTest is available in GUI Release, CLI-only Release, sanitizers and Windows.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R chromascope_model_selection_policy --output-on-failure
+python3 scripts/check_model_selection.py
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+`python3 scripts/check_model_selection.py --artifact /path/to/model.onnx`
+performs an optional offline *full-byte* SHA-256 check for an independently
+obtained weight file. No model download, inference, runtime DNN dependency, or
+new visual/media fixture is introduced in this milestone.
+
+## M5.2 (#32) — CPU-first OpenCV DNN adapter
+
+Requires a **fresh isolated OpenCV 5.1.0 prefix built with `dnn`**; M4's
+`videoio`-only prefix is intentionally rejected. See
+[`M5_2_CPU_DNN.md`](milestones/M5_2_CPU_DNN.md). The expected suite is **71 CTests**.
+New tests: `chromascope_unit_cpu_dnn_contract` and
+`chromascope_integration_cpu_dnn_adapter`. The latter synthesizes a compact
+weight-free ONNX graph, runs a CPU forward, checks result ownership, and
+rejects invalid models. No pretrained weights are downloaded or committed.
+
+```bash
+ctest --test-dir build/presets/linux-release -R 'cpu_dnn' --output-on-failure
+```
+
+The Linux and Windows installed-package consumers also link/run the `dnn`
+module; separate full CTests and quality workflows must pass before merge.
+
+## M5.3 (#33) — Deterministic preprocessing acceptance
+
+Expected suite **73 CTests**. The geometry unit test is OpenCV-independent;
+the integration test uses OpenCV resize, RGB/BGR conversion and NCHW packing.
+
+```bash
+ctest --test-dir build/presets/linux-release -R 'dnn_preprocess' --output-on-failure
+ctest --preset linux-release --output-on-failure
+```
+
+See [`M5_3_DNN_PREPROCESSING.md`](milestones/M5_3_DNN_PREPROCESSING.md) for channel,
+padding and coordinate-mapping semantics and portability limitations.
+
+
+## M5.4 (#34) — Class labels, confidence filtering, deterministic NMS
+
+The expected suite is **75 CTests** (up from 73). The two new tests use
+synthetic decoded boxes, no ONNX weights, and no additional media assets.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'dnn_postprocess' --output-on-failure
+ctest --preset linux-release --output-on-failure
+```
+
+The unit test checks the complete COCO-80 label table, finite/bounded
+thresholds, class-aware suppression, deterministic tie ordering, resource caps
+and rejection of malformed coordinates/IDs. The integration test verifies
+M5.3 geometry inverse mappings, source-coordinate clipping, `DetectionResult`
+validation/ownership, and unchanged cross-class overlaps. Run the same suite
+under CLI-only Release and ASan/UBSan, with clang-tidy, provenance, Python
+quality gates and all six hosted GitHub Actions checks before acceptance.
+See `docs/history/milestones/M5_4_DNN_POSTPROCESSING.md` for exact numerical conventions.
+
+## M5.5 (#35) GUI DNN profile and model-status acceptance
+
+The new tests are headless; no registered test depends on a GUI/OpenGL context
+or a pretrained model download. The integration test generates a tiny ONNX
+ReLU graph in `build/` and exercises the asynchronous verification/forward
+controller using a test-only checksum. A genuine NanoDet model is always
+required to pass the **production** pinned digest gate.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'dnn_gui_policy|dnn_gui_session' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Expected **77/77 CTests** in each build. GUI manual acceptance: choose the
+NanoDet CPU profile; verify missing/wrong-hash paths fail safely; load the
+checksum-verified selected ONNX manually when available; confirm raw inference
+shows output dimensions, never detection boxes; test cancellation, unload and
+path edits; switch to classical profiles and test image/video regressions.
+See `docs/history/milestones/M5_5_DNN_GUI.md`. Confidence and NMS controls are reserved for the
+future decoded-box pipeline and do not affect raw forward outputs today.
+
+
+## M5.6 (#36) — model-backed CLI object inference and JSON
+
+The CLI adds `--profile object --model FILE`, confidence/NMS/max detection
+thresholds, and `--json FILE|-`. Real NanoDet outputs are decoded to source-
+space labeled boxes (not fabricated empty results). Model bytes remain
+excluded from the repository and are not needed by the **two new headless
+CTest checks**:
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'nanodet_decoder|cli_object_error_paths' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Expected **79/79 CTests** in each configuration; run clang-tidy, CI policy,
+photo provenance, and 16 Python quality tests as usual. Manual acceptance
+requires a separately obtained pinned NanoDet ONNX file: confirm the hash,
+run `--profile object --model ... --json -`, inspect class IDs and source-space
+boxes, verify the annotated export, then regression-test the classical
+profiles and recorded-video CLI/GUI. See `docs/history/milestones/M5_6_CLI_OBJECT.md`.
+
+## M5.6 — Locally installed ONNX and the M5.1 policy gate
+
+A verified, untracked `models/object_detection_nanodet_2022nov.onnx` may
+be present during GUI/CLI testing. The offline M5.1 policy now checks the
+exact SHA-256, its `.gitignore` status, and the Git index instead of rejecting
+all model files on disk. Any tracked model weights or unapproved/corrupted
+model artifacts remain a hard failure. A source archive containing weights
+without Git provenance fails closed. No weights are required for regular CI.
+
+```bash
+git check-ignore -v models/object_detection_nanodet_2022nov.onnx
+python3 scripts/check_model_selection.py --artifact models/object_detection_nanodet_2022nov.onnx
+ctest --test-dir build/presets/linux-release -R chromascope_model_selection_policy --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+
+### M5.6 native NanoDet/CI correction verification
+
+The actual pinned OpenCV 5.1.0 model enumerates all 80-class score heads,
+then all 32-value box heads. The NanoDet decoder now matches heads by their
+stride/shape (also accepting interleaved heads) before postprocessing.
+Verify `chromascope_unit_nanodet_decoder` and execute the full CLI commands
+from `docs/history/milestones/M5_6_CLI_OBJECT.md` with the local checksum-verified model; both
+JSON stdout and annotated image/file export must succeed. In Debian containers,
+CTest #69 uses an exact-path, command-scoped Git `safe.directory` setting
+for the checkout to avoid the root/host ownership mismatch without allowing
+untracked or unverified model binaries into release artifacts. Re-run all
+79 CTests and the 21-test Python quality suite.
+
+## M5.7 (#37) — Model provenance, adversarial constraints and original fixtures
+
+Run all checks without model weights, network access, or any historical-image
+modification:
+
+```bash
+python3 scripts/check_object_provenance.py
+cmake -DCHROMASCOPE_SOURCE_ROOT="$PWD" -P tests/cmake/check_object_fixtures.cmake
+ctest --test-dir build/presets/linux-release \
+  -R 'model_object_fixture_provenance|unit_object_adversarial|integration_object_fixtures' \
+  --output-on-failure
+ctest --preset linux-release --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+The fixture generator can reproduce exactly five fixture files in any temporary
+output directory. Synthetic shapes are not trained COCO class examples; do not
+accept or reject the neural network on their inferred labels. Check malformed
+image and tensor rejection before evaluating accuracy policy in M5.8.
+Expected **82 CTests**, **25 Python quality tests**; repeat native CLI Release,
+ASan/UBSan, clang-tidy and all six hosted GitHub Actions jobs. Refer to
+[`M5_7_MODEL_SECURITY.md`](milestones/M5_7_MODEL_SECURITY.md).
+
+## M5.8 — Conservative confidence and uncertainty policy
+
+The new headless CTests are `chromascope_unit_dnn_confidence_policy` and
+`chromascope_cli_object_confidence_contract`. Expected total is **84 CTests**
+(previously 82). No model binaries or network access are required for CI.
+
+```sh
+ctest --test-dir build/presets/linux-release \
+  -R 'dnn_confidence_policy|cli_object_confidence_contract' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Also run the existing clang-tidy/policy/provenance/Python quality gates.
+For the optional locally installed, pinned ONNX model, manually confirm
+`--list-object-classes`, class-specific cutoffs, a JSON schema-v1 uncertainty
+summary, confidence-bearing annotated labels, and zero accepted predictions
+for the historic weak-kite Skittles example at the conservative default.
+The sample images remain subject to their existing provenance policy.
+
+## M6.1 — Recorded-video object-detection acceptance (#38)
+
+Three new independent, headless CTests (expected total **87**) validate shared
+still/video NanoDet processing, video frame indices and presentation timestamps,
+synthetic MJPEG frame decoding, M5.8 confidence filtering, and CLI rejection
+paths. No model download is needed for the registered tests.
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'recorded_object_policy|recorded_object_frames|cli_video_object_contract' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Manually test `chromascope-cli --input /path/to/video.avi --detect-video-frame 0
+--profile object --model models/object_detection_nanodet_2022nov.onnx --json -`
+with the locally verified checkpoint and a recorded clip. See
+`docs/history/milestones/M6_1_RECORDED_OBJECT_DETECTION.md` for output safety, timestamp policy,
+and the explicitly deferred GUI/video scheduling scope.
+
+## M6.2 — Async recorded-video GUI and overlay acceptance (#39)
+
+Two headless tests bring the total to **89 CTests**. The integration test
+creates a synthetic MJPEG/AVI clip in the build tree, exercises fake-model
+asynchronous progress, match-only overlays, cancel/replace, failure, and
+recovery without ONNX weights. The unit test covers request validation and
+nonblocking cancellation. Neither test uses the GUI or the user's video.
+
+```sh
+ctest --test-dir build/presets/linux-release \
+  -R 'async_recorded_detection' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Then run clang-tidy, policy/provenance checks, 25 Python quality tests, and
+all six hosted workflows. The manual GUI check must open a real recording,
+run **Analyze recording** using the pinned local NanoDet checkpoint, observe
+progress and matching overlays, test pause/seek/zoom/cancel, and confirm no
+stale boxes appear after opening a different video. See
+`docs/history/milestones/M6_2_ASYNC_VIDEO_GUI.md` for the cache and timing limitations.
+
+## M6.3 (#40) — Streaming video JSONL CLI acceptance
+
+Two headless tests bring the suite to **91 CTests** (25 Python quality tests
+unchanged). The recorded-video integration creates a deterministic MJPEG AVI in
+the build directory and tests ordering, frame steps, limit handling, per-frame
+identity, rejected malformed detector output, and sink error propagation without
+model weights. The separate CMake CLI test covers invalid argument combinations
+and safe failure without output artifacts.
+
+```sh
+ctest --test-dir build/presets/linux-release \
+  -R 'recorded_video_analysis|cli_video_jsonl_contract' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+Then run the existing clang-tidy, CI/provenance and 25 Python tests. Manually
+run `--analyze-video` on a short local recording with pinned NanoDet weights;
+verify newline JSON parsing, original frame identity, timestamp provenance,
+per-class confidence, EOF summary and stdout-only JSONL mode. The two sample
+movies are developer-local, not Git-tracked fixtures. See `docs/history/milestones/M6_3_VIDEO_JSONL.md`.
+
+## M6.4 (#41) — Annotated-video export and audio/codec safety
+
+The expected CTest count increases from **91 to 93**. Run the two new tests:
+
+```bash
+ctest --test-dir build/presets/linux-release -R 'annotated_video_export' --output-on-failure
+```
+
+`chromascope_integration_annotated_video_export` generates a six-frame
+MJPEG/AVI, applies deterministic synthetic NanoDet heads, exports an annotated
+AVI, and decodes the result to verify frame index/count and dimensions. It
+checks invalid codec/container output, existing destinations, invalid FPS,
+frame limits, cancellation, detector failures, and that none publish partial
+videos. `chromascope_cli_annotated_video_export_contract` runs without an ONNX
+weight and checks explicit codec/audio flags, conflicting commands, invalid
+FPS, and unsafe output conditions. Execute the full Release/CLI/Sanitizer
+suites, clang-tidy, Python quality tests and provenance checks as usual.
+
+For a real video, run `--export-annotated-video --input samples/FrenchHorn.mp4
+--profile object --model models/object_detection_nanodet_2022nov.onnx
+--output-dir build/m6-4-export --output annotated.avi --video-codec mjpeg
+--audio-policy drop`, inspect the output visually and verify that it has no
+audio stream. Note that MJPEG is lossy and output FPS is constant even if the
+source is VFR. Do not bundle third-party recordings or checkpoint weights.
+
+## M6.5 (#42) — Recorded-video regression qualification
+
+Three additional, independently runnable CTests bring the expected suite to
+**96** (the **25** Python quality tests are unchanged):
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R '^chromascope_regression_recorded_video_' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+`chromascope_regression_recorded_video_detection_seek` checks content-aware
+random seek/replay after EOF, owned frame/detection lifetime, timestamp
+provenance, conservative confidence rejection, and stale overlay rejection
+when switching between videos with identical indexes and dimensions.
+`chromascope_regression_recorded_video_stream_seek` checks original source
+indexes across seeked frame-step analysis, explicit EOF versus frame caps,
+consumer exception propagation without read-ahead, and invalid timestamp
+rejection before publication. `chromascope_regression_recorded_video_export_pixels`
+decodes the exported MJPEG AVI to check burned-in, moving box outlines,
+absence of stale boxes on the no-detection frame, output FPS/geometry/count,
+input-file preservation, no-overwrite, and temporary-output cleanup on
+cancellation, exact frame caps, and failed frame associations. MJPEG is lossy;
+image tests use robust pixel differences, not byte-exact encoded comparisons.
+
+Generate all test assets at runtime beneath each CTest build directory. None
+of the sample recordings or local ONNX weights are required or committed.
+After the tests, run clang-tidy, repository policy/provenance checks and the
+25 Python quality tests. Manually verify a locally generated M6.4 export in
+ChromascopeIP, and optionally inspect its audio/codec with `ffprobe` (not a
+portable mandatory CI dependency). All six GitHub Actions checks must pass
+before accepting issue #42. See `docs/history/milestones/M6_5_VIDEO_REGRESSIONS.md`.
+
+## M6.6 (#43) — Stage-level recorded-video performance tests
+
+Two offline CTests raise the expected suite to **98**; Python quality remains
+**25**. No ONNX weights or sample media are committed:
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'unit_video_performance|integration_video_stage_performance' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+The unit test checks counters and invalid durations. The synthetic MJPEG
+integration test verifies 6 decoded versus 3 inferred frames under
+`--frame-step 2`, and then 6 samples for each of the four export stages.
+No timing thresholds are imposed: absolute durations depend on OS and host.
+Manually inspect the JSONL frame/end timing fields, GUI mean decode/inference
+and overlay submission, and successful AVI export timing. See
+`docs/history/milestones/M6_6_VIDEO_PERFORMANCE.md`.
+
+## M6.7 — Recorded-video confidence/uncertainty parity
+
+Two model-free tests bring the suite from **98** to **100 CTests**, with all
+25 Python quality tests unchanged:
+
+```bash
+ctest --test-dir build/presets/linux-release \
+  -R 'unit_video_confidence_presentation|integration_video_confidence_parity' \
+  --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+```
+
+The unit test checks exact shared confidence captions, supported class maps,
+strict processor type, and diagnostic counting/overflow. The integration test
+creates a six-frame MJPEG in a CTest build directory, supplies synthetic
+NanoDet head outputs without ONNX weights, exercises the real postprocessor,
+background analysis and encoded AVI path, and verifies that per-class cutoffs,
+weak-only frame counts and cancellation resets agree. The floor test verifies
+changing weak-candidate visibility without altering accepted boxes.
+
+Manually compare GUI preview captions to encoded AVI labels, verify visible
+COCO-80 reference and override count, inspect a frame with weak-only evidence,
+seek/replace videos, and check GUI/CLI AVI cumulative weak diagnostics. Check
+still-image behavior, JSONL, video timing, and all six hosted CI checks.
+See `docs/history/milestones/M6_7_VIDEO_CONFIDENCE.md` for semantics and caveats.
+
+## M7.1 — Person-model research and offline evaluation contract
+
+Two independent headless CTests extend the M6.7 100-test suite to **102**:
+
+- `chromascope_person_model_evaluation_policy`: pure CMake, no Python/ONNX;
+  cross-checks person class ID, pinned M5.1/M5.7 SHA, Apache-2.0 license,
+  recorded upstream metrics and no locally asserted accuracy.
+- `chromascope_unit_person_model_contract`: C++ no pretrained model;
+  verifies COCO-80 `person` mapping, conservative default, threshold tradeoffs
+  and diagnostic-only weak person predictions.
+
+Run `ctest --test-dir build/presets/linux-release -L person --output-on-failure`
+for these two tests. `tests/quality/test_person_evaluation.py` adds **9**
+Python tests for the independent evaluator, raising the default Python quality
+suite from 25 to **34**. Verify with
+`python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
+The evaluator itself is not run automatically against user media in CI:
+there is no distributable, independently labeled person dataset in the repo.
+Native full Release/CLI/sanitizer builds, clang-tidy, security/provenance
+checks and six hosted CI checks remain required for acceptance. See the
+M7.1 document for input format, media rights and quantitative limitations.
+
+
+## M7.2 — Person-only profile and display threshold
+
+Expected CTest suite: **105** (previously 102). New tests:
+
+- `chromascope_unit_person_profile`: class-0 filtering, cutoff inclusivity,
+  NMS, original object profile, diagnostics and adversarial bounds.
+- `chromascope_integration_person_profile_video`: generated MJPEG with
+  synthetic NanoDet outputs, person-only streaming, seeking and silent AVI.
+- `chromascope_cli_person_profile_contract`: CLI help/profile listing, invalid
+  and duplicate cutoffs, incompatible class overrides and model hash failure.
+
+```bash
+ctest --test-dir build/presets/linux-release -R 'person_profile' --output-on-failure
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  ctest --preset linux-cli-sanitize --parallel 1 --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+Two M7.2 Python tests extend the M7.1 evaluator to accept validated person-only JSONL, reject class contamination and ensure profile/cutoff consistency, bringing the suite to **36 tests**. All previous 34 tests remain applicable; CI/provenance, clang-tidy
+and manually tested GUI/CLI workflows remain acceptance gates. Verify both
+object and person modes using authorized user-provided video and the pinned
+ONNX model. See `docs/history/milestones/M7_2_PERSON_PROFILE.md`.
+
+## M7.3 — Still-image person boxes / recorded-video parity (#49)
+
+The expected registered suite increases to **107 CTests** (previously 105).
+Run `ctest --test-dir build/presets/linux-release -R 'person_still' --output-on-failure`
+and repeat in CLI-only Release and ASan/UBSan. The two new tests use generated
+synthetic proposals and an in-tree test-only Relu ONNX model: there are no
+runtime downloads, pretrained model weights, or copyrighted video assets.
+The first covers model-space/source-pixel box mapping, accepted class 0,
+confidence labels, BGR source immutability and PNG export. The second covers
+verified background session, bad model/option rejection, generation
+invalidation, failed-closed non-NanoDet tensors, cancel and unload. Full
+107/107 test suites, 36/36 Python quality tests, clang-tidy, manual still-GUI
+and existing video checks, and six hosted jobs are required for acceptance.
+See `docs/history/milestones/M7_3_PERSON_BOXES.md`.
+
+## M7.4 (#50) — Person crowds, scale, occlusion and negative scenes
+
+The registered **108th CTest** is `chromascope_regression_person_scenarios_video`.
+It builds its own portable synthetic MJPEG/AVI file in the ignored build tree,
+exercises OpenCV playback and fixed post-forward person boxes, and checks frame
+indexes, NMS, class-0 presentation, source-space boundary clipping, EOF and
+seeking. No model binary or third-party footage is required. Run:
+
+```sh
+ctest --test-dir build/presets/linux-release -R person_scenarios --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+The Python quality suite is now **40 tests**; the four new cases check
+reproducible fixture provenance, deterministic per-scenario metrics, incomplete
+or tampered source rejection, and missed/false person accounting. The
+synthetic numbers are arithmetic test vectors, not NanoDet accuracy. See
+`docs/history/milestones/M7_4_PERSON_SCENARIOS.md` and the independent annotation procedure in
+`docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md`.
+
+### M7.5 person-workflow CLI and GUI
+
+Expected **109 CTests** (one additional offline CLI alias policy test),
+**40 Python quality tests**. Run `ctest --test-dir build/presets/linux-release
+-R person_workflow --output-on-failure`, followed by all suites and the
+manual GUI quick-entry/overlay/export checks described in
+`docs/history/milestones/M7_5_PERSON_WORKFLOW.md`. No ONNX weights are needed by the CTest.
+
+## M7.6 (#52) — Local privacy and no-input CLI contract
+
+Expected **110 CTests** (109 baseline plus
+`chromascope_cli_privacy_contract`), **43 Python quality tests** (40 plus
+three source/documentation guards). `chromascope-cli --privacy-info` requires
+no input or model weights; the CTest validates an empty working directory,
+privacy disclosures and rejection of mixed arguments. Focused test:
+
+```sh
+ctest --test-dir build/presets/linux-release -R cli_privacy_contract --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+All three full native CTest configurations, static analysis, provenance
+policies, manual GUI privacy session reset, no-new-`imgui.ini` check and six
+hosted GitHub Actions jobs remain mandatory. Static source/documentation tests
+are **not** proof that OS, third-party libraries or the host network never
+store/transmit data. See `docs/history/milestones/M7_6_LOCAL_PRIVACY.md`.
+
+## M8.1 (#53) — Native camera backend foundation (no hardware in CTest)
+
+Expected **113 native CTests** (110 + camera policy, synthetic frame boundary,
+and CLI registry contract) and **45 Python quality tests** (43 + two M8.1
+invariants). Run `ctest --test-dir build/presets/linux-release -L camera
+--output-on-failure` and `chromascope-cli --camera-backends` first, then
+all three native configurations and full quality/provenance/static-analysis
+checks. The CLI command does not open devices or write files. Synthetic tests
+do not demonstrate webcam permission, driver, or live GUI functionality; see
+`docs/history/milestones/M8_1_CAMERA_BACKENDS.md`. Six hosted CI jobs and manual preexisting
+GUI/CLI regressions are mandatory for sign-off.
+
+### M8.2 (#54) device discovery and formats
+
+Expect **116 CTests** including `chromascope_unit_camera_format_policy`,
+`chromascope_integration_camera_discovery`, and
+`chromascope_cli_camera_devices_contract`; **47 Python quality tests**.
+Run `ctest --test-dir build/presets/linux-release -L camera --output-on-failure`
+and `chromascope-cli --camera-devices` (passive). No CI test opens a webcam.
+Run full GUI, CLI and sanitizer suites, static analysis, provenance and all
+six hosted CI checks; consult `docs/history/milestones/M8_2_CAMERA_DISCOVERY.md`.
+
+
+### M8.3 camera lifecycle regression
+
+`chromascope_unit_async_camera_capture_policy` and
+`chromascope_integration_async_camera_capture` are hardware-free synthetic
+CTest cases for queue bounds, frame ownership/timestamps, stop/restart and
+typed error paths. Expect 118 native CTests and 49 Python quality tests.
+
+
+### M8.4 (#56) local GUI camera acceptance
+
+Run `ctest --test-dir build/presets/linux-release -L camera --output-on-failure`
+for nine expected camera tests, plus the full 119 CTests in GUI Release,
+CLI Release and CLI ASan/UBSan configurations. Run all Python quality tests
+(51 expected), static analysis, provenance and policy scripts, then six hosted
+CI jobs. `chromascope_unit_camera_preview_policy` is hardware-free.
+
+Manual hardware acceptance: launch GUI, select **Live camera**, verify OFF and
+no permission request; choose V4L2 or MSMF and an index, Start explicitly,
+confirm LIVE indicator and changing pixels; Stop and confirm STOPPING until
+OFF; repeat start/stop, switch workspaces during capture, reset privacy
+session, and test disconnection / denied permission with a clear error. Confirm
+recorded and still media remain functional and no camera frames are saved.
+Hardware behavior is not demonstrated by CTests/CI alone.
+
+### M8.5 (#57) camera CLI
+
+`chromascope_unit_camera_cli_policy` validates numeric bounds and frame/time
+termination without camera hardware; `chromascope_cli_camera_capture_contract`
+rejects invalid camera requests before any hardware access or output changes.
+`chromascope_integration_camera_cli_capture` tests the positive bounded loop,
+create-only PNG outputs, and synthetic errors without any camera hardware.
+`tests/quality/test_camera_cli_policy.py` guards the explicit and bounded
+source contract. Physical device tests are deliberately manual; see
+`docs/history/milestones/M8_5_CAMERA_CLI.md`.
+
+### M8.6 (#58) mock camera and failure injection
+
+The test-only `tests/support/MockCamera.hpp` supports deterministic, explicitly
+scripted frames and injected open/read faults. Two new CTests,
+`chromascope_unit_mock_camera` and `chromascope_integration_mock_camera_failures`,
+run without a physical camera. Use `ctest --test-dir build/presets/linux-release
+-L mock --output-on-failure` and `-L camera`. Expect **124 native CTests**
+(14 camera-related) and **55 Python quality tests**. Run full Release,
+CLI Release and sanitizer suites, static analysis and CI/provenance checks.
+The mock cannot qualify actual driver timeouts or hardware permissions; see
+`docs/history/milestones/M8_6_CAMERA_MOCK.md` and retain manual M8.4/M8.5 device checks.
+
+### M8.7 (#59) local Linux V4L2 smoke tests — physical device opt-in
+
+Run `python3 scripts/linux_camera_smoke.py --cli
+build/presets/linux-release/chromascope-cli` for *passive-only* checks, or
+add `--device 0 --frames 10 --seconds 5 --run-hardware` for two actual
+bounded V4L2 capture runs. Saving frames and a JSON evidence report are
+independent, explicit create-only options. Do not put live camera capture in
+CTest, CI or default checks. Four new Python tests use only synthetic mock
+subprocesses, bringing the Python quality suite to **59**; CTests remain
+**124** (14 camera). See `docs/history/milestones/M8_7_LINUX_CAMERA_SMOKE.md` for manual GUI,
+permission, privacy and recorded-video regression sign-off requirements.
+
+### M9.1 (#60) — live camera/CPU inference bridge
+
+Hardware-free `chromascope_unit_live_camera_inference_policy` and
+`chromascope_integration_live_camera_inference` exercise opt-in initialization,
+bounded newest-pending-frame behavior, exact result timing and geometry,
+model-policy propagation, generation cancellation, restart, and malformed
+result rejection. Two Python quality regressions protect the GUI and shared
+NanoDet CPU contract. Expected: 126 CTests (16 camera) and 61 Python quality
+tests. Do not substitute mock-camera results for actual local UI/model checks;
+see docs/history/milestones/M9_1_LIVE_CAMERA_INFERENCE.md.
+
+### M9.2 (#61) explicit bounded live inference scheduler
+
+Two synthetic native CTests cover scheduling-option validation, Keep newest
+replacement versus Keep oldest busy drops, capture-timestamp admission spacing,
+nonmonotonic frames, session counters, cancellation and restart. Two additional
+Python quality checks guard queue bounds, GUI controls and source-frame pairing.
+No camera or ONNX weights are required for these tests. Expected totals:
+**128 native CTests**, **18 camera CTests**, **63 Python quality tests**.
+Run `ctest --test-dir build/presets/linux-release -R 'live_inference_(scheduling|drop)' --output-on-failure`
+followed by normal full builds/tests and physical GUI validation. See
+`docs/history/milestones/M9_2_LIVE_INFERENCE_SCHEDULING.md`.
+
+### M9.3 (#62) synchronized live boxes and label placement
+
+Two hardware-free native CTests validate exact live frame/session/generation
+matching and source/canvas geometry clipping under fit, zoom and pan. Two
+additional Python quality guards ensure GUI presentation remains source-locked,
+separately opt-in and distinct from recorded-video annotations. Expected
+**130 native CTests**, **20 camera CTests**, and **65 Python quality tests**.
+Full local camera/model GUI acceptance and six hosted CI checks remain required.
+See `docs/history/milestones/M9_3_LIVE_OVERLAY.md` for the acceptance checklist.
+
+### M9.4 (#63) temporary live object tracking
+
+Two new headless CTests exercise source-session validation, deterministic
+class-aware IoU association, bounded tracks, ID rollover prevention, missing
+analyzed-results expiration and complete stop/restart isolation. Two Python
+quality guards verify opt-in GUI wiring and lifecycle resets. Expected:
+132 CTests (22 camera) and 67 Python quality tests. Real-world ID stability,
+box/label alignment, person-only restrictions and recorded-video parity need
+manual webcam GUI verification. See docs/history/milestones/M9_4_TEMPORARY_TRACKING.md.
+
+### M9.5 — live inference controls
+
+Run the two new hardware-free CTests with `ctest -R live_(gui_controls|inference_pause)`;
+verify all 134 native CTests (24 camera-labeled) and 69 Python quality tests.
+Manual GUI qualification must test pause/resume, object/person profile, live
+display confidence, effective FPS admission cap, track reset, and historic
+regressions. See `docs/history/milestones/M9_5_LIVE_GUI_CONTROLS.md`.
+
+### M9.6 (#65) — opt-in live CLI JSONL / Ctrl-C
+
+Two headless C++ tests exercise explicit argument contracts and synthetic camera
+frames, including the graceful interrupt pathway. Two negative CLI CTests
+reject missing explicit camera selection and mixed file inputs. Expected native
+suite: 138 CTests (28 camera-labeled); Python quality suite: 71. The hardware
+qualification requires an authorized webcam; see docs/history/milestones/M9_6_CLI_LIVE_JSONL.md.
+
+### M9.7 (#66) — real-device performance and recovery qualification
+
+Use `python3 scripts/qualify_live_detection.py --jsonl PRIVATE.jsonl` for
+passive schema/latency/cadence validation. Only `--run-hardware` opens a real
+Linux V4L2 camera through an existing CLI; see
+`docs/history/milestones/M9_7_LIVE_DEVICE_QUALIFICATION.md` for bounded supervisor commands and
+manual device/GUI/tracking recovery matrix. Native CTests stay **138** (28
+camera-labeled), Python quality suite becomes **87**. Automated metrics never
+certify physical tracking stability or OS device recovery.
+
+## M10.1 — GUI experience contract (#67)
+
+`chromascope_unit_gui_experience` and `chromascope_regression_gui_layout`
+cover pure responsive layout, DPI, supported browser extensions and shortcut
+safety with **no GUI, OpenCV or camera dependencies** at test-execution time.
+Python quality adds `tests/quality/test_gui_experience.py` (two tests). Expected
+counts are **140 native CTests**, **28 camera**, **89 Python quality** until
+validated in the full native/sanitizer build and hosted CI.
+
+Focused verification:
+
+```sh
+ctest --test-dir build/presets/linux-release -R 'gui_experience|gui_layout' --output-on-failure
+python3 -m unittest discover -s tests/quality -p 'test_gui_experience.py' -v
+```
+
+Complete operator acceptance and platform/DPI matrix:
+`docs/history/milestones/M10_1_GUI_EXPERIENCE.md`.
+
+### M10.2 — versioned preferences
+
+Run `ctest -R 'gui_preferences|gui_preference_storage'` for the two new native
+hardware-free tests; the complete expected suite is 142 native CTests, 28
+camera-labeled CTests and 91 Python quality tests. Verify interactive Save,
+Reload and Delete, restart roundtrip, corrupt schema/unknown field rejection,
+profile option validation, owner-only permissions and no automatic camera/model
+activation. See `docs/history/milestones/M10_2_VERSIONED_PREFERENCES.md`.
+
+
+### M10.3 — unified annotation output and GUI projection
+
+The expected suite adds `chromascope_unit_structured_annotations` and
+`chromascope_regression_structured_projection` (144 native CTests total,
+28 camera-labeled), plus two Python quality tests (93 total). New contracts
+cover confidence-label formatting, RGB colors, boxes/circles/polygons, JSON
+escaping, stored-image geometry, optional caption hiding and canvas clipping.
+Run `ctest -R 'structured_annotations|structured_projection' --output-on-failure`
+and `python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
+Manually verify existing JSON/JSONL compatibility without the flag and new
+per-frame `annotations` with `--include-annotations`.
+See `docs/history/milestones/M10_3_UNIFIED_ANNOTATIONS.md`.
+
+### M10.4 (#70) — CPU/RAM/GPU baseline qualification
+
+`tests/quality/test_performance_baseline.py` adds **14 offline deterministic
+regressions** for M6.6 recorded-stage timing, M9.7 live timing, malicious JSON,
+bounded output, create-only private reports, camera opt-in, resource sampling
+and relative baseline comparison. Expected totals: **144 native CTests (28
+camera)** and **107 Python quality tests**. Run the focused quality module and
+complete suite; no physical device is opened by quality tests. See
+`docs/history/milestones/M10_4_PERFORMANCE_BASELINES.md` for active Release CLI benchmarking,
+whole-device GPU observation caveats and manual GUI profiling requirements.
+
+### M10.5 (#71) — threat-boundary audit (research only)
+
+`tests/quality/test_threat_boundary_audit.py` adds **8 hardware-free source-policy
+checks** protecting the documented distinction between current first-party
+validation and untrusted decoder/model/driver/filesystem risks. The expected
+baseline is **144 native CTests (28 camera-labeled)** and **118 Python quality
+tests**; M10.5 changes no production C++ behavior or CTest registration.
+Run the focused and complete quality suites, existing native Release/sanitizer
+and clang-tidy gates, and all six hosted workflows. These eight static checks
+are not a fuzz campaign or third-party memory-safety proof. See
+`docs/history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md` for risk priorities and follow-ups.
+
+## M10.6 (#72) malformed-media seeds and resource-limit regression
+
+The 30 synthetic seed cases in `tests/fuzz/seeds/manifest.txt` cover JPEG,
+PNG, BMP, TIFF, WebP preflight and five deliberately incomplete AVI/MP4
+containers. Native tests `chromascope_regression_malformed_media_preflight`,
+`chromascope_unit_resource_limit_edges`, and
+`chromascope_regression_malformed_video_seeds` add 3 CTests (144 -> 147).
+The dedicated Python quality suite `test_malformed_media_fuzz.py` adds 8 tests
+(115 -> 123 against the supplied M10.5 baseline). The tests leave historical
+fixtures and model files untouched; generated videos stay in the build tree.
+
+Run `python3 scripts/materialize_fuzz_seeds.py --check` for passive seed
+validation. The optional LLVM libFuzzer path is documented in
+`docs/history/milestones/M10_6_MALFORMED_MEDIA_FUZZ.md`; sanitizer instrumentation of the
+first-party header parser does not sanitize third-party OpenCV codecs.
+
+## M10.7 — Repeatable sanitizer/static-analysis and extended soak qualification
+
+M10.7 adds `scripts/soak_qualification.py` and **17** hardware-independent
+Python quality regressions (`tests/quality/test_soak_qualification.py`).
+It adds no native CTests: expected **147 native CTests**, **28 camera-labeled**,
+and **140 Python quality tests**. The opt-in supervisor repeats exactly eight
+existing synthetic live/video tests in configurable bounded rounds; active
+recorded-video/live checks require explicit local model/media and Linux V4L2
+camera authorization, respectively. Full commands, privacy limitations and
+separate manual sign-off: [M10.7 guide](milestones/M10_7_SANITIZER_STATIC_SOAK.md).
+
+## M10.8 (#74) — Current GUI/CLI, privacy, troubleshooting and architecture documentation
+
+M10.8 adds the [documentation index](../DOCUMENTATION_INDEX.md),
+[current GUI](../USER_GUIDE.md), [CLI reference](../CLI_REFERENCE.md),
+[privacy guide](../PRIVACY_GUIDE.md), [troubleshooting](../TROUBLESHOOTING.md) and
+[current architecture](../CURRENT_ARCHITECTURE.md). They describe the
+**accepted M10.7 baseline**, while earlier M0–M10.7 pages remain historical.
+`tests/quality/test_documentation_m108.py` adds **13 hardware-free checks** for
+links, CLI flags, safe examples, source boundary terms, privacy permissions,
+architecture layout and documentation discoverability. No production code,
+CTest registry, camera access or ONNX model loads are changed.
+
+Expected local test baseline after M10.8: **147 native CTests, 28 camera-labeled,
+153 Python quality tests** (140 + 13). Use the full Python suite, native GUI
+Release, CLI Release and ASan/UBSan, clang-tidy, provenance/CI policy, manual
+GUI/CLI acceptance and six hosted CI checks. The documentation tests validate
+consistency with selected source contracts; **they are not** a substitute for
+manual camera/platform verification or a comprehensive documentation accuracy
+proof. See [M10.8 guide index](../DOCUMENTATION_INDEX.md).
+
+## M11.1 (#75) — relocatable install-stage qualification
+
+The install foundation adds `chromascope_unit_install_resources` (a native
+path-discovery and absent-sample regression), plus `chromascope_install_stage`
+(a CMake install and relocated-prefix layout/rights smoke). The native count
+increases from **147 to 149**, with **28 camera-labeled** unchanged.
+`tests/quality/test_install_staging_m111.py` adds five source-policy tests
+(153 to **158 Python tests**). The installation smoke does not claim runtime
+library bundling or success on a clean target distro. See
+[M11.1 install staging](../M11_1_INSTALL_STAGING.md).
+
+```sh
+ctest --test-dir build/presets/linux-release \
+  -R 'chromascope_(unit_install_resources|install_stage)' --output-on-failure
+python3 -m unittest discover -s tests/quality \
+  -p 'test_install_staging_m111.py' -v
+```
+
+
+## M11.2 (#76) — Debian 12 package and native clean-install testing
+
+M11.2 has 21 Python quality tests (`test_debian12_package_m112.py`),
+including five regression cases for transitive OpenCV dependencies (FLANN),
+missing modules, incompatible ABI, cycles and prefix escape; the expected
+Python total is **179**. The native suite remains **149 CTests**,
+including two M11.1 staging/resource tests; camera subset remains **28**.
+Run `python3 -m unittest discover -s tests/quality -p 'test_*.py' -v`.
+The existing Debian 12 CI matrix leg builds a Debian package from the pinned
+OpenCV build, inspects the package, creates a new Debian 12 minbase root with
+`debootstrap`, installs using apt and smoke-tests both executable loaders and
+CLI help/profile/synthetic BMP processing. This *does not* open a real GUI,
+access cameras, load models or establish redistribution license sign-off.
+See [M11.2 packaging instructions](../M11_2_DEBIAN12_PACKAGE.md).
+
+### M11.2 — Debian 12 transitive loader correction (CI follow-up)
+
+The initially assembled Debian 12 `.deb` installed successfully but its CLI
+failed to locate `libopencv_videoio.so.501` inside the clean Bookworm root.
+The package now uses private, relative **DT_RPATH** instead of non-transitive
+DT_RUNPATH and statically audits both staged and re-extracted package ELF
+metadata plus all OpenCV SONAME links. The focused Python tests include a
+real, compiler-generated ELF dependency chain that proves RUNPATH failure
+and RPATH success without OpenCV or camera access. The isolated chroot
+remains the real-runtime acceptance gate.
+
+```sh
+python3 -m unittest discover -s tests/quality -p test_debian12_package_m112.py -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+```
+
+Expected: **21 focused / 179 total Python tests**, 149 native CTests.
+
+### M11.2 unchanged Debian loader failure — diagnostic qualification follow-up
+
+The November 17 Bookworm clean-install CI still cannot start the installed CLI
+(`libopencv_videoio.so.501`), despite successful package construction and static
+RPATH/SO-name inspection. The CI smoke now requires actual `ld-linux` `--list`
+resolution and emits bounded `LD_DEBUG=libs` on failed startup; it never
+substitutes `LD_LIBRARY_PATH` to pass. A failed package is retained for up to
+2 days as a conspicuously **UNQUALIFIED** diagnostic artifact. The tested
+release artifact remains gated by successful smoke. Python quality baseline:
+**182** (24 Debian packaging tests); native remains **149**.
+
+
+### M11.2 — proc-less Bookworm chroot `$ORIGIN` regression correction
+
+Loader diagnostics established that missing `/proc/self/exe` in the minbase
+chroot, **not missing OpenCV data in the .deb**, caused direct startup failure.
+M11.2 now verifies (a) ordinary native execution from the extracted package
+on the Debian 12 CI host with procfs and package-private videoio, and
+(b) interpreter-driven execution against the fresh Bookworm APT-installed
+libraries for CLI help, profiles and synthetic BMP. CI does not request
+privileged containers or mount `/proc` from the host. The interpreter-driven
+chroot invocation is not a substitute for ordinary kernel exec on a full
+Bookworm machine; M11.8/M12 retain that final manual/native release gate.
+Expected: **27 focused / 185 total Python tests**, 149 native CTests.
+
+## M11.3 (#77) — Debian 13 AMD64 independent package qualification
+
+Native Debian 13 (Trixie) now runs `scripts/package_debian13.py` after both
+Release CTest suites and `scripts/smoke_debian13_chroot.sh` before uploading
+the successful `.deb`. The smoke preserves M11.2's /proc/self/exe limitation
+handling: ordinary native packaged CLI startup on the procfs-enabled job host,
+PLUS fresh Trixie APT installation and interpreter-driven CLI processing.
+Missing OpenCV SONAME/dependency closure, wrong host, unexpected RPATH,
+unresolved system dependencies and unapproved media must fail. The Debian 12
+package gate remains unchanged. Run the M11.3 Python tests with
+`python3 -m unittest discover -s tests/quality -p 'test_debian13_package_m113.py' -v`.
+See [M11.3 guide](../M11_3_DEBIAN13_PACKAGE.md).
+
+
+## M11.4 (#78) — Ubuntu 24.04 native AMD64 package qualification
+
+Noble now runs `scripts/package_ubuntu24.py` after GUI and CLI-only CTests,
+then `scripts/smoke_ubuntu24_chroot.sh` installs the `.deb` in an independent
+Noble APT root with main/universe enabled. The smoke exercises ordinary native
+CLI execution with host procfs, and real Noble interpreter-driven CLI help,
+profile listing, and generated BMP processing inside the minimal chroot.
+Unlike a full desktop, debootstrap minbase has no mounted `/proc/self/exe`:
+interpreter-driven chroot execution is **not** native kernel exec on a fresh
+Ubuntu desktop. No OpenCV 5.1.0 developer prefix is exposed to the chroot.
+The Debian 12/13 gates and Ubuntu 26.04 build/test checks remain unchanged.
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_ubuntu24_package_m114.py' -v`
+and the complete quality suite. See [M11.4 guide](../M11_4_UBUNTU24_PACKAGE.md).
+
+## M11.5 (#79) — Ubuntu 26.04 AMD64 package qualification
+
+On the `ubuntu-26.04` native matrix runner, compile and test GUI+CLI and CLI-only
+Release (149 CTests each) before running `scripts/package_ubuntu26.py --build`
+and `--inspect`, then `sudo bash scripts/smoke_ubuntu26_chroot.sh` against the
+new Resolute package. The independent fresh APT root must resolve Ubuntu 26.04
+external libraries, private OpenCV SONAME links, help/profile listing and a
+generated BMP without historic fixtures, ONNX or camera hardware. Native CLI
+execution on a host with `/proc` and ELF interpreter-mediated chroot execution
+are distinct gates. A failed package is uploaded only as UNQUALIFIED diagnostics.
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_ubuntu26_package_m115.py' -v`
+(13 new tests) and the complete quality suite (222 tests). The existing 149
+native and 28 camera-labeled CTests are unchanged. Preserve the Debian 12/13
+and Ubuntu 24.04 package workflows. See [M11.5 guide](../M11_5_UBUNTU26_PACKAGE.md).
+
+
+## M11.6 (#80) — Windows x64 portable ZIP
+
+On hosted Windows Server 2022 / MSVC 2022 x64, retain the CLI-only Release
+CTest gate and add `cmake --preset windows-release` with verified static GLFW
+3.4 / OpenCV 5.1.0 and Dear ImGui 1.93.0, then GUI-enabled CTests. Run
+`scripts/package_windows_x64.py --build` and `--inspect`, then unpack and
+start the relocated CLI (help/profiles/generated BMP) using a PATH without
+developer OpenCV/VS directories.
+The package must contain both frontends, a private app-local verified VC143
+runtime closure when required, a PE dependency/sha256 manifest and notices.
+Reject unknown imports and all historical samples, user media and ONNX weights.
+A Windows 10/11 GUI or camera success claim is not part of this smoke test.
+Run `python3 -m unittest discover -s tests/quality -p 'test_windows_zip_m116.py' -v`
+and the complete quality suite; 149 native/28 camera CTests are unchanged.
+See [M11.6 Windows ZIP](../M11_6_WINDOWS_PORTABLE_ZIP.md).
+
+
+### M11.6 Windows GUI first-build regression (issue #80)
+
+The new Windows GUI-enabled MSVC build exercises source previously excluded
+from Windows CI. On Windows RPC headers, `small` may be defined as `char`,
+and legacy `<GL/gl.h>` does not provide `GL_CLAMP_TO_EDGE`. Run the targeted
+quality tests (`test_windows_zip_m116.py`), including a synthetic C++ syntax
+check with those two constraints, followed by the complete Python suite. The
+expected focused M11.6 test count is **16** (previously 13), and the full
+Python suite is **238** (previously 235). Retain 149 native CTests and 28
+camera tests; Windows GUI-enabled MSVC CTests and ZIP smoke are still required.
+
+
+### M11.6 Windows VC143 source-folder regression (issue #80)
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_windows_zip_m116.py' -v`
+(**24 tests**, previously 19) and the full quality suite (**246 tests**, previously
+241). The initial one-off `vccorlib140.dll` filter failed on the next
+legitimate VC143 file, `vcruntime140_threads.dll`; the packager now distinguishes
+unused *source inventory* entries from actual PE imports and ZIP members.
+Five new cases include a complete synthetic PE32+ build-to-ZIP round-trip,
+recursive runtime DLL closure, an unreviewed-import ZIP failure, optional C11
+thread runtime selection, source-name collisions and symlink rejection.
+Unknown PE imports, missing required native CRT and extra ZIP DLLs remain
+fatal. Extra unused files present in the authenticated source folder are not. Native baseline stays
+149 CTests / 28 camera regressions; only a real hosted MSVC ZIP build and
+relocated smoke can qualify this packaging correction.
+
+
+## M11.7 — whole-package-matrix CI and offline inspector
+
+The new `Package Matrix CI` PR/dispatch workflow calls the existing Debian,
+Ubuntu and Windows native CI workflows at the same revision, waits for all
+five smoke-qualified candidates, downloads their raw v7 artifacts using pinned
+`download-artifact@v8` and re-inspects each `.deb`/`.zip` with the platform's
+existing offline inspector. A single missing or unqualified artifact fails
+the matrix; report upload requires all checks to pass. It does not replace
+any existing native CTest or the six long-standing checks.
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_package_matrix_m117.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+python3 scripts/check_ci_policy.py
+```
+
+Matrix regression tests use actual `dpkg-deb`-created synthetic package
+control files and deliberately mock **only** expensive full ELF/PE inspector
+internals for fixture-specific policy cases. Actual production CI invokes
+all five unmocked inspectors and the native producer smokes. See
+[M11.7 package matrix](../M11_7_PACKAGE_MATRIX.md).
+
+### M11.7 raw-artifact transfer regression
+
+The full package-matrix regression now derives each `download-artifact@v8`
+`name` from the corresponding `upload-artifact@v7` raw file basename (the
+`.deb`/`.zip` suffix is mandatory). Negative tests reject extensionless
+names, mismatched directories, accidental unwrapping, and a mislabeled
+UNQUALIFIED diagnostic. Qualified artifacts remain raw; UNQUALIFIED
+artifacts and the named matrix report use GitHub's archived mode so their
+specified labels are retained. Hosted full-matrix execution remains required.
+The correction raises the M11.7-focused suite to **22 tests** and the full
+Python quality suite to **268 tests** (262 previously + six artifact-transfer
+regressions).
+
+
+## M11.8 (#82) — real desktop GUI and live-device qualification
+
+M11.7 was accepted after 268 Python quality tests, the unchanged 149 native
+CTests/28 camera-specific tests, 12 successful GitHub Actions checks including
+all five same-run packages, and maintainer-confirmed merge. M11.8 adds a
+**passive**, offline evidence tool and **23** Python regressions for the manual
+Windows 10/11, Debian 12/13 and Ubuntu 24.04/26.04 desktop matrix. The expected
+Python quality baseline is **291**; native CTests remain **149** (28 camera).
+
+Run `python3 scripts/qualify_desktop_m118.py --help` and follow
+[the M11.8 guide](../M11_8_DESKTOP_DEVICE_QUALIFICATION.md). Initial evidence
+files are deliberately NOT_TESTED; physical GUI/camera observations are only
+recorded after explicit operator work and local review. No hardware runs in
+quality CI. A GitHub Actions PASS alone is not Windows 10/11 or live-device
+certification. All six records must refer to the same source commit and
+qualified package digests before a manual-evidence report can be generated.
+
+
+## M11.9 (#83) — Binary redistribution SBOM and notice audit
+
+The M11.8 baseline is 291 Python quality tests, 149 native CTests (28 camera),
+and 12 green hosted CI checks. Run `python3 -m unittest discover -s
+tests/quality -p 'test_redistribution_m119.py' -v` and the full quality suite.
+The new `scripts/audit_redistribution_m119.py` independently validates the
+five downloaded package bytes against the same-run matrix report, invokes
+existing native package inspectors, and writes CycloneDX 1.6 **draft** SBOMs.
+The new CI step uploads *REVIEW-REQUIRED* evidence only. Missing artifacts,
+wrong SHA256, unsafe inputs, and invalid review records fail closed. License
+review without actual reviewed evidence must NOT be reported as complete.
+See [M11.9](../M11_9_REDISTRIBUTION_SBOM.md).
+
+## M12.1 (#84) — version identity and first-public-release scope freeze
+
+The 1.0.0 **release candidate** uses one CMake `project(VERSION)` source for
+CLI `--help`/`--version`, GUI text, Windows ZIP and same-run package metadata.
+The source-level `scripts/check_release_m121.py` rejects version drift in each
+producer and consumer workflow and missing M11.9 review-required boundaries.
+The new native `chromascope_cli_version` CTest validates the compiled CLI
+against `${PROJECT_VERSION}` (the native baseline becomes **150 CTests**,
+28 camera-labeled unchanged). Full Python quality baseline is **326**
+(313 accepted plus 13 M12.1 version-contract regression tests).
+
+```bash
+python3 scripts/check_release_m121.py
+python3 -m unittest discover -s tests/quality -p 'test_release_m121.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+ctest --preset linux-release --output-on-failure
+ctest --preset linux-cli-release --output-on-failure
+# Native ASan/UBSan test preset and real five-package hosted matrix are mandatory.
+./build/presets/linux-release/chromascope-cli --version
+```
+
+**Version 1.0.0 is not a public release approval.** M11.9 human redistribution
+and license-notice review, any remaining M11.8 manual device evidence, actual
+release provenance clearance, signing and publication remain separate gates.
+
+
+## M12.2 — exact-commit final RC regressions
+
+The accepted M12.1 baseline was 326 Python quality tests and 150 native CTests
+(28 labeled camera). M12.2 adds 17 Python regression tests in
+`tests/quality/test_release_candidate_m122.py`; the expected Python count is
+**343**. No native tests or production algorithms change. Run the focused and
+full Python suites, both local Release presets, the sanitizer preset,
+`run_clang_tidy.py`, `check_release_m121.py`, policy and provenance scripts.
+
+`Release Candidate CI` reuses both Quality and Package Matrix workflows in one
+source-locked run. The new `scripts/qualify_release_candidate_m122.py` validates
+identities and SHA-256s of the existing matrix report and M11.9 SBOM drafts,
+without making a license/desktop qualification or release authorization claim.
+See [the full M12.2 procedure](../M12_2_FINAL_RC_MATRIX.md).
+
+
+## M12.3 (#86) — Debian/Ubuntu v1.0.0 fresh-VM clean-install acceptance
+
+**Fast-track acceptance:** four separately completed operator JSON records are
+optional, not a required release-engineering gate. Preserve the successful
+four-distro native CI clean-install smoke tests and the full 20-check M12.2
+release-candidate matrix. The maintainer reported installing and exercising
+GUI/CLI packages on fresh VMs for all four Linux distributions. Neither CI nor
+that report proves every unreported manual step or the exact hash of a past
+VM download. The optional evidence tool remains strict when used; the M11.9
+redistribution review remains separate and unresolved.
+
+
+This is primarily documentation and reviewed operator evidence; **do not**
+replace real fresh-VM testing with another Python mock or a green headless
+chroot check. M11.2–M11.5 already require native `.deb` inspection and
+new debootstrap/APT CLI smoke on all four operating-system distributions;
+M12.2 additionally qualifies the five-package matrix at the same source SHA.
+The maintainer reports successful GUI/CLI tests on fresh VMs, but the per-VM
+package SHA, test actions and exact source commit must be recorded before the
+full acceptance report can be generated. See [M12.3 procedure](../M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md).
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_linux_clean_install_m123.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -v
+python3 scripts/qualify_linux_install_m123.py --help
+```
+
+The new script is offline, create-exclusive and hardware-free. It starts all
+nine cases as `NOT_TESTED`, and the four-platform summary demands actual
+operator review plus exact SHA-256 identity against the same-run M11.7 report.
+The prior M12.2 Python quality baseline is **343 tests**. M12.3 adds 15 Python
+regressions; the native baseline remains **150 CTests**, with 28 camera-labelled.
+There is no new CI workflow, runtime behavior, package builder or license
+sign-off. M11.9 redistribution and M11.8 camera certification stay separate.
+
+
+## M12.4 (#87) — Windows 10/11 portable ZIP acceptance
+
+The maintainer reports successful Windows 10 and Windows 11 portable ZIP
+GUI/CLI testing. Existing Windows Server 2022/MSVC builds, 150 native CTests,
+ZIP PE/CRT inspections, relocated synthetic CLI smoke, and all 20 Release
+Candidate CI checks remain required. No extra operator JSON records, historical
+commit lookups or repeated desktop testing are imposed.
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_windows_acceptance_m124.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -q
+python3 scripts/check_ci_policy.py
+python3 scripts/check_release_m121.py
+git diff --check
+```
+
+See [M12.4 Windows ZIP acceptance](../M12_4_WINDOWS_ZIP_ACCEPTANCE.md).
+The 359 Python-test M12.3 baseline grows only by documentation tests. Windows
+camera/driver tests not actually performed and M11.9 redistribution review
+remain separate; no native or GitHub Actions workflows change.
+
+## M12.5 (#88) — release risk/notice/privacy review
+
+Documentation-driven audit: **no new production code, packaging or CI jobs**.
+Run focused checks then the existing complete Python quality suite. The
+M12.4 baseline is **365 Python tests**; M12.5 adds ten focused regression
+checks. The native baseline stays **150 CTests** (28 camera-labeled) and
+20 existing GitHub Actions checks. The tests verify documented source
+claims and unresolved review boundaries; they do **not** independently scan
+CVE databases or certify packaged library versions.
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_release_signoff_m125.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -q
+python3 scripts/check_release_m121.py
+python3 scripts/check_ci_policy.py
+python3 scripts/check_provenance.py
+python3 scripts/check_object_provenance.py
+python3 scripts/check_model_selection.py
+git diff --check
+```
+
+See [M12.5 release security sign-off](../M12_5_RELEASE_SECURITY_SIGNOFF.md).
+The observed FFmpeg CVE-2026-8461 vendor vulnerabilities and M11.9 license
+notices are **outstanding public-release blockers**; green test results do
+not change those decisions.
+
+## M12.6 — manual release staging, checksum and signing regressions
+
+The new offline tests exercise the actual five-artifact staging and strict
+checksum checks using synthetic bytes, including corrupted input package,
+incorrect run/source, missing/extra assets, replaced SBOM, and unreviewed tag
+blocking. They verify the main-only manually dispatched GitHub signing job and
+its narrow token permissions. They do not generate Sigstore certificates locally.
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_release_staging_m126.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -q
+python3 scripts/check_ci_policy.py
+```
+
+See [M12.6 staging](../M12_6_RELEASE_STAGING.md). The native 150-CTest baseline
+and original 20 required PR CI checks remain unchanged; the staging job requires
+separate manual workflow_dispatch on main. M11.9 and M12.5 release sign-off
+remain unresolved and must not be bypassed to produce a tag.
+
+
+## M12.7 public-release documentation and original demo
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_release_docs_m127.py' -v`
+and the complete quality suite. This milestone adds no native algorithms and
+keeps the 150-test CTest baseline. The screenshot guide does not claim that
+real images were supplied, and the generated example PNG must be original
+and never overwrite existing files. The release notes remain a draft until
+M11.9 license obligations and M12.5 vulnerability findings are resolved.

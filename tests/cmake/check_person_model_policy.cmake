@@ -39,7 +39,7 @@ string(JSON _no_weights GET "${_audit}" local_evaluation bundle_model_weights)
 if(NOT _complete OR NOT _ground_truth OR _no_weights)
   message(FATAL_ERROR "M7.1 protocol must require complete labeled data and exclude weights")
 endif()
-foreach(_path IN ITEMS "docs/M7_1_PERSON_MODEL_EVALUATION.md" "models/NANODET_NOTICES.md"
+foreach(_path IN ITEMS "docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md" "models/NANODET_NOTICES.md"
     "licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt" "scripts/evaluate_person_detections.py")
   if(NOT EXISTS "${_root}/${_path}")
     message(FATAL_ERROR "Missing person evaluation/license record: ${_path}")

@@ -27,7 +27,7 @@ class CameraCapturePolicyTests(unittest.TestCase):
         self.assertIn('if (workspace_mode == 2) {', gui)
         self.assertNotIn("AsyncCameraCapture", (ROOT / "src/cli/main.cpp").read_text())
         self.assertNotIn("AsyncCameraCapture", (ROOT / "src/core/VideoSource.cpp").read_text())
-        doc = (ROOT / "docs/M8_3_CAMERA_CAPTURE.md").read_text()
+        doc = (ROOT / "docs/history/milestones/M8_3_CAMERA_CAPTURE.md").read_text()
         for phrase in ["bounded", "monotonic", "cooperative", "permission", "privacy"]:
             self.assertIn(phrase, doc.lower())
 

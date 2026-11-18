@@ -1,6 +1,6 @@
 # ChromascopeIP — M0–M0.3 Architecture (historical baseline)
 
-> **Current reference:** [M10.8 system architecture](CURRENT_ARCHITECTURE.md).
+> **Current reference:** [M10.8 system architecture](../CURRENT_ARCHITECTURE.md).
 > This file intentionally preserves historical milestone evolution; the
 > current operating architecture includes live camera inference, temporary
 > tracking, privacy/settings, and bounded soak qualification through M10.7.
@@ -9,7 +9,7 @@
 The early pipeline/"excluded from M0" sections below describe the **M0
 baseline**, not the current M7 feature set. Later sections describe the
 implemented async video and NanoDet pipelines. Current local processing,
-retention and privacy limitations: [M7.6 privacy policy](M7_6_LOCAL_PRIVACY.md).
+retention and privacy limitations: [M7.6 privacy policy](milestones/M7_6_LOCAL_PRIVACY.md).
 
 ## Goal
 
@@ -27,7 +27,7 @@ chromascope-gui ------------------+
        +-- GLFW + OpenGL 3.3
 ```
 
-The original core used `cv::Mat` as the image container and returns plain detection results. M2.1 adds the owned `ImageFrame` value type and deep-copy OpenCV adapters, detailed in [IMAGE_FRAME_CONTRACT.md](IMAGE_FRAME_CONTRACT.md). It does not depend on Dear ImGui, GLFW, or an OpenGL context. The current front ends share registered `IProcessor` implementations and the M2.5 annotation renderer; neither implements a competing classifier.
+The original core used `cv::Mat` as the image container and returns plain detection results. M2.1 adds the owned `ImageFrame` value type and deep-copy OpenCV adapters, detailed in [IMAGE_FRAME_CONTRACT.md](../IMAGE_FRAME_CONTRACT.md). It does not depend on Dear ImGui, GLFW, or an OpenGL context. The current front ends share registered `IProcessor` implementations and the M2.5 annotation renderer; neither implements a competing classifier.
 
 ## Processing pipeline
 
@@ -63,14 +63,14 @@ I can next consider an `ImageFrame` abstraction (for stills/video), a processor 
 
 I keep the core/CLI/GUI source layout unchanged. I added tracked `CMakePresets.json` presets that isolate Release, Debug, and headless CLI builds beneath `build/presets/<preset-name>/`. Their `CMAKE_PREFIX_PATH` on Linux points to the same isolated OpenCV 5.1.0 prefix as my bootstrap script; custom paths belong in a Git-ignored `CMakeUserPresets.json` or on the configure command line. I guard against in-source CMake builds, keep generated dependencies out of the repository, and preserve the manually configured `build/` workflow for compatibility.
 
-The Windows presets are intentionally limited to the core, CLI, and tests until Windows GUI configuration and distribution qualification are implemented. A preset defines a build configuration; it does not by itself establish a verified platform. Details and commands are recorded in [BUILD_PRESETS.md](BUILD_PRESETS.md).
+The Windows presets are intentionally limited to the core, CLI, and tests until Windows GUI configuration and distribution qualification are implemented. A preset defines a build configuration; it does not by itself establish a verified platform. Details and commands are recorded in [BUILD_PRESETS.md](../BUILD_PRESETS.md).
 
 
 ## M1.3 independent verification layers
 
 I register tests in `tests/CMakeLists.txt` and keep each major test layer in its own source directory. HSV/validation unit cases do not require original photographs; synthetic integration tests create images in memory; historical regression tests use the immutable original photographs in `samples/skittles/` and the SHA-256 manifest in `tests/fixtures/skittles.sha256`. The CLI tests exercise the real binary, including an export contract for PNG and JSON file/stdout output.
 
-CTest labels (`unit`, `integration`, `regression`, `fixtures`, `cli`, `negative`) allow future CI to select subsets without renaming tests. Test outputs stay under the selected build directory. No production processing code or GUI/CLI architecture changes in M1.3. Details and commands are recorded in [TESTING.md](TESTING.md).
+CTest labels (`unit`, `integration`, `regression`, `fixtures`, `cli`, `negative`) allow future CI to select subsets without renaming tests. Test outputs stay under the selected build directory. No production processing code or GUI/CLI architecture changes in M1.3. Details and commands are recorded in [TESTING.md](../TESTING.md).
 
 ## M2.2 — Generalized detection results
 
@@ -80,7 +80,7 @@ and optional profile-local class ID. The `DetectionResultBridge` translates the
 existing Skittles-only `Result` into this model without modifying detection
 logic, GUI overlays, or CLI serialization. A source timestamp can be forwarded
 from an associated M2.1 `ImageFrame`. See
-[DETECTION_RESULT_CONTRACT.md](DETECTION_RESULT_CONTRACT.md) for pixel-coordinate,
+[DETECTION_RESULT_CONTRACT.md](../DETECTION_RESULT_CONTRACT.md) for pixel-coordinate,
 validation, ownership, and compatibility rules. M2.3 and M2.5 integrate
 this representation with processor registration and generalized annotations.
 
@@ -93,7 +93,7 @@ and HSV implementation through an owned frame. Results use M2.2 `DetectionResult
 and are adapted to the original Skittles result only where the CLI must retain
 its historical JSON/text schema. Visual presentation uses the M2.5 annotation
 layer instead, without calling the detector again. See
-[PROCESSOR_CONTRACT.md](PROCESSOR_CONTRACT.md).
+[PROCESSOR_CONTRACT.md](../PROCESSOR_CONTRACT.md).
 
 ## M2.5 independent annotation/rasterization boundary
 
@@ -103,7 +103,7 @@ OpenCV-backed BGR renderer. The annotation model has no dependency on OpenCV,
 processors, GUI widgets, or detection metadata; the renderer consumes only the
 layer and image. The GUI and CLI use the same drawing implementation while
 preserving legacy colors and export schemas. `draw_annotations` remains an
-adapter for older callers. See [ANNOTATION_CONTRACT.md](ANNOTATION_CONTRACT.md)
+adapter for older callers. See [ANNOTATION_CONTRACT.md](../ANNOTATION_CONTRACT.md)
 for ownership, coordinate semantics, and new regression checks.
 
 ## M3.2 geometric image analysis
@@ -125,7 +125,7 @@ See `docs/SEGMENTATION_PROFILES.md` for algorithms, options, and acceptance.
 private implementation, delivering owned `ImageFrame` packets with sequential
 indexes and media-presentation metadata. This is a core-only recorded-file
 interface; it does not interact with the GUI render thread or current
-processing workers. See `docs/M4_2_VIDEO_SOURCE.md` for timing, EOF and
+processing workers. See `docs/history/milestones/M4_2_VIDEO_SOURCE.md` for timing, EOF and
 resource-boundary details.
 
 
@@ -137,7 +137,7 @@ publishes owned `ImageFrame` packets tagged with a generation, and waits when
 the queue reaches its event-count or owned-byte budget. New open, seek and
 cancel commands invalidate old generations and queued output. Terminal EOF
 and errors are distinct events. No GUI or camera subsystem is introduced.
-See `docs/M4_3_ASYNC_VIDEO.md` for lifecycle and limitations.
+See `docs/history/milestones/M4_3_ASYNC_VIDEO.md` for lifecycle and limitations.
 
 
 ## M4.5 CLI recorded-video operations
@@ -151,7 +151,7 @@ CLI-specific OpenCV-independent `VideoCliContract.hpp` validates exact numeric
 indexes and a lossless output extension; `CliOutputPaths.hpp` continues to
 perform safe destination resolution and input-alias checks. The CLI uses only
 `VideoSource`, `ImageFrameCV`, and `ImageIO` for actual decoding and export.
-See `docs/M4_5_CLI_VIDEO.md` for the JSON and failure contracts.
+See `docs/history/milestones/M4_5_CLI_VIDEO.md` for the JSON and failure contracts.
 
 ## M4.6 — Video media-policy seam
 
@@ -161,14 +161,14 @@ opt-out and BGR8 rotation, `AsyncVideoDecoder` shares generation-scoped rotation
 metadata, and `VideoPlayer` paces bounded decoder-reported intervals where
 available. CLI schema v1 exposes additive rotation/timestamp-source/audio-policy
 fields. Audio streams are not decoded or synchronized. See
-`docs/M4_6_VIDEO_MEDIA.md` for backend limitations.
+`docs/history/milestones/M4_6_VIDEO_MEDIA.md` for backend limitations.
 
 ## M5.1 general object-detection selection — research only
 
 A machine-readable, SHA-256-identified **OpenCV Zoo NanoDet-Plus-M 1.5x
 FP32 ONNX** selection is maintained in `models/selected_model.json`, with
 Apache-2.0 attribution and conditional future redistribution obligations in
-`docs/M5_1_MODEL_SELECTION.md` and `models/NANODET_NOTICES.md`. The normal
+`docs/history/milestones/M5_1_MODEL_SELECTION.md` and `models/NANODET_NOTICES.md`. The normal
 source/test checkout contains no weights. No model loading, third-party DNN
 runtime, network download, or new processor implementation is introduced.
 A future milestone must explicitly extend both source-pinned OpenCV 5.1.0
@@ -197,7 +197,7 @@ consumes a caller-owned `VideoFramePacket` and invokes the same
 owned `DetectionResult` with source-frame coordinates plus the original video
 frame index and timestamp provenance. Decode, preprocessing and model inference
 are synchronous in this milestone and MUST be scheduled off the GUI thread when
-continuous video analysis is added later. See `docs/M6_1_RECORDED_OBJECT_DETECTION.md`.
+continuous video analysis is added later. See `docs/history/milestones/M6_1_RECORDED_OBJECT_DETECTION.md`.
 
 ## M6.2 recorded-video inference session and GUI overlay
 
@@ -208,7 +208,7 @@ snapshots, and a 256-frame bounded cache are protected by one mutex. The GUI
 polls progress/result snapshots without blocking on OpenCV and never passes
 OpenGL textures across threads. The immutable cached result is drawn using the
 same `ImageViewport` transform as the displayed frame, after exact index,
-geometry, timestamp, and provenance matching. See `docs/M6_2_ASYNC_VIDEO_GUI.md`.
+geometry, timestamp, and provenance matching. See `docs/history/milestones/M6_2_ASYNC_VIDEO_GUI.md`.
 
 ## M6.3 sequential CLI video analysis and JSONL output
 
@@ -220,7 +220,7 @@ source frame and its result are discarded before the next decode, independent
 of the M6.2 GUI cache/worker. A decoded-frame cap limits untrusted recordings;
 frame-step selection preserves source indexes and media timestamp provenance.
 The end marker explicitly distinguishes true decoder EOF from a cap; errors
-produce nonzero exit status without a success marker. See `docs/M6_3_VIDEO_JSONL.md`.
+produce nonzero exit status without a success marker. See `docs/history/milestones/M6_3_VIDEO_JSONL.md`.
 
 ## M6.4 video-only export
 
@@ -247,7 +247,7 @@ acceptance specifically verifies source-frame ownership and seek replay,
 exact timestamps/provenance, weak-candidate gating, source-specific overlay
 invalidation, frame-step/EOF distinction, frame-specific encoded annotation
 pixels, CFR FPS override, and no published artifacts on failed exports.
-See `docs/M6_5_VIDEO_REGRESSIONS.md`.
+See `docs/history/milestones/M6_5_VIDEO_REGRESSIONS.md`.
 
 ## M6.6 stage-level video timing
 
@@ -260,7 +260,7 @@ generation-specific frame timings and records GUI draw-list CPU overlay costs
 separately per repaint. The AVI export worker sends status-mutex-protected
 timing snapshots for all four stages. Timings do not include model loading,
 GPU execution, encoder lifecycle or final filesystem publication.
-See `docs/M6_6_VIDEO_PERFORMANCE.md`.
+See `docs/history/milestones/M6_6_VIDEO_PERFORMANCE.md`.
 
 ## M6.7 recorded-video M5.8 policy presentation
 
@@ -274,7 +274,7 @@ successfully emitted JSONL analysis frames, and successful AVI writes. Cancellat
 cache eviction does not change previously recorded cumulative counts.
 `uncertainty_floor` influences weak candidate diagnostics only and never fabricates
 an unknown class, a box, or a second-best prediction. No audio, video timing,
-codec, or NanoDet model behavior changes. See `docs/M6_7_VIDEO_CONFIDENCE.md`.
+codec, or NanoDet model behavior changes. See `docs/history/milestones/M6_7_VIDEO_CONFIDENCE.md`.
 
 ## M7.1 person-class research and independent accuracy boundary
 
@@ -291,7 +291,7 @@ objects. Results are per-operating-point precision/recall/F1, **not COCO mAP**.
 This prevents upstream benchmark numbers or synthetic unit tests from being
 misrepresented as locally validated real-world person accuracy. License and
 release conditions remain unchanged. See
-`docs/M7_1_PERSON_MODEL_EVALUATION.md`.
+`docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md`.
 
 
 ## M7.2 person-only profile boundary
@@ -308,7 +308,7 @@ video frames, streaming JSONL and annotated AVI. The recorded-video GUI
 snapshots the same options into asynchronous analyzer/export jobs, canceling
 stale results when the profile or cutoff changes. Core frame timing, owner
 identity, source timestamp, NMS, class map, pinned model, codec and audio
-policies remain unchanged. See `docs/M7_2_PERSON_PROFILE.md`.
+policies remain unchanged. See `docs/history/milestones/M7_2_PERSON_PROFILE.md`.
 
 ## M7.3 — GUI person boxes from the shared NanoDet frame pipeline
 
@@ -321,7 +321,7 @@ uses its existing source-image zoom/pan transform to draw person rectangles
 and confidence labels. Export rasterizes the same detection snapshot onto an
 independent BGR8 source copy. The video GUI/CLI retain their original paths
 and timings. No GPU work is done on the model thread; no additional worker or
-network dependency is introduced. See `docs/M7_3_PERSON_BOXES.md`.
+network dependency is introduced. See `docs/history/milestones/M7_3_PERSON_BOXES.md`.
 
 ## M7.4 — Person scenario testing and evaluation breakdown
 
@@ -332,14 +332,14 @@ M7.1 stdlib evaluator retains its exact-frame, rights, digest, box-IoU and
 fail-closed rules and adds per-tag `scenario_metrics` based on the *same*
 greedy per-frame matcher. The synthetic MJPEG CTest checks decoder and
 source-space postprocessing without changing the NanoDet model, GUI, CLI or
-inference runtime. See `docs/M7_4_PERSON_SCENARIOS.md`.
+inference runtime. See `docs/history/milestones/M7_4_PERSON_SCENARIOS.md`.
 
 ### M7.5 person-workflow entry points
 
 The GUI has two top-level actions that only select the existing class-0
 NanoDet still-image/recorded-video workflows. No new inference adapter,
 processor or cache exists. The CLI `--person-only` aliases the already
-validated `--profile person` parser branch. See `docs/M7_5_PERSON_WORKFLOW.md`.
+validated `--profile person` parser branch. See `docs/history/milestones/M7_5_PERSON_WORKFLOW.md`.
 
 ## M7.6 — Runtime privacy boundary
 
@@ -351,7 +351,7 @@ closes the video decoder and drops displayed CPU/GPU buffers without touching
 previous exports. Background codecs may still finish, and third-party/OS
 behavior is not covered by a zero-network or secure-wipe claim. Runtime
 `--privacy-info` prints a standalone no-media privacy summary. See
-`docs/M7_6_LOCAL_PRIVACY.md` for a boundary map and acceptance checklist.
+`docs/history/milestones/M7_6_LOCAL_PRIVACY.md` for a boundary map and acceptance checklist.
 
 ## M8.1 camera core boundary
 
@@ -364,7 +364,7 @@ A successful read returns independently owned bounded BGR8 pixels with
 `CaptureMonotonic` time instead of recorded `MediaPresentation` timestamps.
 No automatic fallback, networking, persistence, background capture, live
 preview or frame-based person inference is implemented. See
-`docs/M8_1_CAMERA_BACKENDS.md` for interface, selection and test gates.
+`docs/history/milestones/M8_1_CAMERA_BACKENDS.md` for interface, selection and test gates.
 
 ### M8.2 camera discovery, formats, and errors
 
@@ -372,7 +372,7 @@ preview or frame-based person inference is implemented. See
 authorized bounded native backend probes. `CameraSource::open` applies and
 verifies optional strict format requests and raises typed hardware failures.
 Neither is connected to the recorded-file `VideoSource` or auto-run by GUI.
-See `docs/M8_2_CAMERA_DISCOVERY.md`.
+See `docs/history/milestones/M8_2_CAMERA_DISCOVERY.md`.
 
 
 ### M8.3 — bounded camera worker
@@ -381,7 +381,7 @@ The opt-in `AsyncCameraCapture` owns `CameraSource` exclusively on one worker
 thread. Completed BGR8 packets enter a bounded latest-frame-wins queue with
 monotonic capture timestamps, generation-rejected stale results and explicit
 cooperative stop. It remains separate from recorded-video decode and GUI;
-see `docs/M8_3_CAMERA_CAPTURE.md`.
+see `docs/history/milestones/M8_3_CAMERA_CAPTURE.md`.
 
 
 ### M8.4 — Opt-in GUI camera preview
@@ -393,7 +393,7 @@ polls current-generation, bounded BGR8 events and uploads only the most recent
 frame. The capture indicator is conservative through Starting/Stopping/Failed,
 and leaving the camera view or clearing the session stops and clears the
 preview without modifying recorded-video or still-image media. See
-`docs/M8_4_CAMERA_GUI.md`.
+`docs/history/milestones/M8_4_CAMERA_GUI.md`.
 
 ### M8.5 camera CLI boundary
 
@@ -402,7 +402,7 @@ with finite frame/time limits and rejects file-video/DNN flags before device
 access. `src/cli/CameraCliCapture.cpp` consumes owned M8.3 worker packets; it
 writes PNGs only after an explicit create-only `--camera-save-dir` request.
 This does not change `VideoSource` or GUI camera preview. Driver calls are
-cooperatively cancelled, not time-bounded. See `docs/M8_5_CAMERA_CLI.md`.
+cooperatively cancelled, not time-bounded. See `docs/history/milestones/M8_5_CAMERA_CLI.md`.
 
 ### M9.2 live inference admission and overload policy
 
@@ -414,4 +414,4 @@ spacing is enforced on admitted frames, and stale frame indices/rollback
 capture timestamps are rejected. All counts and queue states are scoped to
 one inference session. Neither policy affects the native camera device queue,
 the on-worker ONNX forward, or source-matched GUI result frames. See
-`docs/M9_2_LIVE_INFERENCE_SCHEDULING.md`.
+`docs/history/milestones/M9_2_LIVE_INFERENCE_SCHEDULING.md`.

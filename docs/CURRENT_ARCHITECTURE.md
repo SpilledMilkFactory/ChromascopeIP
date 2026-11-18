@@ -1,6 +1,6 @@
-# ChromascopeIP — Current system architecture (M10.8 / #74)
+# ChromascopeIP — Current system architecture (v1.0.0 release candidate)
 
-This document describes the **implemented M10.7 baseline** and M10.8 documentation scope. [ARCHITECTURE.md](ARCHITECTURE.md) preserves the historical M0–M9 evolution, including decisions that are no longer descriptions of the current application. For operator workflows, use [GUI guide](USER_GUIDE.md), [CLI reference](CLI_REFERENCE.md), and [privacy guide](PRIVACY_GUIDE.md).
+This document summarizes the **implemented v1.0.0 release-candidate architecture**. [Architecture evolution](history/ARCHITECTURE_EVOLUTION.md) preserves the historical M0–M10 decisions; older scope and CI descriptions do not supersede the current source. For operator workflows, use [GUI guide](USER_GUIDE.md), [CLI reference](CLI_REFERENCE.md), and [privacy guide](PRIVACY_GUIDE.md).
 
 ## Component ownership and boundaries
 
@@ -34,7 +34,7 @@ Trusted ONNX file -> SHA-256 -> CpuDnnAdapter -> NanoDetDecoder-+  AnnotationLay
 
 ## Threading, lifecycles, and cancellation
 
-OpenCV processing can occur on worker threads. UI state and textures belong to the GUI thread. Async queues have explicit finite capacity and stale generation invalidation; neither cancellation nor a time limit forcibly aborts an OpenCV DNN forward, blocking decoder, or native camera driver call. Stop/reopen requests must be observed before claiming a device is released. The GUI source switch must not present detections from a prior session. [Async worker](ASYNC_PROCESSING.md), [live scheduling](M9_2_LIVE_INFERENCE_SCHEDULING.md), [camera capture](M8_3_CAMERA_CAPTURE.md).
+OpenCV processing can occur on worker threads. UI state and textures belong to the GUI thread. Async queues have explicit finite capacity and stale generation invalidation; neither cancellation nor a time limit forcibly aborts an OpenCV DNN forward, blocking decoder, or native camera driver call. Stop/reopen requests must be observed before claiming a device is released. The GUI source switch must not present detections from a prior session. [Async worker](ASYNC_PROCESSING.md), [live scheduling](history/milestones/M9_2_LIVE_INFERENCE_SCHEDULING.md), [camera capture](history/milestones/M8_3_CAMERA_CAPTURE.md).
 
 ## Structured output and lifecycle
 
@@ -43,18 +43,18 @@ OpenCV processing can occur on worker threads. UI state and textures belong to t
 - Live-camera JSONL start/frame/end, with explicit camera authorization, bounded capture, and separate graceful-interrupt semantics. Raw captured pixels do not appear in normal JSONL.
 - `--include-annotations` is opt-in, uses source-image geometry and preserves legacy output fields. GUI overlays use matching presentation logic, but can clip to the viewport; temporary live tracking IDs are not exported as persistent identity.
 
-See [CLI reference](CLI_REFERENCE.md), [M6.3 video JSONL](M6_3_VIDEO_JSONL.md), [M9.6 live JSONL](M9_6_CLI_LIVE_JSONL.md), and [M10.3 unified annotations](M10_3_UNIFIED_ANNOTATIONS.md).
+See [CLI reference](CLI_REFERENCE.md), [M6.3 video JSONL](history/milestones/M6_3_VIDEO_JSONL.md), [M9.6 live JSONL](history/milestones/M9_6_CLI_LIVE_JSONL.md), and [M10.3 unified annotations](history/milestones/M10_3_UNIFIED_ANNOTATIONS.md).
 
 ## Filesystem and local persistence
 
-Input paths come from the user; image files and ONNX are subject to validation and model integrity. Output path policies differ by mode, so do not assume all writes are create-only. GUI settings use an explicit-save, schema-v1 local preference file; paths, pixels, model files, camera indices and history are excluded. `Clear loaded media, model and results` resets owned in-memory state but does not remove prior exports or OS caches. The first-party runtime implements no remote upload. [Privacy guide](PRIVACY_GUIDE.md), [M10.2 preferences](M10_2_VERSIONED_PREFERENCES.md), [M10.5 threat review](M10_5_THREAT_BOUNDARY_AUDIT.md).
+Input paths come from the user; image files and ONNX are subject to validation and model integrity. Output path policies differ by mode, so do not assume all writes are create-only. GUI settings use an explicit-save, schema-v1 local preference file; paths, pixels, model files, camera indices and history are excluded. `Clear loaded media, model and results` resets owned in-memory state but does not remove prior exports or OS caches. The first-party runtime implements no remote upload. [Privacy guide](PRIVACY_GUIDE.md), [M10.2 preferences](history/milestones/M10_2_VERSIONED_PREFERENCES.md), [M10.5 threat review](history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md).
 
 ## Build, dependency and verification layers
 
-C++20 + CMake/Ninja, **OpenCV 5.1.0 exactly** with `videoio` + `dnn`, Dear ImGui 1.93.0 + GLFW/OpenGL for GUI. `linux-release` builds both front ends; `linux-cli-release` and `linux-cli-sanitize` isolate CLI/core; `windows-cli-release` is Windows Server CI's MSVC core/CLI path. CI targets Debian 12/13, Ubuntu 24.04/26.04, an Ubuntu Quality job, and Windows Server 2022. The six CI checks **do not validate a physical webcam or native Windows GUI desktop**.
+C++20 + CMake/Ninja, **OpenCV 5.1.0 exactly** with `videoio` + `dnn`, Dear ImGui 1.93.0 + GLFW/OpenGL for GUI. `linux-release` builds both front ends; `linux-cli-release` and `linux-cli-sanitize` isolate CLI/core; `windows-cli-release` is Windows Server CI's MSVC core/CLI path. CI targets Debian 12/13, Ubuntu 24.04/26.04, the Ubuntu Quality workflow, Windows Server 2022 MSVC, the five-platform package matrix and the exact-source release-candidate/staging workflows. Hosted CI does **not independently certify every physical webcam or Windows 10/11 desktop environment**; maintainer-reported client OS checks are documented separately.
 
-M10.7 accepted baseline: **147 native CTests**, **28 camera-labeled** and **140 Python quality tests** plus lint/provenance/model checks. Optional synthetic, recorded-video and authorized live-camera soak is documented in [M10.7](M10_7_SANITIZER_STATIC_SOAK.md); M10.6 first-party malformed-media preflight fuzzing has limited scope. [Testing](TESTING.md), [verification](VERIFICATION.md), [quality](QUALITY.md).
+At the accepted M12.7 baseline, reports show **150 native CTests**, **28 camera-labeled** and **407 Python quality tests**, plus lint/provenance/model checks. The historical M10.8 documentation consolidation and M10.7 test suite were smaller; optional synthetic, recorded-video and authorized live-camera soak is documented in [M10.7](history/milestones/M10_7_SANITIZER_STATIC_SOAK.md); M10.6 first-party malformed-media preflight fuzzing has limited scope. [Testing](TESTING.md), [verification](VERIFICATION.md), [quality](QUALITY.md).
 
 ## Trust and known limitations
 
-Resource policy is defense in depth, **not sandboxing** of OpenCV/FFmpeg/ONNX parsers; native drivers may block. Existing M10.5 risks R-01 through R-08 remain priorities, not proof of exploits. Face recognition, remote upload, audio passthrough, guaranteed device-driver cancellation and persistent identity matching are **not implemented**. Distribution rights for archived samples/models must be reviewed separately. Follow [M10.5](M10_5_THREAT_BOUNDARY_AUDIT.md), [media rights](MEDIA_RIGHTS.md), and [model provenance](M5_7_MODEL_SECURITY.md).
+Resource policy is defense in depth, **not sandboxing** of OpenCV/FFmpeg/ONNX parsers; native drivers may block. Existing M10.5 risks R-01 through R-08 remain recorded priorities, not proof of exploits. Face recognition, remote upload, audio passthrough, guaranteed device-driver cancellation and persistent identity matching are **not implemented**. Distribution rights for archived samples/models must be reviewed separately. Follow [M10.5](history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md), [media rights](MEDIA_RIGHTS.md), and [model provenance](history/milestones/M5_7_MODEL_SECURITY.md).

@@ -67,8 +67,8 @@ If ChromascopeIP later bundles or redistributes the selected ONNX, we must
 ship a copy of the Apache-2.0 text, preserve relevant author and NOTICE
 attribution, note modified model files, and include the model in the
 per-platform dependency/SBOM inventory. The standard Apache-2.0 license text
-is available at [`../licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt`](../licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt).
-Our model-specific attribution is in [`../models/NANODET_NOTICES.md`](../models/NANODET_NOTICES.md).
+is available at [`../licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt`](../../../licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt).
+Our model-specific attribution is in [`../models/NANODET_NOTICES.md`](../../../models/NANODET_NOTICES.md).
 
 **Distinctions:** Source-code license, model checkpoint license, training
 image rights, runtime libraries, and application distributions are different

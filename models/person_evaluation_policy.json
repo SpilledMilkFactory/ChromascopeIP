@@ -17,7 +17,7 @@
   },
   "local_evaluation": {
     "protocol": "scripts/evaluate_person_detections.py",
-    "annotation_schema": "docs/M7_1_PERSON_MODEL_EVALUATION.md",
+    "annotation_schema": "docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md",
     "evaluation_metric": "one_to_one_person_box_iou_tp_fp_fn_precision_recall_f1",
     "not_coco_map": true,
     "requires_independently_reviewed_ground_truth": true,

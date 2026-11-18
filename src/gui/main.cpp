@@ -1116,7 +1116,7 @@ struct App {
         ImGui::Separator();
         ImGui::TextWrapped("Local-only first-party workflows: no telemetry or automatic camera "
             "access. Session clearing does not delete previously exported files. "
-            "See docs/M10_1_GUI_EXPERIENCE.md and docs/M7_6_LOCAL_PRIVACY.md.");
+            "See docs/USER_GUIDE.md and docs/PRIVACY_GUIDE.md.");
         if (ImGui::Button("Close help")) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
@@ -2105,7 +2105,7 @@ struct App {
             ImGui::TextWrapped("Clearing cancels pending work and releases displayed "
                 "resources, but in-flight OpenCV work can finish. "
                 "Previously saved files, terminal output and OS caches remain.");
-            ImGui::TextDisabled("Privacy details: docs/M7_6_LOCAL_PRIVACY.md");
+            ImGui::TextDisabled("Privacy details: docs/PRIVACY_GUIDE.md");
         }
         ImGui::Separator();
         if (workspace_mode == 1) {

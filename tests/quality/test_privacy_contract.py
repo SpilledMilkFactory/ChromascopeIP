@@ -31,7 +31,7 @@ class PrivacyContractTests(unittest.TestCase):
         self.assertNotIn("std::filesystem::remove(", reset)
 
     def test_public_policy_has_scope_and_caveats(self):
-        policy = (ROOT / "docs/M7_6_LOCAL_PRIVACY.md").read_text(encoding="utf-8")
+        policy = (ROOT / "docs/history/milestones/M7_6_LOCAL_PRIVACY.md").read_text(encoding="utf-8")
         for claim in ("third-party", "COCO class", "no face detection",
                       "not a secure wipe", "not anonymization", "not securely erased",
                       "audio", "stdout", "imgui.ini", "staging", "OS"):

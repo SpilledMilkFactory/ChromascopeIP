@@ -26,7 +26,7 @@ I reviewed the current project files and build configurations; I did not perform
 I selected an **Apache-2.0-licensed OpenCV Zoo NanoDet FP32 ONNX checkpoint**
 for future multi-class detection, with its official published SHA-256, full
 standard license text, and author attributions recorded under `models/` and
-`licenses/`. See [M5.1 research](M5_1_MODEL_SELECTION.md). This source-only
+`licenses/`. See [M5.1 research](history/milestones/M5_1_MODEL_SELECTION.md). This source-only
 change does **not** ship the model binary, incorporate OpenCV DNN, or authorize
 release of the four historically archived photographs. Distribution of the
 ONNX remains conditional on retaining notices, exact artifact-hash checks,

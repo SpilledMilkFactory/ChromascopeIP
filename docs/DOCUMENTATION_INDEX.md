@@ -39,3 +39,10 @@ then [M11.9 artifact-derived SBOM review](M11_9_REDISTRIBUTION_SBOM.md),
 [license audit](LICENSE_AUDIT.md), [third-party provenance](THIRD_PARTY_PROVENANCE.md),
 and [privacy guide](PRIVACY_GUIDE.md). The dated FFmpeg CVE-2026-8461
 review remains **BLOCKED** for affected target distributions until disposition.
+
+## M12.6 — staged release manifest, hashes, SBOM and provenance
+
+The [M12.6 release staging guide](M12_6_RELEASE_STAGING.md) describes the
+manually dispatched same-run release stage, SHA256SUMS, proposed v1.0.0 tag,
+Sigstore provenance/SBOM attestations, verification and explicit M11.9/M12.5
+publication blockers. It **does not authorize or publish** a release.

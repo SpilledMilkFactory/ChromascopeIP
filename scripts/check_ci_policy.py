@@ -15,7 +15,16 @@ def check_workflow(path):
         errors.append("privileged pull_request_target trigger")
     if not re.search(r"(?m)^permissions:\s*\n\s+contents:\s*read\s*$", content):
         errors.append("missing explicit read-only repository permissions")
-    if re.search(r"(?m)^\s+[a-z-]+:\s*write\s*$", content):
+    # A single manually dispatched staging job can request narrowly scoped
+    # Sigstore signing permissions. No job gets contents:write or packages:write.
+    writes = re.findall(r"(?m)^\s+([a-z-]+):\s*write\s*$", content)
+    expected_writes = ['id-token', 'attestations']
+    if writes and (path.name != 'release-staging.yml' or
+                   sorted(writes) != sorted(expected_writes) or
+                   not re.search(r"(?m)^  stage:\s*$", content) or
+                   not re.search(r"(?m)^      contents:\s*read\s*$", content) or
+                   not re.search(r"(?m)^  workflow_dispatch:\s*$", content) or
+                   re.search(r"(?m)^  pull_request:\s*$", content)):
         errors.append("unexpected write token permission")
     for ref in USE.findall(content):
         if ref.startswith("./.github/workflows/"):
@@ -25,7 +34,8 @@ def check_workflow(path):
                        "./.github/workflows/ci-ubuntu.yml",
                        "./.github/workflows/ci-windows.yml",
                        "./.github/workflows/quality.yml",
-                       "./.github/workflows/package-matrix.yml"}
+                       "./.github/workflows/package-matrix.yml",
+                       "./.github/workflows/release-candidate.yml"}
             if ref not in allowed:
                 errors.append(f"unapproved reusable workflow: {ref}")
             else:

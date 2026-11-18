@@ -57,6 +57,8 @@ printf 'commit=%s\nmodules=core,imgproc,imgcodecs,videoio,dnn\nvideo_backend=ffm
     "${actual_revision}" > "${prefix}/.chromascope-opencv-videoio-build.txt"
 printf 'magicyuv_policy=disabled-before-probe-and-playback\nsecurity_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n' \
     >> "${prefix}/.chromascope-opencv-videoio-build.txt"
+printf 'ffmpeg_parser_policy=noparse-from-preopen\nlcevc_policy=reject-enabled-runtime\nhwdec_policy=cpu-only\nsecurity_final_patch_sha256=dfdb49ab2c57d0281afc4596597397f138fdd183353dc4c9942810318019935a\n' \
+    >> "${prefix}/.chromascope-opencv-videoio-build.txt"
 printf 'ipp=OFF\n' >> "${prefix}/.chromascope-opencv-videoio-build.txt"
 printf '\nOpenCV %s installed to %s\n' "${version}" "${prefix}"
 printf 'Now configure ChromascopeIP with:\n'

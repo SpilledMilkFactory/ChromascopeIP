@@ -174,6 +174,7 @@ def linux_inventory(path):
         libs = []
         build_information = {}
         security_patch = None
+        final_security_patch = None
         for rel, item, kind in entries:
             if kind == 'symlink':
                 continue
@@ -194,6 +195,10 @@ def linux_inventory(path):
                 match = re.search(r'(?m)^security_patch_sha256=([0-9a-f]{64})$', item.read_text())
                 if match:
                     security_patch = match[1]
+                final_match = re.search(r'(?m)^security_final_patch_sha256=([0-9a-f]{64})$',
+                                        item.read_text())
+                if final_match:
+                    final_security_patch = final_match[1]
         need({'chromascope-cli', 'chromascope-gui'} <=
              {Path(k).name for k in linked}, 'Missing installed GUI/CLI')
         need(libs, 'No bundled OpenCV private runtime discovered')
@@ -207,6 +212,7 @@ def linux_inventory(path):
                 'bundled_libraries': bundled, 'external_sonames': external_sonames,
                 'opencv_build_information': build_information,
                 'opencv_security_patch_sha256': security_patch,
+                'opencv_final_security_patch_sha256': final_security_patch,
                 'debian_dependencies': split_deps(fields['Depends'])}
 
 
@@ -288,6 +294,9 @@ def create_bom(target, package_hash, inventory, run_id, commit):
     if inventory.get('opencv_security_patch_sha256'):
         root['properties'].append({'name': 'chromascope:opencvSecurityPatchSha256',
                                    'value': inventory['opencv_security_patch_sha256']})
+    if inventory.get('opencv_final_security_patch_sha256'):
+        root['properties'].append({'name': 'chromascope:opencvFinalSecurityPatchSha256',
+                                   'value': inventory['opencv_final_security_patch_sha256']})
     if target.startswith('Windows'):
         components += [lib_component('OpenCV', '5.1.0', 'Apache-2.0',
                                      'statically linked; pinned source revision'),

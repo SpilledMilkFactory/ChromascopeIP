@@ -131,8 +131,8 @@
     },
     {
       "path": "licenses/OpenCV-CHROMASCOPE-MODIFICATIONS.txt",
-      "sha256": "8f215dfebcc0f8bf59dac197c37d44eea9d6d92c32e9828d95cb86cd213710fa",
-      "source": "ChromascopeIP local modification; scripts/opencv_linux_patches/disable-magicyuv.patch"
+      "sha256": "7ccf0540418e16ab92239c8db1df50ab06117e3f26a652518f7e91e7ecf438e1",
+      "source": "ChromascopeIP local modifications; scripts/opencv_linux_patches/disable-magicyuv.patch and ffmpeg-final-policy.patch"
     },
     {
       "path": "licenses/OpenCV-ITT-COPYRIGHT.txt",

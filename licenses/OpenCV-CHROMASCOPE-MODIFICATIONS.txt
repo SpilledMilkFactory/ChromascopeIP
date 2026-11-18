@@ -8,6 +8,14 @@ Audio decoding during probing is excluded. Other video codecs retain
 the upstream behavior. Windows builds disable FFmpeg and are unmodified.
 Patch: scripts/opencv_linux_patches/disable-magicyuv.patch
 Patch SHA-256: 2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d
+Second Linux security modification: disable FFmpeg parsers before format
+opening and throughout stream probing, deny JPEG XL playback, reject runtimes
+built with external LCEVC decoding, and prohibit GPU decoder activation in
+recorded-video capture (CVE-2026-125264, CVE-2026-125262, CVE-2026-125265).
+The parser restriction can affect media without container-provided frame
+boundaries; compatibility qualification of each supported format is required.
+Supplemental patch: scripts/opencv_linux_patches/ffmpeg-final-policy.patch
+Supplemental patch SHA-256: dfdb49ab2c57d0281afc4596597397f138fdd183353dc4c9942810318019935a
 Modification authored for ChromascopeIP, 2026; Apache-2.0, like OpenCV.
 
 This software is based in part on the work of the Independent JPEG Group.

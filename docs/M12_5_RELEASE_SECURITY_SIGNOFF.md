@@ -80,3 +80,17 @@ hosted run. Privacy conclusions remain a source-only assessment supported by
 control tests. The review does not execute a live vulnerability scan of each
 installed target system. No external legal opinion or universal parser/privacy
 certification is asserted. If an issue is unresolved, record it as **BLOCKED or UNKNOWN**.
+
+## 2026-11-18 — Additive FFmpeg parser remediation candidate (not approved)
+
+A separate tracked [technical remediation report](M12_5_FFMPEG_FINAL_REMEDIATION.md)
+documents an additive pinned OpenCV patch that applies `AVFMT_FLAG_NOPARSE`
+before `avformat_open_input()` and `avformat_find_stream_info()`, prevents
+`fflags` overrides, rejects configured external LCEVC runtimes and hardware
+decoding requests, and extends the installed-OpenCV consumer and package
+identity checks. The source-only Python quality suite passed 435 tests in the
+prepared snapshot. **The new code has not passed the four native FFmpeg
+runtimes or five-platform CI**; compatibility with required formats and seeking
+remains a qualification gate. Historical successful staging evidence cannot
+be reused as approval for the new source bytes. The blocked release status
+and 29 pending M11.9 decisions above are unchanged.

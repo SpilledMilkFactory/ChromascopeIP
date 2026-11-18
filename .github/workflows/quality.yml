@@ -56,7 +56,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.local/opt/opencv-5.1.0
-          key: opencv-5.1.0-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/apply_opencv_security_patch.py', 'scripts/opencv_linux_patches/disable-magicyuv.patch', 'tests/integration/test_magicyuv_policy.cpp', 'tests/fixtures/magicyuv.avi.hex', 'tests/fixtures/cfhd.avi.hex', 'scripts/bootstrap_opencv_ubuntu_26_04.sh', 'scripts/verify_opencv_linux_videoio.sh', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp', 'tests/quality/opencv_videoio_consumer/dnn_probe.cpp') }}-m5-2-dnn-v1
+          key: opencv-5.1.0-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/apply_opencv_security_patch.py', 'scripts/opencv_linux_patches/disable-magicyuv.patch', 'scripts/opencv_linux_patches/ffmpeg-final-policy.patch', 'tests/integration/test_magicyuv_policy.cpp', 'tests/fixtures/magicyuv.avi.hex', 'tests/fixtures/cfhd.avi.hex', 'scripts/bootstrap_opencv_ubuntu_26_04.sh', 'scripts/verify_opencv_linux_videoio.sh', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp', 'tests/quality/opencv_videoio_consumer/dnn_probe.cpp') }}-m5-2-dnn-v1
 
       - name: Build OpenCV on cache miss
         if: steps.opencv-cache.outputs.cache-hit != 'true'
@@ -73,6 +73,7 @@ jobs:
           test -f "$marker"
           grep -Fxq 'modules=core,imgproc,imgcodecs,videoio,dnn' "$marker"
           grep -Fxq 'video_backend=ffmpeg' "$marker"
+          grep -Fxq 'security_final_patch_sha256=dfdb49ab2c57d0281afc4596597397f138fdd183353dc4c9942810318019935a' "$marker"
           grep -Fxq 'consumer_probe=PASS' "$marker"
           ./scripts/verify_opencv_linux_videoio.sh "$prefix" "$RUNNER_TEMP/chromascope-opencv-m41-consumer"
 

@@ -38,8 +38,13 @@ int probe_file(const char* fixture, const std::string& decoder) {
             throw std::runtime_error("cannot set test environment");
         for (int backend : {cv::CAP_FFMPEG, cv::CAP_ANY, cv::CAP_OPENCV_MJPEG}) {
             cv::VideoCapture capture;
-            if (capture.open(destination.string(), backend) || capture.isOpened())
-                throw std::runtime_error(decoder + " exclusion bypassed");
+            if (capture.open(destination.string(), backend) || capture.isOpened()) {
+                const std::string backend_name = backend == cv::CAP_FFMPEG ? "CAP_FFMPEG" :
+                    backend == cv::CAP_ANY ? "CAP_ANY" : "CAP_OPENCV_MJPEG";
+                throw std::runtime_error(decoder + " exclusion bypassed via " + backend_name +
+                    (options.empty() ? " with default capture options" :
+                        " with hostile decoder override"));
+            }
         }
     }
     std::cout << "PASS: " << decoder << " rejected with automatic/FFmpeg/MJPEG backends, renamed extension and hostile options\n";

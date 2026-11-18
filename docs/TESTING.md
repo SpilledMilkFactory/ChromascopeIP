@@ -1531,3 +1531,13 @@ See [M12.6 staging](M12_6_RELEASE_STAGING.md). The native 150-CTest baseline
 and original 20 required PR CI checks remain unchanged; the staging job requires
 separate manual workflow_dispatch on main. M11.9 and M12.5 release sign-off
 remain unresolved and must not be bypassed to produce a tag.
+
+
+## M12.7 public-release documentation and original demo
+
+Run `python3 -m unittest discover -s tests/quality -p 'test_release_docs_m127.py' -v`
+and the complete quality suite. This milestone adds no native algorithms and
+keeps the 150-test CTest baseline. The screenshot guide does not claim that
+real images were supplied, and the generated example PNG must be original
+and never overwrite existing files. The release notes remain a draft until
+M11.9 license obligations and M12.5 vulnerability findings are resolved.

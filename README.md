@@ -9,6 +9,21 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 > boundaries. Historical M10.1–M10.7 issue notes below remain as development
 > records, not a statement that those features are unavailable today.
 
+## M12.7 — first-release documentation (Issue #90)
+
+The v1.0.0 candidate now has a [changelog](docs/CHANGELOG.md),
+[platform-specific installation guide](docs/INSTALLATION_1_0_0.md),
+[original reproducible examples](docs/RELEASE_EXAMPLES_1_0_0.md),
+[screenshot capture guidelines](docs/RELEASE_SCREENSHOTS_1_0_0.md), and
+[draft release notes](docs/RELEASE_NOTES_1_0_0.md). The [publication-readiness
+checklist](docs/M12_7_PUBLICATION_READINESS.md) gives a concrete path for
+resolving the outstanding M11.9 and M12.5 obligations before M12.8.
+Screenshots from a real GUI still need to be captured by the maintainer;
+**these documents do not authorize public publication**. M12.6's hosted
+second staging run was successful and retained five packages, five SBOMs and
+six signed attestation bundles. After M12.7, the *final* packages must be
+restaged and rehashed because installed documentation changes package contents.
+
 ## M12.6 — v1.0.0 release staging and signed attestations (Issue #89)
 
 A manually dispatched, main-only [release staging workflow](docs/M12_6_RELEASE_STAGING.md)

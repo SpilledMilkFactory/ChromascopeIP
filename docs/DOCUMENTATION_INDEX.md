@@ -46,3 +46,14 @@ The [M12.6 release staging guide](M12_6_RELEASE_STAGING.md) describes the
 manually dispatched same-run release stage, SHA256SUMS, proposed v1.0.0 tag,
 Sigstore provenance/SBOM attestations, verification and explicit M11.9/M12.5
 publication blockers. It **does not authorize or publish** a release.
+
+## M12.7 — public-facing candidate documentation and actual sign-off plan
+
+- [First-version changelog](CHANGELOG.md)
+- [Debian/Ubuntu/Windows binary installation](INSTALLATION_1_0_0.md)
+- [Original reproducible CLI and GUI examples](RELEASE_EXAMPLES_1_0_0.md)
+- [Authentic screenshot capture guidance](RELEASE_SCREENSHOTS_1_0_0.md)
+- [Proposed v1.0.0 GitHub Release notes](RELEASE_NOTES_1_0_0.md)
+- [Exact staged-evidence review and M11.9/M12.5 clearance steps](M12_7_PUBLICATION_READINESS.md)
+
+Release documentation does not grant redistribution clearance or create tags.

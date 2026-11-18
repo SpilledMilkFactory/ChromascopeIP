@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+import uuid
 
 import validate_package_matrix as matrix
 
@@ -227,6 +228,22 @@ def windows_inventory(path):
                                    'imgui': manifest['imgui_version']}}
 
 
+def cyclonedx_serial(target, package_hash):
+    """Stable CycloneDX document UUID bound to the version, target, and package bytes.
+
+    actions/attest@v4's CycloneDX format detector requires a nonempty
+    ``serialNumber`` alongside ``bomFormat`` and ``specVersion``. A UUIDv5
+    provides an RFC 4122 URN without relying on randomness or local time.
+    """
+    need(isinstance(package_hash, str) and SHA.fullmatch(package_hash) is not None,
+         'Invalid package digest for CycloneDX document identity')
+    need(target in {t for t, _, _ in matrix.TARGETS},
+         'Invalid target for CycloneDX document identity')
+    name = (f'https://github.com/SpilledMilkFactory/ChromascopeIP/sbom/'
+            f'{VERSION}/{target}/sha256/{package_hash}')
+    return 'urn:uuid:' + str(uuid.uuid5(uuid.NAMESPACE_URL, name))
+
+
 def create_bom(target, package_hash, inventory, run_id, commit):
     package_ref = 'pkg:chromascopeip:' + target
     root = {'type': 'application', 'name': 'ChromascopeIP', 'version': VERSION,
@@ -261,7 +278,8 @@ def create_bom(target, package_hash, inventory, run_id, commit):
     refs = [c['bom-ref'] for c in components]
     need(len(refs) == len(set(refs)) and package_ref not in refs,
          'Duplicate software component identity')
-    return {'bomFormat': 'CycloneDX', 'specVersion': '1.6', 'version': 1,
+    return {'bomFormat': 'CycloneDX', 'specVersion': '1.6',
+            'serialNumber': cyclonedx_serial(target, package_hash), 'version': 1,
             'metadata': {'component': root}, 'components': components,
             'dependencies': [{'ref': package_ref, 'dependsOn': sorted(refs)}],
             'properties': [{'name': 'chromascope:releaseAuthorization',

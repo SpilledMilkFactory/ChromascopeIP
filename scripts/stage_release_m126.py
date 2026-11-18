@@ -129,6 +129,17 @@ def verify(directory, manifest=None):
         file = directory / record['filename']
         need(file.stat().st_size == record['bytes'] and digest(file) == record['sha256'],
              'Asset differs from manifest: ' + file.name)
+    # GitHub actions/attest@v4 requires ALL THREE CycloneDX detection keys.
+    # Check all five before even the first signing step (including provenance).
+    import audit_redistribution_m119 as audit
+    packages = {target: digest(safe_file(directory / f'ChromascopeIP-{VERSION}-{target}{ext}'))
+                for target, ext, _ in matrix.TARGETS}
+    for target, expected_sha in packages.items():
+        bom = rc.safe_json(directory / f'ChromascopeIP-{target}.cdx.json')
+        need(isinstance(bom, dict) and bom.get('bomFormat') == 'CycloneDX' and
+             bom.get('specVersion') == '1.6' and
+             bom.get('serialNumber') == audit.cyclonedx_serial(target, expected_sha),
+             'CycloneDX SBOM is not eligible for actions/attest signing: ' + target)
     return stored
 
 

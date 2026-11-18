@@ -145,3 +145,15 @@ component licenses and human review decisions are actually resolved. If any
 finding is pending, preserve the review record and leave release clearance
 **BLOCKED**. This is not legal advice or an automatically signed/SBOM-certified
 v1.0 release. M12.1 freezes the source version at 1.0.0; public release remains blocked until the review obligations described above are cleared.
+
+## M12.6 CycloneDX signing interoperability
+
+M12.6's first hosted staging run uncovered a format-detector mismatch: the
+M11.9 CycloneDX 1.6 documents had `bomFormat` and `specVersion` but omitted the
+`serialNumber` required by the pinned GitHub `actions/attest@v4` SBOM input
+detector. All five inventories now carry a deterministic UUIDv5 `urn:uuid:`
+serial number derived from their distribution target and **actual package
+SHA-256**. The native package inspections, review-required status, 29 human
+redistribution topics, and exclusion of unapproved model weights are unchanged.
+Release-candidate and staging gates reject missing or mismatched serial numbers
+before cryptographic signing. A successful attestation is not license clearance.

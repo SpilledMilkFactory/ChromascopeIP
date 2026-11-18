@@ -1768,3 +1768,16 @@ before M12.6 engineering acceptance. Public release authorization remains
 blocked pending actual redistribution/security disposition.
 
 See [M12.6 staging guide](M12_6_RELEASE_STAGING.md).
+
+
+### M12.6 hosted SBOM signature failure — corrective note
+
+The first main-branch Release Staging CI run successfully completed full RC
+qualification, downloaded five package artifacts and M11.9 inventories, verified
+all 15 staged SHA256SUMS entries, and issued the five-subject provenance
+attestation. The Debian 12 SBOM signing action then failed with
+`Unsupported SBOM format. Must be valid SPDX or CycloneDX JSON.` Investigation
+identified a missing top-level CycloneDX `serialNumber`. The generator now emits
+deterministic UUIDv5 serial numbers for all five packages, and both RC and
+staging validators reject missing/drifted SBOM identities before signing.
+Hosted requalification is still required; no public release is authorized.

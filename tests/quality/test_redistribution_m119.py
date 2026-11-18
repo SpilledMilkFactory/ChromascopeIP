@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import zipfile
+import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -122,6 +123,34 @@ class RedistributionM119Tests(unittest.TestCase):
         self.assertFalse(output['release_authorized'])
         self.assertEqual(len(output['packages']), 5)
         self.assertEqual(len(list(self.out.glob('*.cdx.json'))), 5)
+
+    def test_cyclonedx_serial_numbers_for_all_five_real_package_drafts(self):
+        self.invoke()
+        actual = []
+        for entry in self.entries:
+            target = entry['target']
+            bom_path = self.out / f'ChromascopeIP-{target}.cdx.json'
+            bom = json.loads(bom_path.read_text(encoding='utf-8'))
+            serial = bom['serialNumber']
+            self.assertTrue(serial.startswith('urn:uuid:'))
+            self.assertEqual(uuid.UUID(serial[len('urn:uuid:'):]).version, 5)
+            self.assertEqual(serial, audit.cyclonedx_serial(target, entry['sha256']))
+            self.assertEqual(bom['bomFormat'], 'CycloneDX')
+            self.assertEqual(bom['specVersion'], '1.6')
+            self.assertEqual(bom['version'], 1)
+            actual.append(serial)
+        self.assertEqual(len(set(actual)), 5)
+
+    def test_cyclonedx_serial_deterministic_and_digest_bound(self):
+        target = 'Windows-x64'
+        package_sha = '1' * 64
+        serial = audit.cyclonedx_serial(target, package_sha)
+        self.assertEqual(serial, audit.cyclonedx_serial(target, package_sha))
+        self.assertNotEqual(serial, audit.cyclonedx_serial(target, '2' * 64))
+        self.assertNotEqual(serial, audit.cyclonedx_serial('Debian12-amd64', package_sha))
+        for digest in ('not-a-hash', 'A' * 64):
+            with self.assertRaisesRegex(audit.AuditError, 'digest'):
+                audit.cyclonedx_serial(target, digest)
 
     def test_cyclonedx_component_and_hashes(self):
         self.invoke()

@@ -106,6 +106,28 @@ class ReleaseStagingM126Tests(unittest.TestCase):
         with self.assertRaises(stage.StagingError):
             stage.verify(self.output)
 
+    def test_staging_never_accepts_cyclonedx_missing_attestation_serial(self):
+        target = 'Debian12-amd64'
+        path = self.sbom / f'ChromascopeIP-{target}.cdx.json'
+        bom = json.loads(path.read_text())
+        bom.pop('serialNumber')
+        self.write(path, bom)
+        with self.assertRaisesRegex(rc.QualificationError, 'serialNumber'):
+            self.prepare()
+        self.assertFalse(self.output.exists())
+
+    def test_workflow_signs_only_after_complete_cyclonedx_preflight(self):
+        wf = (ROOT / '.github/workflows/release-staging.yml').read_text()
+        self.assertLess(wf.index('python3 scripts/stage_release_m126.py --verify-stage'),
+                        wf.index('Generate Sigstore-signed provenance for five package assets'))
+        self.assertIn('actions/attest detection fields', wf)
+        for target in self.package_entries:
+            obj = json.loads((self.sbom / f'ChromascopeIP-{target}.cdx.json').read_text())
+            # Exact shape of the CycloneDX detector in pinned actions/attest v4:
+            # bomFormat, serialNumber and specVersion must all be nonempty.
+            self.assertTrue(all(obj.get(key) for key in
+                                ('bomFormat', 'serialNumber', 'specVersion')))
+
     def test_modification_to_signed_subject_list_detected(self):
         self.prepare()
         bom = self.output / 'ChromascopeIP-Windows-x64.cdx.json'

@@ -1781,3 +1781,22 @@ identified a missing top-level CycloneDX `serialNumber`. The generator now emits
 deterministic UUIDv5 serial numbers for all five packages, and both RC and
 staging validators reject missing/drifted SBOM identities before signing.
 Hosted requalification is still required; no public release is authorized.
+
+
+## M12.6 signed staging accepted / M12.7 final release documentation — November 17, 2026
+
+Maintainer screenshots report success of the second complete Release Staging
+CI run, including all native/quality prerequisites, final five-package staging
+and six signed-attestation steps. A separately uploaded M12.6 staged bundle
+contains five packages, five CycloneDX draft inventories, checksum manifest
+and six Sigstore evidence JSON files. Local Python quality tests: 398 passed
+(including release-stage, SBOM and RC validation). These observations do not
+assert independent signature verification, real physical-device certification
+or redistribution approval.
+
+M12.7 adds release notes, changelog, installation instructions, synthetic
+reproducible examples, an authentic screenshot-capture guide, and practical
+release-rights/security disposition steps. No historical rights-unverified
+Skittles photos or media are made distributable. M11.9's 29 review topics and
+M12.5's FFmpeg/license findings remain BLOCKED until supported resolution. The
+version is still 1.0.0; no Git tag or public GitHub Release is created.

@@ -48,3 +48,6 @@ __pycache__/
 /models/*.pt
 /models/*.bin
 /models/cache/
+
+
+/release/

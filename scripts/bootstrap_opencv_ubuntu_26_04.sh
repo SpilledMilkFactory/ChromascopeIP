@@ -36,6 +36,8 @@ if [[ -n "${OPENCV_EXPECTED_COMMIT:-}" ]]; then
     fi
 fi
 
+python3 "$(dirname "${BASH_SOURCE[0]}")/apply_opencv_security_patch.py" "${source_dir}"
+
 cmake -S "${source_dir}" -B "${build_dir}" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${prefix}" \
@@ -44,7 +46,7 @@ cmake -S "${source_dir}" -B "${build_dir}" -G Ninja \
     -DBUILD_opencv_apps=OFF -DBUILD_opencv_python2=OFF \
     -DBUILD_opencv_python3=OFF -DBUILD_JAVA=OFF \
     -DWITH_FFMPEG=ON -DWITH_GSTREAMER=OFF -DWITH_V4L=ON \
-    -DWITH_OPENCL=OFF -DWITH_PROTOBUF=ON -DBUILD_PROTOBUF=ON
+    -DWITH_OPENCL=OFF -DWITH_IPP=OFF -DWITH_PROTOBUF=ON -DBUILD_PROTOBUF=ON
 cmake --build "${build_dir}" --parallel "${OPENCV_BUILD_JOBS:-$(nproc)}"
 cmake --install "${build_dir}"
 # Probe the installed package, not the OpenCV build tree. A source revision
@@ -53,6 +55,9 @@ cmake --install "${build_dir}"
 printf '%s\n' "${actual_revision}" > "${prefix}/.chromascope-opencv-source-revision"
 printf 'commit=%s\nmodules=core,imgproc,imgcodecs,videoio,dnn\nvideo_backend=ffmpeg\ngstreamer=OFF\ndnn_backend=opencv_cpu\nprotobuf=ON\nconsumer_probe=PASS\n' \
     "${actual_revision}" > "${prefix}/.chromascope-opencv-videoio-build.txt"
+printf 'magicyuv_policy=disabled-before-probe-and-playback\nsecurity_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n' \
+    >> "${prefix}/.chromascope-opencv-videoio-build.txt"
+printf 'ipp=OFF\n' >> "${prefix}/.chromascope-opencv-videoio-build.txt"
 printf '\nOpenCV %s installed to %s\n' "${version}" "${prefix}"
 printf 'Now configure ChromascopeIP with:\n'
 printf 'cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="%s"\n' "${prefix}"

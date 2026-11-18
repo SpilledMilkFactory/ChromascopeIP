@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate archival fixture identity and unresolved-rights declarations.
+"""Validate original fixture identity and recorded rights evidence.
 
 This is an integrity/policy check, NOT evidence of copyright ownership.
 """
@@ -18,8 +18,16 @@ def audit(root: Path, manifest_path: Path, release: bool = False) -> list[str]:
         data = json.loads(manifest_path.read_text(encoding='utf-8'))
     except (OSError, ValueError) as exc:
         return [f'Cannot load provenance manifest: {exc}']
-    if data.get('schema_version') != 1:
+    schema = data.get('schema_version')
+    if schema not in (1, 2):
         issues.append('Unsupported fixture provenance schema')
+    if schema == 2:
+        evidence = data.get('rights_evidence', {})
+        if (evidence.get('kind') != 'MAINTAINER_AUTHORSHIP_CONFIRMATION' or
+                evidence.get('date') != '2026-11-18' or
+                evidence.get('statement') !=
+                'the 4 skittles pictures in samples/skittles are pictures I took with my own camera so there is no licensing issue there'):
+            issues.append('Missing recorded maintainer photograph authorship evidence')
     entries = data.get('fixtures')
     if not isinstance(entries, list) or len(entries) != 4:
         return issues + ['Expected exactly four original fixture records']
@@ -38,6 +46,12 @@ def audit(root: Path, manifest_path: Path, release: bool = False) -> list[str]:
         actual = hashlib.sha256(fixture.read_bytes()).hexdigest() if fixture.is_file() else None
         if actual != item.get('sha256'):
             issues.append(f'Fixture missing or hash mismatch: {name}')
+        if schema == 2:
+            if (item.get('license') != 'LicenseRef-Maintainer-Owned-Photographs' or
+                    item.get('redistribution_status') != 'OWNER_CONFIRMED' or
+                    item.get('release_bundle_allowed') is not True):
+                issues.append(f'Invalid owner-confirmed photograph rights declaration: {name}')
+            continue
         if item.get('license') != 'UNDETERMINED':
             issues.append(f'License changed without independently reviewing rights manifest policy: {name}')
         if item.get('redistribution_status') != 'PENDING_OWNER_PERMISSION':
@@ -60,7 +74,7 @@ def main() -> int:
         print('FAIL:', issue)
     if issues:
         return 1
-    print('PASS: four archived fixtures match the manifest; redistribution remains unapproved')
+    print('PASS: four fixtures match the provenance policy and recorded rights evidence')
     return 0
 
 

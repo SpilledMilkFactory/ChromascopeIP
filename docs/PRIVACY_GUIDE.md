@@ -46,3 +46,14 @@ telemetry, explicit export/save) as a **source-level review**, not a verified
 absence of all OS or third-party networking, crash dumps, codec data retention,
 or device-driver behavior. Any release privacy statement must preserve those
 limits and should not assert certified isolation or secure erasure.
+
+## 2026-11-18 decoder review
+
+The corrected Linux OpenCV build excludes MagicYUV, CineForm and SANM decoding
+and excludes audio decoders during stream probing. Recorded-video processing
+remains local; source audio is ignored. Camera activation, model selection,
+tracking, preferences and explicit export controls are unchanged. FFmpeg may
+write diagnostic messages to stderr for an excluded stream. This restriction
+does not sandbox native parsers or certify absence of OS/network behavior.
+The [current source clearance report](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M11_9_M12_5_CLEARANCE_REPORT.md)
+describes remaining release blockers.

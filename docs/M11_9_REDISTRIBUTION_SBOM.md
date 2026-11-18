@@ -1,5 +1,22 @@
 # M11.9 (#83) — Binary redistribution notices and artifact-derived SBOM review
 
+## Current remediation status — 2026-11-18
+
+See the [coordinated clearance report](M11_9_M12_5_CLEARANCE_REPORT.md) for all
+29 per-package dispositions and actual historical artifact hashes. Pinned
+OpenCV LICENSE/COPYRIGHT and embedded notices replace the NanoDet substitution.
+Package inspectors compare required notice bytes, not filenames alone. SBOMs
+now include embedded components declared in the compiled OpenCV build report
+and statically incorporated Linux ImGui. Notice presence does not assert that
+an optional component is compiled into every target. Formal review remains
+`REVIEW_REQUIRED`; no approval or reviewer is invented.
+
+The maintainer confirmed personal camera authorship of the four source photos.
+Their hashes/regressions are unchanged. Binary no-media/no-weights policy stays
+in force. Linux OpenCV now carries an explicit decoder-security patch with an
+additional checksum; its upstream source pin is unchanged. Final five-target
+rebuild and same-source requalification are pending.
+
 ## Scope and decision
 
 M11.8 establishes the six-platform **operator-attested** desktop/hardware
@@ -50,9 +67,9 @@ Assess licenses on each platform's actual binary and dependency versions.
 The script independently checks that forbidden ONNX model weights and
 historical JPEG photographs are absent. The selected NanoDet metadata and
 Apache-2.0 notices may be distributed as notices; no model artifact is
-bundled. Rights for `samples/skittles/s1.jpg` through `s4.jpg` remain
-unresolved and the repository-wide `check_provenance.py --release` gate is
-not cleared merely because binary packages omit them.
+bundled. Rights for `samples/skittles/s1.jpg` through `s4.jpg` are now supported by the
+maintainer's 2026-11-18 authorship statement. The separate
+`check_provenance.py --release` gate validates that evidence and the original hashes.
 
 ## Run against the qualified artifacts
 
@@ -116,16 +133,15 @@ from automated code-policy tests.
 | Four Linux distributions | Exact OpenCV source/license/NOTICE and third-party build components; embedded Protobuf and codecs; distro FFmpeg package version, configured LGPL/GPL/nonfree flags and dynamic plugin behavior; GUI ImGui/GLFW licenses and attribution; every declared external dependency's actual distribution terms; absence of model/media bytes. |
 | Windows x64 | Exact statically linked OpenCV and third-party image-codec/Protobuf notices; pinned GLFW zlib and Dear ImGui MIT texts (plus any embedded fonts/stb notices); licensed Visual Studio 2022 use and actual Microsoft REDIST list including DLL hash/version; Windows SDK/Media Foundation and codec terms; absence of weights/media. |
 
-**Specific known gap:** current Linux package metadata provides OpenCV and
-Protobuf notice texts but does not establish a *complete copy* of every
-independently relevant ImGui/GLFW/codec/FFmpeg notice for the binary build.
-Windows package builders copy pinned GLFW/ImGui texts and an Apache-2.0 text
-labeled for OpenCV, but the upstream OpenCV build's exact `LICENSE`, `NOTICE`,
-`3rdparty` and static component declarations still require a source-revision
-comparison. The NanoDet Apache license copied under an OpenCV filename has
-the same standard Apache-2.0 terms, but its filename is not independent
-proof that all OpenCV-specific notices and third-party obligations are met.
-An audit that ignores these distinctions would be incomplete.
+**Corrected notice gap:** all package builders use the upstream-pinned OpenCV
+license and copyright file. The source register `docs/third_party_notice_sources.json`
+records byte hashes and authoritative pinned origins for required embedded
+notices, including ImGui stb/font attribution. This collection is installed
+separately from the user-documentation allowlist and verified after archive
+extraction. The complete OpenCV source tree has no top-level NOTICE file at
+this revision; its separate COPYRIGHT and third-party texts are retained.
+Platform-provided FFmpeg/GLFW/graphics libraries are not relabeled as bundled
+binaries. Microsoft license eligibility remains a human factual confirmation.
 
 Consult [Third-party provenance](THIRD_PARTY_PROVENANCE.md),
 [License audit](LICENSE_AUDIT.md), [Media rights](MEDIA_RIGHTS.md), and

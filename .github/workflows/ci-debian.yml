@@ -83,7 +83,7 @@ jobs:
         with:
           path: ~/.local/opt/opencv-5.1.0
           # A new base image digest requires a new image_revision and cache key.
-          key: opencv-5.1.0-${{ matrix.distribution }}-${{ runner.arch }}-image-${{ matrix.image_revision }}-${{ hashFiles('scripts/bootstrap_opencv_ubuntu_26_04.sh', 'scripts/verify_opencv_linux_videoio.sh', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp', 'tests/quality/opencv_videoio_consumer/dnn_probe.cpp') }}-m5-2-dnn-v1
+          key: opencv-5.1.0-${{ matrix.distribution }}-${{ runner.arch }}-image-${{ matrix.image_revision }}-${{ hashFiles('scripts/apply_opencv_security_patch.py', 'scripts/opencv_linux_patches/disable-magicyuv.patch', 'tests/integration/test_magicyuv_policy.cpp', 'tests/fixtures/magicyuv.avi.hex', 'tests/fixtures/cfhd.avi.hex', 'scripts/bootstrap_opencv_ubuntu_26_04.sh', 'scripts/verify_opencv_linux_videoio.sh', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp', 'tests/quality/opencv_videoio_consumer/dnn_probe.cpp') }}-m5-2-dnn-v1
 
       - name: Build isolated OpenCV 5.1.0 on cache miss
         if: steps.opencv-cache.outputs.cache-hit != 'true'
@@ -103,6 +103,8 @@ jobs:
           grep -Fxq 'modules=core,imgproc,imgcodecs,videoio,dnn' "$marker"
           grep -Fxq 'video_backend=ffmpeg' "$marker"
           grep -Fxq 'consumer_probe=PASS' "$marker"
+          grep -Fxq 'magicyuv_policy=disabled-before-probe-and-playback' "$marker"
+          grep -Fxq 'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d' "$marker"
           ./scripts/verify_opencv_linux_videoio.sh "$prefix" "${RUNNER_TEMP:-/tmp}/chromascope-opencv-m41-consumer"
           printf 'OpenCV source commit: %s\n' "$(cat "$prefix/.chromascope-opencv-source-revision")"
 

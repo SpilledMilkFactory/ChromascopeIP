@@ -20,5 +20,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-The original photographs under samples/skittles/ are archival test assets,
-excluded from this license pending verification of their separate rights.
+The original photographs under samples/skittles/ are separately owned by the
+maintainer, who confirmed personal camera authorship and redistribution rights
+on 2026-11-18. They are excluded from this source-code MIT grant; their presence
+does not grant third parties an unrestricted license to reuse the photographs.
+See docs/MEDIA_RIGHTS.md for the recorded statement and distribution scope.

@@ -54,7 +54,7 @@ CI exercises the five-platform package matrix, native CTests, sanitizers, static
 
 ## Contributing, security, licensing
 
-Please read [contribution guidelines](CONTRIBUTING.md) and [security reporting policy](SECURITY.md). First-party code is [MIT licensed](LICENSE); third-party libraries and sample imagery carry separate rights and obligations. The historical Skittles images are **not automatically licensed by MIT**. See [media rights](docs/MEDIA_RIGHTS.md), [license audit](docs/LICENSE_AUDIT.md) and [third-party provenance](docs/THIRD_PARTY_PROVENANCE.md).
+Please read [contribution guidelines](CONTRIBUTING.md) and [security reporting policy](SECURITY.md). First-party code is [MIT licensed](LICENSE); third-party libraries and sample imagery carry separate rights and obligations. The maintainer confirms authorship of the Skittles photographs; they remain separate from the source-code MIT grant. See [media rights](docs/MEDIA_RIGHTS.md), [license audit](docs/LICENSE_AUDIT.md) and [third-party provenance](docs/THIRD_PARTY_PROVENANCE.md).
 
 ## Project history
 

@@ -25,6 +25,8 @@ Current, audience-focused entry points are listed first. Milestone records under
 
 ## Release preparation — 1.0.0 (not yet published)
 
+- [Coordinated M11.9/M12.5 clearance report](M11_9_M12_5_CLEARANCE_REPORT.md)
+
 - [Changelog](CHANGELOG.md) · [Release notes](RELEASE_NOTES_1_0_0.md)
 - [Release security sign-off — BLOCKED](M12_5_RELEASE_SECURITY_SIGNOFF.md)
 - [Redistribution/SBOM review — outstanding](M11_9_REDISTRIBUTION_SBOM.md)

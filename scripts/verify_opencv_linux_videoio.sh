@@ -15,3 +15,4 @@ cmake -S "${repo_root}/tests/quality/opencv_videoio_consumer" \
 cmake --build "${workspace}" --parallel "${OPENCV_BUILD_JOBS:-2}"
 "${workspace}/opencv_videoio_consumer"
 "${workspace}/opencv_dnn_consumer"
+"${workspace}/opencv_magicyuv_consumer"

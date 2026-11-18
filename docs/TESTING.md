@@ -51,3 +51,22 @@ The package workflows qualify Debian 12/13, Ubuntu 24.04/26.04, and Windows x64.
 ## Engineering history
 
 The [historical testing log](history/TESTING_MILESTONE_LOG.md) preserves M10.8 (#74), 153 Python and 147 native historical baselines, original test architecture, and prior milestone regression commands. The [current verification summary](VERIFICATION.md) and [documentation index](DOCUMENTATION_INDEX.md) are the starting points for release decisions.
+
+## Coordinated M11.9/M12.5 checkpoint — 2026-11-18
+
+The [clearance report](M11_9_M12_5_CLEARANCE_REPORT.md) records the current
+source and dependency changes and actual evidence. Local verification passed
+423 Python quality tests, 151 Release CTests, 151 CLI CTests, 151 ASan/UBSan
+CTests with leak detection enabled, and first-party clang-tidy. The new Linux
+CTest checks real MagicYUV/CineForm rejection, including backend/extension and
+capture-options bypass attempts; all original 150 tests and 28 camera tests
+remain. Original photo bytes/regressions are preserved with owner-confirmed
+provenance. Optional Intel IPP/IW is disabled in rebuilt dependencies.
+
+The corrected Ubuntu 26.04 .deb passed native inspection and relocated CLI
+version/privacy/video probes; its local SBOM is explicitly unqualified for a
+clean-source release. Other final platform packages and same-run signed staging
+are not claimed tested. M12.5 remains **BLOCKED** by remaining parser/runtime
+security dispositions and formal approval; see
+[M12.5 sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md). Historical accepted desktop
+VM testing is retained without requiring repeated historical source reconstruction.

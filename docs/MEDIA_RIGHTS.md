@@ -1,35 +1,37 @@
-# Historical photographs — rights assessment (M1.8)
+# Sample photographs — maintainer authorship confirmation
 
-I inherited four original JPEG samples from the former SkittlesIP collaboration and retained their bytes for detection regressions. I cannot infer who pressed the shutter, who owns the copyright, or whether a prior collaborator granted permission for redistribution merely because the files were in a public GitHub repository. **No third-party rights clearance is recorded.**
+**Status: OWNER_CONFIRMED — 2026-11-18.**
 
-| File | Origin | Copyright owner | Public distribution permission | Release state |
-| --- | --- | --- | --- | --- |
-| `samples/skittles/s1.jpg` | Archived SkittlesIP sample | Unverified | Unverified | Hold |
-| `samples/skittles/s2.jpg` | Archived SkittlesIP sample | Unverified | Unverified | Hold |
-| `samples/skittles/s3.jpg` | Archived SkittlesIP sample | Unverified | Unverified | Hold |
-| `samples/skittles/s4.jpg` | Archived SkittlesIP sample | Unverified | Unverified | Hold |
+During the v1.0.0 clearance work, the maintainer stated:
 
-The machine-readable [`fixture_provenance.json`](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/fixture_provenance.json) records original SHA-256 checksums and intentionally sets `release_bundle_allowed=false`. `scripts/check_provenance.py` validates this declaration; it does not prove ownership or convey permission. `--release` intentionally fails until a separate, reviewed rights-clearance change is made.
+> the 4 skittles pictures in samples/skittles are pictures I took with my own camera so there is no licensing issue there
 
-## Evidence required before authorizing redistribution
+This supplies the authorship evidence that was previously missing. The four
+original files remain byte-identical and retain their historical regression
+coverage. The statement supports their continued repository/source-archive
+redistribution by the maintainer. It does not establish a broad MIT license for
+third-party reuse of the photos, and does not approve dependencies or publication.
 
-1. Establish the author/photographer for each image, including any prior collaborator contributions.
-2. Obtain a dated, retrievable rights grant from each applicable copyright holder, or replace the image with a new independently created/relicensed fixture.
-3. Record scope (source repo, public downloads, packaged binaries, modifications, commercial distribution, attribution), any restrictions, and evidence location **without committing private contact details**.
-4. Update media terms and the fixture manifest in a dedicated PR only after verifying the evidence. Modify the audit validator to accept explicit approved statuses in that reviewed PR.
-5. If rights cannot be resolved, do not include the four images in distributed packages; use verified replacement samples. Re-run regression tests with replacement fixtures and document any different expected results.
+| File | Author/rights evidence | Current status |
+| --- | --- | --- |
+| `samples/skittles/s1.jpg` | Maintainer's own-camera statement above | OWNER_CONFIRMED |
+| `samples/skittles/s2.jpg` | Same statement | OWNER_CONFIRMED |
+| `samples/skittles/s3.jpg` | Same statement | OWNER_CONFIRMED |
+| `samples/skittles/s4.jpg` | Same statement | OWNER_CONFIRMED |
 
-The existing public historical images require separate review as well; excluding them from a future installer does not itself settle past public distribution rights. Until clarified, I will not describe them as MIT-licensed or imply that their presence in Git history grants redistribution rights.
+The source-only `docs/fixture_provenance.json` records the original SHA-256
+values, the statement, date and scope. `scripts/check_provenance.py --release`
+now accepts the evidenced owner-confirmed state and still rejects missing or
+modified bytes and unsupported rights declarations. Schema 1's unresolved state
+remains fail-closed in regression tests. No reviewer or approval date was invented.
 
-### Owner-supplied clearance record (complete privately, then publish a non-sensitive summary)
+The previous OPEN finding used `release_bundle_allowed=false` because authorship
+was then unknown. That historical finding is superseded by the owner's statement;
+it was not evidence that someone else owned the images. No Git history rewrite,
+source-archive exclusion, replacement images, or further owner permission is needed
+on the facts now supplied. Binary packages continue to exclude photographs under
+the existing no-media policy.
 
-- Asset and SHA-256:
-- Author/owner and supporting evidence:
-- Rights holder's permission/grant date:
-- Permitted uses and geographic/term restrictions:
-- Attribution and license text required:
-- Approved for repository distribution? (yes/no):
-- Approved for installer/binary redistribution? (yes/no):
-- Review date and PR reference:
-
-**Current status: OPEN — human confirmation required.**
+For other user-selected media, obtain the applicable rights and consent yourself.
+This statement covers only these four files and does not cover recordings,
+training datasets, ONNX weights, or the two untracked local sample videos.

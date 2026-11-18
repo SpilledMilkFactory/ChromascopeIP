@@ -1,0 +1,48 @@
+--- a/modules/videoio/src/cap_ffmpeg_impl.hpp
++++ b/modules/videoio/src/cap_ffmpeg_impl.hpp
+@@ -1290,6 +1290,30 @@
+         CV_Assert(avio_context);
+         ic->pb = avio_context;
+     }
++    // ChromascopeIP modification: CVE-2026-8461. Restrict stream-info
++    // probing BEFORE it can open a decoder. Recompute from the installed
++    // runtime, preserving video decoders except MagicYUV, CineForm and SANM. Audio is never
++    // played by ChromascopeIP and must not be decoded during probing. Environment options
++    // cannot replace this policy. All supported Linux runtimes expose this API.
++    {
++        std::string allowed;
++        void* iterator = NULL;
++        const AVCodec* candidate;
++        while ((candidate = av_codec_iterate(&iterator)) != NULL)
++        {
++            if (!av_codec_is_decoder(candidate) || candidate->type != AVMEDIA_TYPE_VIDEO ||
++                candidate->id == AV_CODEC_ID_MAGICYUV || candidate->id == AV_CODEC_ID_CFHD ||
++                candidate->id == AV_CODEC_ID_SANM)
++                continue;
++            if (!allowed.empty()) allowed += ",";
++            allowed += candidate->name;
++        }
++        if (allowed.empty() || av_dict_set(&dict, "codec_whitelist", allowed.c_str(), 0) < 0)
++        {
++            close();
++            return false;
++        }
++    }
+     int err = avformat_open_input(&ic, _filename, input_format, &dict);
+ #ifdef HAVE_FFMPEG_LIBAVDEVICE
+     if (device_list)
+@@ -1436,6 +1460,14 @@
+ #endif
+                     continue;
+                 }
++                // Stream probing and the selected playback decoder are separate
++                // contexts. Reject by codec ID, including named-decoder overrides.
++                if (codec->type != AVMEDIA_TYPE_VIDEO || codec->id == AV_CODEC_ID_MAGICYUV ||
++                    codec->id == AV_CODEC_ID_CFHD || codec->id == AV_CODEC_ID_SANM)
++                {
++                    CV_LOG_ERROR(NULL, "ChromascopeIP: unsafe or non-video decoder disabled (CVE-2026-8461/125268/125266)");
++                    goto exit_func;
++                }
+                 context->thread_count = nThreads;
+                 fill_codec_context(context, dict);
+ #ifdef CV_FFMPEG_CODECPAR

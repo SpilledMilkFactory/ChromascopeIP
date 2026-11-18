@@ -109,6 +109,55 @@ class WindowsZipM116Tests(unittest.TestCase):
             with self.assertRaisesRegex(pack.PackageError, 'Unreviewed'):
                 pack.classify_imports({'glfw3.dll'}, pack.verify_redist_path(good))
 
+    def test_stage_extras_preserves_pinned_notices_under_windows_newline_conversion(self):
+        """The actual staged license bytes must survive Windows text writes."""
+        payloads = pack.NOTICES['notice_payloads']()
+        names = ('GLFW-3.4-Zlib.txt', 'DearImGui-1.93.0-MIT.txt')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stage = root / 'stage'
+            dest = stage / pack.DOCDIR / 'licenses'
+            sources = [root / ('upstream-' + name) for name in names]
+            for source, name in zip(sources, names):
+                # Upstream Git dependencies can have CRLF in Windows checkouts.
+                source.write_bytes(payloads[name].replace(b'\n', b'\r\n'))
+
+            original_write_text = Path.write_text
+            text_writes = []
+
+            def windows_write_text(path, data, *args, **kwargs):
+                if path.parent == dest and path.name in names:
+                    text_writes.append(path.name)
+                    # Simulate Windows Path.write_text's newline conversion.
+                    return path.write_bytes(data.encode('utf-8').replace(b'\n', b'\r\n'))
+                return original_write_text(path, data, *args, **kwargs)
+
+            with patch.object(Path, 'write_text', windows_write_text):
+                self.assertEqual(pack.stage_extras(stage, *sources), dest)
+
+            self.assertEqual(text_writes, [], 'Pinned notices must never be rewritten as text')
+            pack.NOTICES['verify_notices'](lambda name: (dest / name).read_bytes())
+            for name in names:
+                self.assertEqual((dest / name).read_bytes(), payloads[name])
+
+    def test_stage_extras_rejects_unreviewed_upstream_license_text(self):
+        """Avoid 'fixing' EOL mismatch by discarding upstream source checks."""
+        payloads = pack.NOTICES['notice_payloads']()
+        names = ('GLFW-3.4-Zlib.txt', 'DearImGui-1.93.0-MIT.txt')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sources = [root / name for name in names]
+            for source, name in zip(sources, names):
+                source.write_bytes(payloads[name])
+            for source in sources:
+                with self.subTest(source=source.name):
+                    original = source.read_bytes()
+                    source.write_bytes(original + b'\nunreviewed change\n')
+                    with self.assertRaisesRegex(pack.PackageError,
+                                                'Pinned dependency license is missing/incompatible'):
+                        pack.stage_extras(root / 'stage', *sources)
+                    source.write_bytes(original)
+
     def test_stage_forbids_images_models_and_unsafe_symlinks(self):
         with tempfile.TemporaryDirectory() as tmp:
             stage = Path(tmp)
@@ -163,6 +212,7 @@ class WindowsZipM116Tests(unittest.TestCase):
             target = stage / pack.DOCDIR / 'docs' / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text('fixture user guide\n')
+        pack.NOTICES['install_notices'](stage / pack.DOCDIR / 'licenses')
         pack.write_runtime_notes(stage, {f'bin/{name}': sorted(pack.read_pe_imports(bin_dir/name))
                                          for name in pack.APP_EXES}, {dll})
         imports = {f'bin/{file.name}': sorted(pack.read_pe_imports(file))
@@ -177,7 +227,7 @@ class WindowsZipM116Tests(unittest.TestCase):
             root = Path(tmp); _, output = self.make_package(root)
             evidence = pack.inspect(output)
             self.assertEqual(evidence['bundled_crt'], ['vcruntime140.dll'])
-            self.assertEqual(evidence['files'], 11 + len(pack.SHIPPED_USER_GUIDES))
+            self.assertEqual(evidence['files'], 11 + len(pack.SHIPPED_USER_GUIDES) + len(pack.NOTICES['notice_payloads']()) - 4)
 
     def test_zip_blocks_internal_docs_even_with_matching_manifest(self):
         # Inspection must reject missing guides or an internal sign-off file
@@ -426,6 +476,7 @@ class WindowsZipM116Tests(unittest.TestCase):
                     file = stage / rel
                     file.parent.mkdir(parents=True, exist_ok=True)
                     file.write_text('fixture\n')
+                pack.NOTICES['install_notices'](stage / pack.DOCDIR / 'licenses')
             args = Namespace(build_dir=build_dir, opencv_prefix=opencv,
                              vc_redist_dir=folder, output_dir=output_dir,
                              glfw_license=root / 'glfw-license', imgui_license=root / 'imgui-license')
@@ -468,6 +519,7 @@ class WindowsZipM116Tests(unittest.TestCase):
                     item = stage / rel
                     item.parent.mkdir(parents=True, exist_ok=True)
                     item.write_text('fixture\n')
+                pack.NOTICES['install_notices'](stage / pack.DOCDIR / 'licenses')
             args = Namespace(build_dir=build_dir, opencv_prefix=opencv,
                              vc_redist_dir=folder, output_dir=output_dir,
                              glfw_license=root / 'glfw-license', imgui_license=root / 'imgui-license')

@@ -161,8 +161,9 @@ def validate(matrix_file, sbom_dir, commit, run_id, quality_result, matrix_resul
         path = sbom_dir / filename
         bom = safe_json(path)
         require(isinstance(bom, dict) and bom.get('bomFormat') == 'CycloneDX' and
-                bom.get('specVersion') == '1.6' and bom.get('version') == 1,
-                'Invalid CycloneDX identity: ' + filename)
+                bom.get('specVersion') == '1.6' and bom.get('version') == 1 and
+                bom.get('serialNumber') == audit.cyclonedx_serial(target, recorded[target]['sha256']),
+                'Invalid CycloneDX identity or attestation serialNumber: ' + filename)
         metadata = bom.get('metadata')
         component = metadata.get('component') if isinstance(metadata, dict) else None
         require(isinstance(component, dict) and component.get('type') == 'application' and

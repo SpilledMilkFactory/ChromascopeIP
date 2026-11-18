@@ -54,7 +54,16 @@ A narrowly scoped `stage` job (not the normal CI jobs) has `contents: read`,
 `actions/attest` to create **one Sigstore-signed provenance attestation**
 covering all five packages, plus **five CycloneDX SBOM attestations** each bound
 to that package's digest. The signed bundles are uploaded separately as
-`ChromascopeIP-1.0.0-M12.6-SIGNED-ATTESTATIONS`. Attestation creation requires
+`ChromascopeIP-1.0.0-M12.6-SIGNED-ATTESTATIONS`. Each CycloneDX draft now has a
+stable RFC 4122 `serialNumber` derived from its platform and package digest.
+GitHub's pinned `actions/attest@v4.2.2` CycloneDX detector requires the
+nonempty `bomFormat`, `specVersion`, and `serialNumber` fields. The M12.2
+qualification validator and M12.6 staging verifier check these fields for **all
+five** SBOMs before any attestation runs. The first hosted staging attempt
+succeeded through all package/SHA checks and issued build provenance, then failed
+on Debian 12 SBOM signing because M11.9 omitted `serialNumber`; this addresses
+the actual API contract without regenerating or weakening package qualification.
+Attestation creation requires
 GitHub's OIDC service; local offline tests cannot produce genuine signatures.
 
 The attested builder identity is the **final orchestrated GitHub Actions staging

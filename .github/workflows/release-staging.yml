@@ -114,6 +114,9 @@ jobs:
           python3 scripts/stage_release_m126.py --verify-stage build/m126-staged
           (cd build/m126-staged && sha256sum --check SHA256SUMS)
 
+      # The offline staging verifier checks all five CycloneDX serial numbers,
+      # source identities, hashes, and required actions/attest detection fields
+      # BEFORE any provenance or SBOM attestation is generated.
       - name: Generate Sigstore-signed provenance for five package assets
         id: provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2

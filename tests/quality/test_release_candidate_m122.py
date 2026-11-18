@@ -182,6 +182,21 @@ class ReleaseCandidateM122Tests(unittest.TestCase):
                 self.qualify()
             path.write_bytes(original)
 
+    def test_missing_or_incorrect_attestation_serial_rejected_for_every_platform(self):
+        for target in self.packages:
+            path = self.sboms / f'ChromascopeIP-{target}.cdx.json'
+            original = path.read_bytes()
+            for edit in (lambda d: d.pop('serialNumber'),
+                         lambda d: d.__setitem__('serialNumber', 'urn:uuid:00000000-0000-0000-0000-000000000000'),
+                         lambda d: d.__setitem__('serialNumber', '')):
+                try:
+                    self.change(path, edit)
+                    with self.subTest(target=target, serial=edit), self.assertRaisesRegex(
+                            rc.QualificationError, 'serialNumber'):
+                        self.qualify()
+                finally:
+                    path.write_bytes(original)
+
     def test_missing_duplicated_or_drifted_bom_components_rejected(self):
         path = self.sboms / 'ChromascopeIP-Debian12-amd64.cdx.json'
         for edit in (lambda d: d['components'].clear(),

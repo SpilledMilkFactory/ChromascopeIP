@@ -7,6 +7,7 @@
 #include <opencv2/videoio/registry.hpp>
 
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -87,12 +88,51 @@ int main() {
         require(frames == 4, "MJPEG round trip lost frames");
 
 #ifdef __linux__
-        // Exercise *actual decoding*, not merely a registry listing.
+        // M12.5: validate the new parser/hardware policy against actual
+        // FFmpeg decoding. Supply a deliberately invalid fflags value before
+        // the first FFmpeg open: a backend that passes it through would fail
+        // to parse this option. The patched backend must discard it.
+        // Source-level integration assertions verify the ordering itself.
+        require(setenv("OPENCV_FFMPEG_CAPTURE_OPTIONS", "fflags;chromascope_invalid_fflags_value", 1) == 0,
+                "Unable to configure FFmpeg environment override regression");
         cv::VideoCapture ffmpeg(cleanup.file.string(), cv::CAP_FFMPEG);
         require(ffmpeg.isOpened() && ffmpeg.read(frame) &&
                 frame.size() == still.size(),
                 "FFmpeg backend could not decode synthetic MJPEG/AVI");
+        // Verify that seeking and decoding remain compatible with NOPARSE.
+        require(ffmpeg.set(cv::CAP_PROP_POS_FRAMES, 2),
+                "FFmpeg seeking regressed under the parser restriction");
+        require(ffmpeg.read(frame) && frame.size() == still.size(),
+                "FFmpeg read after seek regressed under the parser restriction");
         ffmpeg.release();
+        require(unsetenv("OPENCV_FFMPEG_CAPTURE_OPTIONS") == 0,
+                "Unable to restore FFmpeg environment after regression");
+
+        // Container sniffing, not the filename extension, must determine
+        // stream identity. This tests the same untrusted content under a
+        // misleading extension and CAP_ANY's backend selection.
+        RemoveOnExit renamed{cleanup.file.parent_path() /
+            ("chromascope-m125-renamed-" + std::to_string(serial) + ".mp4")};
+        std::filesystem::copy_file(cleanup.file, renamed.file);
+        cv::VideoCapture renamed_file(renamed.file.string(), cv::CAP_FFMPEG);
+        require(renamed_file.isOpened() && renamed_file.read(frame) &&
+                frame.size() == still.size(),
+                "FFmpeg sniffing failed for renamed MJPEG/AVI");
+        renamed_file.release();
+        cv::VideoCapture automatic(renamed.file.string(), cv::CAP_ANY);
+        require(automatic.isOpened() && automatic.read(frame) &&
+                frame.size() == still.size(),
+                "Automatic backend sniffing failed for renamed MJPEG/AVI");
+        automatic.release();
+
+        // Hardware acceleration is intentionally unsupported for the
+        // protected recorded-video path; do not allow a future CI runner's
+        // GPU availability to change this security policy.
+        cv::VideoCapture hardware;
+        const std::vector<int> params{
+            cv::CAP_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY};
+        require(!hardware.open(cleanup.file.string(), cv::CAP_FFMPEG, params),
+                "FFmpeg hardware decoder unexpectedly enabled");
 #endif
         std::cout << "PASS: installed OpenCV 5.1.0 videoio backend and "
                      "synthetic MJPEG/AVI round trip\n";

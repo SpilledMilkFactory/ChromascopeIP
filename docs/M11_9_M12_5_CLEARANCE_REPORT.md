@@ -380,3 +380,12 @@ The genuine Microsoft/human review decisions remain distinct from that work.
 Do not publish v1.0.0 or insert an approved M12.5 marker based on this report.
 After the remaining security disposition, final matrix, real notice review and
 maintainer sign-off, reuse existing M12.6 staging and M12.8 publication gates.
+
+
+## L. 2026-11-18 focused FFmpeg parser candidate (pending qualification)
+
+The additive patch, SHA-256-pinned application, native FFmpeg registry probe,
+consumer regression, four-package identity gates and security status are
+documented in [M12_5_FFMPEG_FINAL_REMEDIATION.md](M12_5_FFMPEG_FINAL_REMEDIATION.md).
+This is an unqualified source candidate; no historical legal approvals,
+security clearance or final package hashes are superseded.

@@ -1,0 +1,91 @@
+--- a/modules/videoio/src/cap_ffmpeg_impl.hpp
++++ b/modules/videoio/src/cap_ffmpeg_impl.hpp
+@@ -2,7 +2,7 @@
+         {
+             if (!av_codec_is_decoder(candidate) || candidate->type != AVMEDIA_TYPE_VIDEO ||
+                 candidate->id == AV_CODEC_ID_MAGICYUV || candidate->id == AV_CODEC_ID_CFHD ||
+-                candidate->id == AV_CODEC_ID_SANM)
++                candidate->id == AV_CODEC_ID_SANM || candidate->id == AV_CODEC_ID_JPEGXL)
+                 continue;
+             if (!allowed.empty()) allowed += ",";
+             allowed += candidate->name;
+@@ -138,6 +138,42 @@
+             return false;
+         }
+     }
++    // ChromascopeIP final FFmpeg policy (CVE-2026-125264): libavformat's
++    // parsers initialize independently of codec_whitelist. Set NOPARSE on the
++    // format context *before* open_input and retain it through reads and seeks.
++    // A container/stream may supply JPEG XL regardless of filename extension.
++    if (!ic)
++        ic = avformat_alloc_context();
++    if (!ic)
++    {
++        close();
++        return false;
++    }
++    ic->flags |= AVFMT_FLAG_NOPARSE;
++    // An environment-supplied fflags option could otherwise override the
++    // fail-closed parser policy during avformat_open_input.
++    av_dict_set(&dict, "fflags", NULL, 0);
++
++    // CVE-2026-125262: FFmpeg's optional liblcevc-dec integration may run
++    // during stream-info probing, before our playback decoder is selected.
++    // The external enhancement library is not required by ChromascopeIP.
++    // Refuse a runtime built with it rather than trusting a post-probe check.
++    const char* codec_configuration = avcodec_configuration();
++    if (!codec_configuration || strstr(codec_configuration, "--enable-liblcevc-dec") != NULL)
++    {
++        CV_LOG_ERROR(NULL, "ChromascopeIP: FFmpeg runtime with LCEVC support is not approved");
++        close();
++        return false;
++    }
++
++    // CVE-2026-125265: ChromascopeIP's recorded-video path is CPU-only.
++    // Do not allow CAP_PROP_HW_ACCELERATION to select NVDEC or another HW path.
++    if (va_type != VIDEO_ACCELERATION_NONE)
++    {
++        CV_LOG_ERROR(NULL, "ChromascopeIP: FFmpeg hardware decoding is disabled");
++        close();
++        return false;
++    }
+     int err = avformat_open_input(&ic, _filename, input_format, &dict);
+ #ifdef HAVE_FFMPEG_LIBAVDEVICE
+     if (device_list)
+@@ -150,6 +186,11 @@
+     {
+         CV_WARN("Error opening file");
+         CV_WARN(_filename);
++        goto exit_func;
++    }
++    if (!(ic->flags & AVFMT_FLAG_NOPARSE))
++    {
++        CV_LOG_ERROR(NULL, "ChromascopeIP: FFmpeg parser policy was unexpectedly overridden");
+         goto exit_func;
+     }
+     err = avformat_find_stream_info(ic, NULL);
+@@ -291,12 +332,23 @@
+                     continue;
+                 }
+                 // Stream probing and the selected playback decoder are separate
+                 // contexts. Reject by codec ID, including named-decoder overrides.
+                 if (codec->type != AVMEDIA_TYPE_VIDEO || codec->id == AV_CODEC_ID_MAGICYUV ||
+-                    codec->id == AV_CODEC_ID_CFHD || codec->id == AV_CODEC_ID_SANM)
++                    codec->id == AV_CODEC_ID_CFHD || codec->id == AV_CODEC_ID_SANM ||
++                    codec->id == AV_CODEC_ID_JPEGXL)
+                 {
+                     CV_LOG_ERROR(NULL, "ChromascopeIP: unsafe or non-video decoder disabled (CVE-2026-8461/125268/125266)");
+                     goto exit_func;
+                 }
++                // Named codec overrides can select a CUVID/hardware decoder
++                // even when the stream's codec ID is otherwise allowed.
++                // Exclude these *before* avcodec_open2() initializes them.
++                if ((codec->capabilities & AV_CODEC_CAP_HARDWARE) ||
++                    (codec->name && (strstr(codec->name, "_cuvid") != NULL ||
++                                     strstr(codec->name, "_nvdec") != NULL)))
++                {
++                    CV_LOG_ERROR(NULL, "ChromascopeIP: FFmpeg hardware decoder disabled");
++                    goto exit_func;
++                }
+                 context->thread_count = nThreads;
+                 fill_codec_context(context, dict);

@@ -303,7 +303,11 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
                 stage = Path(args[-1])
                 pack.NOTICES['install_notices'](stage / pack.DOC / 'licenses')
                 (stage / pack.DOC / 'OPENCV_RUNTIME_PROVENANCE.txt').write_text(
-                    'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n')
+                    'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n'
+                'ffmpeg_parser_policy=noparse-from-preopen\n'
+                'lcevc_policy=reject-enabled-runtime\n'
+                'hwdec_policy=cpu-only\n'
+                'security_final_patch_sha256=dfdb49ab2c57d0281afc4596597397f138fdd183353dc4c9942810318019935a\n')
             return ''
 
         with patch.object(pack.Path, 'is_file', return_value=True), \
@@ -399,7 +403,11 @@ class InstalledOpenCVLoaderTests(unittest.TestCase):
                 dest.write_text('synthetic fixture only\n')
             pack.NOTICES['install_notices'](root / pack.DOC / 'licenses')
             (root / pack.DOC / 'OPENCV_RUNTIME_PROVENANCE.txt').write_text(
-                'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n')
+                'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n'
+                'ffmpeg_parser_policy=noparse-from-preopen\n'
+                'lcevc_policy=reject-enabled-runtime\n'
+                'hwdec_policy=cpu-only\n'
+                'security_final_patch_sha256=dfdb49ab2c57d0281afc4596597397f138fdd183353dc4c9942810318019935a\n')
             control = root / 'DEBIAN/control'
             control.parent.mkdir(parents=True)
             control.write_text('Package: chromascopeip\nVersion: 1.0.0\n'

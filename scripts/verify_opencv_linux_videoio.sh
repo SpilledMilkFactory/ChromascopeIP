@@ -16,3 +16,12 @@ cmake --build "${workspace}" --parallel "${OPENCV_BUILD_JOBS:-2}"
 "${workspace}/opencv_videoio_consumer"
 "${workspace}/opencv_dnn_consumer"
 "${workspace}/opencv_magicyuv_consumer"
+# Record compiled parser/decoder registration and configuration from the
+# *actual* distribution's libavcodec. The parser's presence is informational:
+# the protected OpenCV consumer must still prove ordinary decode behavior.
+cc -std=c11 -Wall -Wextra -Werror \
+    $(pkg-config --cflags libavcodec libavformat) \
+    "${repo_root}/tests/quality/ffmpeg_runtime_inventory.c" \
+    -o "${workspace}/ffmpeg_runtime_inventory" \
+    $(pkg-config --libs libavcodec libavformat)
+"${workspace}/ffmpeg_runtime_inventory"

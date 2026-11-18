@@ -70,3 +70,34 @@ are not claimed tested. M12.5 remains **BLOCKED** by remaining parser/runtime
 security dispositions and formal approval; see
 [M12.5 sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md). Historical accepted desktop
 VM testing is retained without requiring repeated historical source reconstruction.
+
+
+### M12.5 focused FFmpeg security candidate (not release-cleared)
+
+See [the detailed remediation and verification gates](M12_5_FFMPEG_FINAL_REMEDIATION.md).
+New regression coverage validates the pinned parser-policy patch and package
+provenance. The installed-OpenCV consumer tests real MJPEG/AVI decode, seek,
+renamed-file sniffing, automatic/explicit FFmpeg selection and rejected
+hardware acceleration. It also compiles `tests/quality/ffmpeg_runtime_inventory.c`
+on Linux to record the actual linked libavcodec/libavformat versions and
+compiled JPEG XL parser, LCEVC and NVDEC configuration. This native evidence
+must pass separately on all four supported Linux CI distributions; source-only
+Python success is not sufficient for M12.5 authorization.
+
+
+The offline `tests/quality/test_opencv_patch_composition_m125.py` regression
+applies the initial MagicYUV patch followed by the final FFmpeg patch to the
+exact security-hunk contexts. It also reverses both patches to detect context
+regressions before running a costly OpenCV bootstrap. This does **not** replace
+the full pinned-OpenCV consumer and native CTest qualification.
+
+### M12.5 local OpenCV rebuild requirement
+
+For the final FFmpeg patch, building ChromascopeIP itself is insufficient:
+rebuild the private OpenCV shared libraries into a fresh install prefix and
+point **all three** Linux CMake presets at its `lib/cmake/opencv5` directory.
+The configure-time `cmake/ChromascopeOpenCVPolicy.cmake` check rejects an old
+OpenCV dependency before native CTests execute. See
+[M12.5 FFmpeg remediation](M12_5_FFMPEG_FINAL_REMEDIATION.md#local-native-regression-stale-opencv-dependency)
+for exact commands. Do not remove the hostile-option or MagicYUV regressions
+to compensate for outdated libraries.

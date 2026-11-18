@@ -28,6 +28,13 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ChromascopeQuality.cmake")
 # A system OpenCV 4.x must NOT silently satisfy this dependency.
 find_package(OpenCV 5.1.0 EXACT REQUIRED COMPONENTS core geometry imgproc imgcodecs videoio dnn)
 message(STATUS "ChromascopeIP OpenCV: ${OpenCV_VERSION} at ${OpenCV_DIR}")
+# An application relink does not rebuild the pre-existing OpenCV installation.
+# Do not allow native tests (or a local build) to silently use a stale FFmpeg
+# backend after source-only security patch updates.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ChromascopeOpenCVPolicy.cmake")
+    chromascope_require_linux_opencv_policy("${OpenCV_DIR}")
+endif()
 
 add_library(chromascope_core STATIC
     src/core/Detection.cpp

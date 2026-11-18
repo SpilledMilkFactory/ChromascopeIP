@@ -105,7 +105,11 @@ def validate_source(build, opencv):
     for item in (f'commit={COMMIT}', 'modules=core,imgproc,imgcodecs,videoio,dnn',
                  'video_backend=ffmpeg', 'dnn_backend=opencv_cpu', 'consumer_probe=PASS',
                  'magicyuv_policy=disabled-before-probe-and-playback', 'ipp=OFF',
-                 'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d'):
+                 'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d',
+                 'ffmpeg_parser_policy=noparse-from-preopen',
+                 'lcevc_policy=reject-enabled-runtime',
+                 'hwdec_policy=cpu-only',
+                 'security_final_patch_sha256=dfdb49ab2c57d0281afc4596597397f138fdd183353dc4c9942810318019935a'):
         require(item in marker.splitlines(), f'OpenCV build marker missing {item}')
     rev = opencv / '.chromascope-opencv-source-revision'
     require(rev.is_file() and rev.read_text().strip() == COMMIT,
@@ -334,6 +338,10 @@ def write_control(stage, version, deps, names):
         'Upstream license: https://github.com/opencv/opencv/blob/' + COMMIT + '/LICENSE\n'
         'Local modifications: unsafe decoders excluded before probing/playback; Intel IPP disabled.\n'
         'security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d\n'
+        'ffmpeg_parser_policy=noparse-from-preopen\n'
+        'lcevc_policy=reject-enabled-runtime\n'
+        'hwdec_policy=cpu-only\n'
+        'security_final_patch_sha256=dfdb49ab2c57d0281afc4596597397f138fdd183353dc4c9942810318019935a\n'
         'Bundled Protobuf notice: 3rdparty/protobuf/LICENSE at that commit.\n'
         'OS-provided FFmpeg/image-codec and graphics libraries are declared as Debian dependencies.\n'
         'Binary/component redistribution inventory and final security review remain M11.9/M12 gates.\n',
@@ -367,6 +375,8 @@ def inspect(package, expected_version=None):
         validate_runtime_tree(extracted)
         try:
             provenance = (extracted / DOC / 'OPENCV_RUNTIME_PROVENANCE.txt').read_text()
+            require('security_final_patch_sha256=dfdb49ab2c57d0281afc4596597397f138fdd183353dc4c9942810318019935a' in provenance,
+                    'OpenCV final FFmpeg patch not recorded in package provenance')
             require('security_patch_sha256=2c33a69b0e5c26d8e28dfee22daa1ae2c78cba4732de4c692ff729e8e4a7fb2d' in provenance,
                     'Missing packaged OpenCV decoder mitigation provenance')
             NOTICES['verify_notices'](lambda name: (extracted / DOC / 'licenses' / name).read_bytes())

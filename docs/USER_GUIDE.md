@@ -12,7 +12,7 @@ With the `linux-release` CMake preset configured and built against **OpenCV 5.1.
 ./build/presets/linux-release/chromascope-gui samples/skittles/s1.jpg
 ```
 
-The window offers **Still image**, **Recorded video**, and **Live camera** workspaces. Selecting a workspace does not itself authorize opening a device, loading a neural network, or saving output. **Start** is needed for camera capture, and live inference is a separate opt-in. Camera hardware can reveal private images; obtain permission before using it. The real-time camera backend is V4L2 on Linux and MSMF on Windows by default; DShow is an explicitly selected Windows alternative, not an automatic fallback. Check [camera backends](M8_1_CAMERA_BACKENDS.md) and [camera GUI behavior](M8_4_CAMERA_GUI.md).
+The window offers **Still image**, **Recorded video**, and **Live camera** workspaces. Selecting a workspace does not itself authorize opening a device, loading a neural network, or saving output. **Start** is needed for camera capture, and live inference is a separate opt-in. Camera hardware can reveal private images; obtain permission before using it. The real-time camera backend is V4L2 on Linux and MSMF on Windows by default; DShow is an explicitly selected Windows alternative, not an automatic fallback. Check [camera backends](history/milestones/M8_1_CAMERA_BACKENDS.md) and [camera GUI behavior](history/milestones/M8_4_CAMERA_GUI.md).
 
 | Shortcut | Action | Notes |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ The window offers **Still image**, **Recorded video**, and **Live camera** works
 | Ctrl+F | Fit preview to viewport | Resets the view, not original media |
 | F1 | Contextual Help | No external website request |
 
-Shortcuts do not fire while editing text or interacting with modal dialogs. The Help button provides the same contextual assistance. In a wide window, drag the separator to resize the controls panel; on a narrow/high-DPI window, controls and preview stack vertically. Zoom and pan affect **presentation**, not stored-image coordinates. The file picker limits scanned/displayed entries and refuses symlinks; selecting a model file does not load it. See [M10.1 GUI detail](M10_1_GUI_EXPERIENCE.md).
+Shortcuts do not fire while editing text or interacting with modal dialogs. The Help button provides the same contextual assistance. In a wide window, drag the separator to resize the controls panel; on a narrow/high-DPI window, controls and preview stack vertically. Zoom and pan affect **presentation**, not stored-image coordinates. The file picker limits scanned/displayed entries and refuses symlinks; selecting a model file does not load it. See [M10.1 GUI detail](history/milestones/M10_1_GUI_EXPERIENCE.md).
 
 **Installed-app note (M11.1):** Package staging omits the historical
 Skittles photos and ONNX model weights pending redistribution review. When
@@ -39,7 +39,7 @@ into installed applications. See [installation and staging](M11_1_INSTALL_STAGIN
 3. Change profile-specific options and select **Re-run analysis** where available. Preview controls and overlays can be changed without modifying the original source file.
 4. Export an annotated image only with the appropriate explicit Save action. Inspect output destinations before saving; exported files persist independently of the in-memory session.
 
-Skittles recognition is heuristic. NanoDet boxes are COCO object/person-category detections, **not identification or face recognition**. Object scores are not calibrated probabilities. See [person workflow](M7_5_PERSON_WORKFLOW.md), [image profiles](IMAGE_FILTER_PROFILES.md), [segmentation](SEGMENTATION_PROFILES.md) and [model policy](M5_7_MODEL_SECURITY.md).
+Skittles recognition is heuristic. NanoDet boxes are COCO object/person-category detections, **not identification or face recognition**. Object scores are not calibrated probabilities. See [person workflow](history/milestones/M7_5_PERSON_WORKFLOW.md), [image profiles](IMAGE_FILTER_PROFILES.md), [segmentation](SEGMENTATION_PROFILES.md) and [model policy](history/milestones/M5_7_MODEL_SECURITY.md).
 
 ## Recorded video
 
@@ -48,7 +48,7 @@ Skittles recognition is heuristic. NanoDet boxes are COCO object/person-category
 3. Only choose an export destination if you need a file. The existing annotated-video exporter produces **silent MJPEG/AVI** (`--audio-policy drop` in the CLI); it is not a general-purpose codec/audio transcoder.
 4. Retain source files independently. A processed AVI/JSONL export can contain private object/person locations; control redistribution yourself.
 
-The decoding backend, source frame index, presentation geometry and inference output are not guaranteed to be identical for every codec/container; consult [recorded video](M4_4_VIDEO_GUI.md), [analysis](M6_2_ASYNC_VIDEO_GUI.md), [annotated export](M6_4_ANNOTATED_VIDEO_EXPORT.md), and [unified annotations](M10_3_UNIFIED_ANNOTATIONS.md).
+The decoding backend, source frame index, presentation geometry and inference output are not guaranteed to be identical for every codec/container; consult [recorded video](history/milestones/M4_4_VIDEO_GUI.md), [analysis](history/milestones/M6_2_ASYNC_VIDEO_GUI.md), [annotated export](history/milestones/M6_4_ANNOTATED_VIDEO_EXPORT.md), and [unified annotations](history/milestones/M10_3_UNIFIED_ANNOTATIONS.md).
 
 ## Live-camera preview and detection
 
@@ -58,14 +58,14 @@ The decoding backend, source frame index, presentation geometry and inference ou
 4. Temporary numeric tracking IDs are **session-local and opt-in**, not identity recognition; they reset with the live session. Frame-drop scheduling can skip captured frames under overload. Boxes should correspond to the same capture generation/timestamp as the displayed frame.
 5. Choose **Stop**, leave the workspace or reset the session to request capture shutdown and clear previews. Physical device release can lag if an OS driver blocks a native open/read; the GUI does **not** have a hard driver-interrupt guarantee.
 
-No automatic video recording or screenshot capture accompanies starting a live preview. [Live controls](M9_5_LIVE_GUI_CONTROLS.md), [temporary tracks](M9_4_TEMPORARY_TRACKING.md), [Linux smoke](M8_7_LINUX_CAMERA_SMOKE.md) and [real-device qualification](M9_7_LIVE_DEVICE_QUALIFICATION.md) document behavior and limitations. Windows Server CI checks the **CLI/core**, not native Windows 10/11 desktop camera behavior.
+No automatic video recording or screenshot capture accompanies starting a live preview. [Live controls](history/milestones/M9_5_LIVE_GUI_CONTROLS.md), [temporary tracks](history/milestones/M9_4_TEMPORARY_TRACKING.md), [Linux smoke](history/milestones/M8_7_LINUX_CAMERA_SMOKE.md) and [real-device qualification](history/milestones/M9_7_LIVE_DEVICE_QUALIFICATION.md) document behavior and limitations. Windows Server CI checks the **CLI/core**, not native Windows 10/11 desktop camera behavior.
 
 ## Local settings and session cleanup
 
 Under **Local privacy and session controls**, **Save preferences** explicitly persists validated non-sensitive GUI settings. Reload and Delete are separate actions; startup may read an already saved file, but the GUI does not auto-save changes. Linux preferences live under `$XDG_CONFIG_HOME/chromascopeip/preferences-v1.conf` (fallback `$HOME/.config/chromascopeip/preferences-v1.conf`); Windows uses `%APPDATA%\ChromascopeIP\preferences-v1.conf`. No image/model paths, camera indices, frames or tracking IDs belong in that file.
 
-**Clear loaded media, model and results** requests cancellation and clears application-held session state; it does **not** delete original files, explicit exports, saved preferences, OS caches or backups. Use **Delete saved preferences** separately. Loading settings or switching workspaces never activates a camera. See [M10.2 settings](M10_2_VERSIONED_PREFERENCES.md) and [privacy guide](PRIVACY_GUIDE.md).
+**Clear loaded media, model and results** requests cancellation and clears application-held session state; it does **not** delete original files, explicit exports, saved preferences, OS caches or backups. Use **Delete saved preferences** separately. Loading settings or switching workspaces never activates a camera. See [M10.2 settings](history/milestones/M10_2_VERSIONED_PREFERENCES.md) and [privacy guide](PRIVACY_GUIDE.md).
 
 ## What to check after a change
 
-Verify original Skittles examples, at least one non-Skittles filter, object/person profile only with an approved model, recorded playback/seek/export, explicit camera start/stop, pause/resume, tracking reset, and manual DPI/shortcuts. Native automated CTests deliberately **cannot** certify a physical camera. Follow [verification](VERIFICATION.md) and [M10.7 soak qualification](M10_7_SANITIZER_STATIC_SOAK.md).
+Verify original Skittles examples, at least one non-Skittles filter, object/person profile only with an approved model, recorded playback/seek/export, explicit camera start/stop, pause/resume, tracking reset, and manual DPI/shortcuts. Native automated CTests deliberately **cannot** certify a physical camera. Follow [verification](VERIFICATION.md) and [M10.7 soak qualification](history/milestones/M10_7_SANITIZER_STATIC_SOAK.md).

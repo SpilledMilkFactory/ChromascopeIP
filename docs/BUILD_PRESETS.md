@@ -99,6 +99,6 @@ directories; `verify_opencv_windows_x64.ps1` probes the recorded-video module.
 `$HOME/.local/opt/opencv-5.1.0-dnn-videoio` prefix, or another fresh prefix,
 and set **both** `-DOpenCV_DIR=<prefix>/lib/cmake/opencv5` and
 `-DCMAKE_PREFIX_PATH=<prefix>` for **every** configured preset. The previous
-`videoio`-only prefix remains untouched. See `docs/M5_2_CPU_DNN.md` for
+`videoio`-only prefix remains untouched. See `docs/history/milestones/M5_2_CPU_DNN.md` for
 bootstrap and verification commands. The pinned Windows MSVC build must also
 be rebuilt with Protobuf and DNN; old cached static packages are rejected.

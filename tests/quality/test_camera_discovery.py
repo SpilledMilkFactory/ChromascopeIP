@@ -18,7 +18,7 @@ class CameraDiscoveryPolicyTests(unittest.TestCase):
         self.assertIn('discover_cameras()', command)
         self.assertNotIn("CameraSource::open", command)
         self.assertNotIn("CameraSource", (ROOT / "src/gui/main.cpp").read_text())
-        doc = (ROOT / "docs/M8_2_CAMERA_DISCOVERY.md").read_text()
+        doc = (ROOT / "docs/history/milestones/M8_2_CAMERA_DISCOVERY.md").read_text()
         self.assertIn("explicit opt-in", doc)
         self.assertIn("permission", doc)
 

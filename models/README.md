@@ -1,7 +1,7 @@
 # Selected general object detector — M5.1 (#31)
 
 Selected: **OpenCV Zoo NanoDet-Plus-M 1.5x, 416×416, FP32 ONNX**.
-Read [`../docs/M5_1_MODEL_SELECTION.md`](../docs/M5_1_MODEL_SELECTION.md) for
+Read [`../docs/history/milestones/M5_1_MODEL_SELECTION.md`](../docs/history/milestones/M5_1_MODEL_SELECTION.md) for
 alternatives, model/weight licensing, limitations, and the release decision.
 
 The machine-readable selection is [`selected_model.json`](selected_model.json).
@@ -57,7 +57,7 @@ CPU-only inference on **already prepared** NCHW FP32 input tensors. This
 feature does not bundle or automatically fetch the selected ONNX weights,
 nor does it preprocess pixels or interpret NanoDet's raw outputs. Verify any
 external model artifact first with `scripts/check_model_selection.py --artifact`
-using the M5.1 manifest digest. See `docs/M5_2_CPU_DNN.md` for the API and
+using the M5.1 manifest digest. See `docs/history/milestones/M5_2_CPU_DNN.md` for the API and
 side-by-side DNN-enabled dependency installation.
 
 ## M5.7 provenance and adversarial input testing
@@ -68,13 +68,13 @@ records to the actual CPU inference tensor/size contract. Run
 synthetic object fixture manifest. These tests neither load nor distribute
 weights. `tests/fixtures/object_detection/` contains only original test
 patterns and malicious-format samples; no semantically labeled COCO data.
-See `docs/M5_7_MODEL_SECURITY.md` for residual ONNX parser risks.
+See `docs/history/milestones/M5_7_MODEL_SECURITY.md` for residual ONNX parser risks.
 
 ## M7.1 person-class research policy
 
 The pinned model's **COCO ID 0 is `person`**; see
 [`person_evaluation_policy.json`](person_evaluation_policy.json) and
-[`../docs/M7_1_PERSON_MODEL_EVALUATION.md`](../docs/M7_1_PERSON_MODEL_EVALUATION.md)
+[`../docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md`](../docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md)
 for upstream person performance evidence, limitations, Apache-2.0 conditions
 and the offline, independently labeled local evaluation protocol. No additional
 weights or user media are bundled. The project has **not** yet demonstrated its

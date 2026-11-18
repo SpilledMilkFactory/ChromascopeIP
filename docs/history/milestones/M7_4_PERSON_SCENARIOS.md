@@ -70,7 +70,7 @@ quality tests** (four new tests). Run the usual clang-tidy, provenance,
 workflow policy and all six CI jobs. No historical image or third-party video
 files have been added to distribution sources.
 
-**For a meaningful model accuracy study:** follow `docs/M7_1_PERSON_MODEL_EVALUATION.md`.
+**For a meaningful model accuracy study:** follow `docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md`.
 Use authorized real video with independently reviewed boxes for *every* analyzed
 frame; tag crowd/scale/occlusion/negative scenarios, run the real verified
 NanoDet model, record the actual JSONL and compare held-out precision/recall.

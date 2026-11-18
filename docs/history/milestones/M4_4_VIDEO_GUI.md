@@ -68,4 +68,4 @@ reported as not running them). Historical sample photo provenance is unchanged.
 The player now prefers bounded decoder-reported inter-frame intervals over
 nominal-rate guesses, subject to available backend timing and user FPS override.
 Unknown FPS defaults to 30 FPS for pacing only. Audio stays disabled. See
-`docs/M4_6_VIDEO_MEDIA.md`.
+`docs/history/milestones/M4_6_VIDEO_MEDIA.md`.

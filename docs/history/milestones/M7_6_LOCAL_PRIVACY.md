@@ -25,7 +25,7 @@ cross-frame person identification/tracking in this milestone.** It cannot
 establish who appears in an image and must not be represented as doing so.
 This is distinct from suppressing non-person COCO classes. Accuracy for
 occluded/small subjects remains unmeasured on independent real-world media;
-see `docs/M7_1_PERSON_MODEL_EVALUATION.md`.
+see `docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md`.
 
 ## Data lifecycle / persistence inventory
 
@@ -43,7 +43,7 @@ see `docs/M7_1_PERSON_MODEL_EVALUATION.md`.
 Model selection and archival Skittles photos have **separate** rights/provenance
 rules; do not publish models, personal media or original historical photos in
 release artifacts simply because inference runs locally. See
-`models/README.md`, `docs/MEDIA_RIGHTS.md`, and `docs/M5_7_MODEL_SECURITY.md`.
+`models/README.md`, `docs/MEDIA_RIGHTS.md`, and `docs/history/milestones/M5_7_MODEL_SECURITY.md`.
 
 ## User controls
 
@@ -125,7 +125,7 @@ access networks or store diagnostic/device information.
 Windows explanatory report; it opens no camera and writes no media. Only an
 explicit C++ opt-in enables probing, which may trigger OS camera permissions.
 No live capture UI or automatic inference is introduced. See
-`docs/M8_2_CAMERA_DISCOVERY.md`.
+`docs/history/milestones/M8_2_CAMERA_DISCOVERY.md`.
 
 
 ### M8.3 capture extension
@@ -134,7 +134,7 @@ The opt-in `AsyncCameraCapture` worker holds transient bounded in-memory
 camera frames, requires explicit `start()` before any driver access, and
 does not persist or network-transmit captured frames. `stop()` invalidates
 queued data but does not securely erase OS/driver buffers; see
-`docs/M8_3_CAMERA_CAPTURE.md`.
+`docs/history/milestones/M8_3_CAMERA_CAPTURE.md`.
 
 
 ### M8.4 preview extension
@@ -145,7 +145,7 @@ recording, export, transmission or inference is added. Stop, workspace switch
 and session reset clear the preview and request worker shutdown, but native
 open/read operations may block device release. The visible indicator remains
 conservative until actual worker completion; old exports and OS caches are
-not erased. See `docs/M8_4_CAMERA_GUI.md`.
+not erased. See `docs/history/milestones/M8_4_CAMERA_GUI.md`.
 
 ### M8.5 explicitly authorized camera CLI
 

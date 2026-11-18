@@ -111,4 +111,4 @@ six GitHub Actions jobs remain the final acceptance requirements.
 
 M4.6 keeps every M4.5 key and adds `frame.timestamp_source`,
 `rotation_clockwise_degrees`, `rotation_handling`, and `audio_handling`.
-Audio is ignored, not detected. See `docs/M4_6_VIDEO_MEDIA.md`.
+Audio is ignored, not detected. See `docs/history/milestones/M4_6_VIDEO_MEDIA.md`.

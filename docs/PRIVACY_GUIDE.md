@@ -1,6 +1,6 @@
 # ChromascopeIP — Privacy, local data and consent guide (M10.8 / #74)
 
-ChromascopeIP's **first-party processing runtime** reads user-selected local media and trusted ONNX files, performs local CPU inference/processing, and does not implement a network upload, telemetry, cloud inference, account, face recognition, biometric identity or persistent person-identity database. This describes reviewed project code, **not** every OS service, mounted filesystem, OpenCV/FFmpeg plugin, driver, shell, other software or future version. Build/bootstrap scripts can download development dependencies. It is not an air-gap certification. See [M7.6 privacy contract](M7_6_LOCAL_PRIVACY.md), [security policy](../SECURITY.md) and [M10.5 audit](M10_5_THREAT_BOUNDARY_AUDIT.md).
+ChromascopeIP's **first-party processing runtime** reads user-selected local media and trusted ONNX files, performs local CPU inference/processing, and does not implement a network upload, telemetry, cloud inference, account, face recognition, biometric identity or persistent person-identity database. This describes reviewed project code, **not** every OS service, mounted filesystem, OpenCV/FFmpeg plugin, driver, shell, other software or future version. Build/bootstrap scripts can download development dependencies. It is not an air-gap certification. See [M7.6 privacy contract](history/milestones/M7_6_LOCAL_PRIVACY.md), [security policy](../SECURITY.md) and [M10.5 audit](history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md).
 
 ## When data is accessed
 
@@ -22,7 +22,7 @@ ChromascopeIP's **first-party processing runtime** reads user-selected local med
 | M10.7 soak reports | No automatic tests on normal startup | Explicit create-only aggregate report, no raw frames/boxes/paths; source inputs themselves remain available |
 | Temporary tracking IDs | Optional per live session | No identity match/history persisted by this feature |
 
-Preference locations: Linux `$XDG_CONFIG_HOME/chromascopeip/preferences-v1.conf` or `$HOME/.config/chromascopeip/preferences-v1.conf`; Windows `%APPDATA%\ChromascopeIP\preferences-v1.conf`. The versioned format rejects unknown/invalid values rather than silently adopting them. It does not store input/output paths, model paths, camera indices, detections or tracking IDs. Delete saved preferences separately from clearing the running session. See [M10.2](M10_2_VERSIONED_PREFERENCES.md).
+Preference locations: Linux `$XDG_CONFIG_HOME/chromascopeip/preferences-v1.conf` or `$HOME/.config/chromascopeip/preferences-v1.conf`; Windows `%APPDATA%\ChromascopeIP\preferences-v1.conf`. The versioned format rejects unknown/invalid values rather than silently adopting them. It does not store input/output paths, model paths, camera indices, detections or tracking IDs. Delete saved preferences separately from clearing the running session. See [M10.2](history/milestones/M10_2_VERSIONED_PREFERENCES.md).
 
 ## Clearing a session and deleting outputs
 
@@ -32,7 +32,7 @@ GUI **Clear loaded media, model and results** requests cancellation and clears o
 
 Object/person bounding boxes are coarse category predictions with uncalibrated scores. **Temporary numeric track IDs are not unique real-world identities**; they can switch or reset. No facial recognition or identity matching is implemented. Real-time capture can include bystanders: obtain consent when necessary, avoid publicizing raw screenshots and JSONL, and choose retention policies appropriate for your environment.
 
-Media/model parser and driver threats remain described in [M10.5](M10_5_THREAT_BOUNDARY_AUDIT.md); M10.6 fuzz tests do not prove third-party codec safety; M10.7 repeated live-camera success does not prove all-device availability or deterministic driver release. Consult [local data rights](MEDIA_RIGHTS.md), [model provenance](M5_7_MODEL_SECURITY.md), and [troubleshooting](TROUBLESHOOTING.md) before distributing recordings, models or images.
+Media/model parser and driver threats remain described in [M10.5](history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md); M10.6 fuzz tests do not prove third-party codec safety; M10.7 repeated live-camera success does not prove all-device availability or deterministic driver release. Consult [local data rights](MEDIA_RIGHTS.md), [model provenance](history/milestones/M5_7_MODEL_SECURITY.md), and [troubleshooting](TROUBLESHOOTING.md) before distributing recordings, models or images.
 
 ## Privacy verification checklist
 

@@ -1,50 +1,26 @@
 # Security Policy
 
-I am developing ChromascopeIP as a local-first C++ computer-vision application. It loads image files today and is planned to process recorded video, models, and live camera streams. I treat malformed inputs, decoder and model dependencies, resource exhaustion, filesystem operations, and camera privacy as security-sensitive boundaries.
+ChromascopeIP processes untrusted images, recorded video, local ONNX models, and optionally live camera input. Parser vulnerabilities, resource exhaustion, filesystem writes, and unintended capture are security-sensitive.
 
 ## Supported versions
 
-| Version / branch | Security status |
+| Version | Status |
 | --- | --- |
-| `main` / v1.0.0 release candidate | I review responsible reports on a best-effort basis; no stable security-maintenance guarantee. |
-| v1.0.0 and later | Not yet released; future support commitments will be documented before release. |
-| Historic SkittlesIP Python project | Not supported by ChromascopeIP. |
+| `main` / `1.0.0` release candidate | Pre-release, best-effort security maintenance; no guaranteed response window. |
+| Published releases | None at the time of this document; this table must be updated on publication. |
+| Original SkittlesIP project | Unsupported. |
 
-I cannot promise a response or fix by a specific deadline during pre-release development. If I confirm an issue, I will prioritize it according to impact and available resources and document the resulting correction appropriately.
+## Report a vulnerability privately
 
-## Reporting a vulnerability
+**Do not post exploits, personal media, credentials or sensitive logs in public issues or PRs.** Use the [repository's private security reporting page](https://github.com/SpilledMilkFactory/ChromascopeIP/security/advisories/new) if private vulnerability reporting is enabled. Otherwise open a public issue *requesting a private contact*, without technical exploit details. Supply the affected version/commit, OS, impact, sanitized reproduction and minimum non-sensitive proof of concept through the private channel.
 
-**Please do not disclose exploit details, private videos/images, credentials, or sensitive logs in public issues, discussions, or pull requests.**
+I will triage verified issues according to impact and capacity, coordinate with upstream dependencies as needed, and work toward appropriate disclosure. No paid bug bounty, independent security certification, or guaranteed remediation deadline is offered.
 
-1. Open the [ChromascopeIP Security page](https://github.com/SpilledMilkFactory/ChromascopeIP/security) and choose **Report a vulnerability** if that option is available. GitHub private vulnerability reporting must be enabled in repository settings; this file does not enable it automatically.
-2. Include the affected commit/version, OS, a concise impact assessment, sanitized reproduction steps, and the smallest non-sensitive proof of concept needed to validate the issue.
-3. If private reporting is unavailable, please open a **public issue requesting a private security contact only**, without technical vulnerability details. I will arrange an appropriate private reporting channel before receiving those details.
+## Boundaries and known limitations
 
-I will work toward coordinated disclosure after evaluating a report and preparing a correction. I will not treat a public bug report as a suitable way to receive confidential vulnerability details.
+- Still-image headers and decoded frame sizes have resource limits (see [resource budgets](docs/RESOURCE_BUDGETS.md)); OpenCV and FFmpeg decoders are **not sandboxed**.
+- Live camera is opt-in; network upload, automatic camera opening, face recognition and persistent identity tracking are not first-party features (see [privacy](docs/PRIVACY_GUIDE.md)). Native driver cancellation and OS-managed caches are not guaranteed.
+- **M12.5 release security sign-off is BLOCKED** pending documented resolution of identified third-party vulnerability and license/NOTICE issues; see [release security review](docs/M12_5_RELEASE_SECURITY_SIGNOFF.md), [dependency provenance](docs/THIRD_PARTY_PROVENANCE.md), and [release readiness](docs/M12_7_PUBLICATION_READINESS.md).
+- The dated review includes CVE-2026-8461 affecting some distribution-provided FFmpeg MagicYUV decoders. Do not infer reachability, patch status, or immunity without checking the actual runtime configuration and vendor advisories.
 
-## Scope and limits
-
-I am particularly interested in memory safety, malformed image/video handling, unsafe file operations, model-loading or dependency risks, runaway resource consumption, and accidental exposure of live camera content. Reports against third-party libraries may also need coordinated upstream reporting.
-
-No public security audit, sandbox isolation guarantee, or vulnerability reward program is claimed for the current development build. The project processes content locally by design; future features that change data-handling behavior will require explicit documentation and review.
-
-## M2.6 — Still-image resource limits
-
-I reject encoded still images larger than 32 MiB and validate image-header
-dimensions before decoding. Decoded and direct-C++ frames are limited to
-8,192 pixels per side, 24 million pixels and 96 MiB owned storage; working
-analysis images are limited to 16 million pixels. These limits reduce exposure
-to decompression bombs and accidental runaway workloads, but do not sandbox
-OpenCV codecs or guarantee a total process-memory cap. I document exact
-boundaries and supported header formats in `docs/RESOURCE_BUDGETS.md`.
-
-## M12.5 — pre-publication dependency risk (2026-11-17)
-
-The [release review](docs/M12_5_RELEASE_SECURITY_SIGNOFF.md) documents
-CVE-2026-8461 in distro-provided FFmpeg MagicYUV decoding, with unresolved
-OS-level exposure for Debian 12 and Ubuntu 24.04/26.04 as of the cited
-vendor trackers. All media decoders should be treated as untrusted input
-boundaries. Successful first-party CTests and sanitizer runs are not proof
-that external decoder vulnerabilities are absent. This item requires
-mitigation/vendor fix disposition before security sign-off on affected
-release targets; no silent waiver or universal patch-status claim is made.
+Security reports are welcome even when they concern an external dependency; a passing first-party CI run is not comprehensive third-party vulnerability clearance.

@@ -8,7 +8,7 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-DOC = ROOT / "docs/M10_5_THREAT_BOUNDARY_AUDIT.md"
+DOC = ROOT / "docs/history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md"
 
 
 def source(relative):

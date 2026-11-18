@@ -126,5 +126,5 @@ https://docs.opencv.org/5.0/tutorials/introduction/config_reference/config_refer
 
 The later camera discovery and format milestone now implements bounded
 passive Linux node listing, explicit opt-in probes, strict requested format
-verification and typed error categories. See `docs/M8_2_CAMERA_DISCOVERY.md`
+verification and typed error categories. See `docs/history/milestones/M8_2_CAMERA_DISCOVERY.md`
 for current behavior and limits; M8.1 constraints remain as accepted.

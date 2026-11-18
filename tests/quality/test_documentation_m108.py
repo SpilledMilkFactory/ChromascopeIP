@@ -45,13 +45,14 @@ class CurrentDocumentationTests(unittest.TestCase):
         body = (ROOT / 'README.md').read_text(encoding='utf-8')
         for name in PAGES:
             self.assertIn(f'docs/{name}', body)
-        self.assertIn('## Current capabilities (M10.7 baseline;', body)
+        self.assertIn('## Features', body)
+        self.assertIn('docs/history/README.md', body)
         self.assertNotIn('Live camera input remains a later milestone', body)
         self.assertNotIn('## Current capabilities (M8.1 preparation;', body)
 
     def test_gui_shortcuts_match_existing_contract(self):
         gui = content('USER_GUIDE.md')
-        source = content('M10_1_GUI_EXPERIENCE.md')
+        source = content('history/milestones/M10_1_GUI_EXPERIENCE.md')
         for shortcut in ('Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+O', 'Ctrl+F', 'F1'):
             self.assertIn(shortcut, gui)
             self.assertIn(shortcut, source)
@@ -87,7 +88,7 @@ class CurrentDocumentationTests(unittest.TestCase):
 
     def test_camera_limits_and_driver_caveat(self):
         cli = content('CLI_REFERENCE.md')
-        m85 = content('M8_5_CAMERA_CLI.md')
+        m85 = content('history/milestones/M8_5_CAMERA_CLI.md')
         for token in ('1..300', '1..60', '30', '5'):
             self.assertIn(token, cli)
         self.assertIn('OpenCV', m85)
@@ -95,7 +96,7 @@ class CurrentDocumentationTests(unittest.TestCase):
 
     def test_privacy_saved_settings_and_explicit_outputs(self):
         privacy = content('PRIVACY_GUIDE.md')
-        prefs = content('M10_2_VERSIONED_PREFERENCES.md')
+        prefs = content('history/milestones/M10_2_VERSIONED_PREFERENCES.md')
         for token in ('Save preferences', 'Delete saved preferences',
                       'Clear loaded media, model and results', 'preferences-v1.conf'):
             self.assertIn(token, privacy)
@@ -123,13 +124,13 @@ class CurrentDocumentationTests(unittest.TestCase):
         self.assertIn('M10.5', arch)
 
     def test_milestone_docs_reference_test_and_do_not_add_native(self):
-        for name in ('TESTING.md', 'VERIFICATION.md'):
+        for name in ('history/TESTING_MILESTONE_LOG.md', 'history/VERIFICATION_MILESTONE_LOG.md'):
             page = content(name)
             self.assertIn('M10.8 (#74)', page)
             self.assertIn('test_documentation_m108.py', page)
             self.assertIn('153 Python', page)
             self.assertIn('147 native', page)
-        self.assertIn('M10.8', content('ARCHITECTURE.md'))
+        self.assertIn('M10.8', (DOCS / 'history/ARCHITECTURE_EVOLUTION.md').read_text())
 
 
 if __name__ == '__main__':

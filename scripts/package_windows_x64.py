@@ -297,11 +297,17 @@ def stage_extras(stage, glfw_license, imgui_license):
         if (len(text) < 200 or marker.lower() not in text.lower() or
                 text.encode('utf-8') != NOTICES['notice_payloads']()[filename]):
             raise PackageError('Pinned dependency license is missing/incompatible: ' + str(source))
-        (dest / filename).write_text(text, encoding='utf-8')
+        # install_notices() already staged the reviewed license bytes with
+        # write_bytes(). Do not rewrite them using Path.write_text(): on
+        # Windows, newline translation would turn LF into CRLF and invalidate
+        # the otherwise-correct SHA-256-pinned redistribution notice.
     shutil.copyfile(ROOT / 'licenses/OpenCV-5.1.0-Apache-2.0.txt',
                     dest / 'OpenCV-5.1.0-Apache-2.0.txt')
     shutil.copyfile(ROOT / 'licenses/OpenCV-Protobuf-BSD-3-Clause.txt',
                     dest / 'OpenCV-embedded-Protobuf-BSD-3-Clause.txt')
+    # Fail at staging (before PE dependency inspection / ZIP creation) if
+    # any required legal payload was modified by a future packaging change.
+    NOTICES['verify_notices'](lambda name: (dest / name).read_bytes())
     return dest
 
 

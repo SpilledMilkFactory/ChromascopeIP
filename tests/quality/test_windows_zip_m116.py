@@ -109,6 +109,55 @@ class WindowsZipM116Tests(unittest.TestCase):
             with self.assertRaisesRegex(pack.PackageError, 'Unreviewed'):
                 pack.classify_imports({'glfw3.dll'}, pack.verify_redist_path(good))
 
+    def test_stage_extras_preserves_pinned_notices_under_windows_newline_conversion(self):
+        """The actual staged license bytes must survive Windows text writes."""
+        payloads = pack.NOTICES['notice_payloads']()
+        names = ('GLFW-3.4-Zlib.txt', 'DearImGui-1.93.0-MIT.txt')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stage = root / 'stage'
+            dest = stage / pack.DOCDIR / 'licenses'
+            sources = [root / ('upstream-' + name) for name in names]
+            for source, name in zip(sources, names):
+                # Upstream Git dependencies can have CRLF in Windows checkouts.
+                source.write_bytes(payloads[name].replace(b'\n', b'\r\n'))
+
+            original_write_text = Path.write_text
+            text_writes = []
+
+            def windows_write_text(path, data, *args, **kwargs):
+                if path.parent == dest and path.name in names:
+                    text_writes.append(path.name)
+                    # Simulate Windows Path.write_text's newline conversion.
+                    return path.write_bytes(data.encode('utf-8').replace(b'\n', b'\r\n'))
+                return original_write_text(path, data, *args, **kwargs)
+
+            with patch.object(Path, 'write_text', windows_write_text):
+                self.assertEqual(pack.stage_extras(stage, *sources), dest)
+
+            self.assertEqual(text_writes, [], 'Pinned notices must never be rewritten as text')
+            pack.NOTICES['verify_notices'](lambda name: (dest / name).read_bytes())
+            for name in names:
+                self.assertEqual((dest / name).read_bytes(), payloads[name])
+
+    def test_stage_extras_rejects_unreviewed_upstream_license_text(self):
+        """Avoid 'fixing' EOL mismatch by discarding upstream source checks."""
+        payloads = pack.NOTICES['notice_payloads']()
+        names = ('GLFW-3.4-Zlib.txt', 'DearImGui-1.93.0-MIT.txt')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sources = [root / name for name in names]
+            for source, name in zip(sources, names):
+                source.write_bytes(payloads[name])
+            for source in sources:
+                with self.subTest(source=source.name):
+                    original = source.read_bytes()
+                    source.write_bytes(original + b'\nunreviewed change\n')
+                    with self.assertRaisesRegex(pack.PackageError,
+                                                'Pinned dependency license is missing/incompatible'):
+                        pack.stage_extras(root / 'stage', *sources)
+                    source.write_bytes(original)
+
     def test_stage_forbids_images_models_and_unsafe_symlinks(self):
         with tempfile.TemporaryDirectory() as tmp:
             stage = Path(tmp)

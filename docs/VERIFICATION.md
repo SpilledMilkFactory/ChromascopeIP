@@ -1747,3 +1747,24 @@ redistribution authorization**, which requires separate substantiated
 vulnerability and rights dispositions. No manual re-running of previously
 successful Windows/Linux VM tests or historical commit reconstruction is
 required solely by this documentation milestone.
+
+## M12.6 — staged release checksums, CycloneDX and signed attestation readiness (Issue #89)
+
+The maintainer accepted and merged M12.5 after 20 successful CI checks and
+375 successful Python quality tests, with GUI/CLI behavior unchanged. The
+**M12.5 security and legal release sign-off itself remains BLOCKED**; a green
+CI check was only engineering acceptance of the documented review.
+
+M12.6 adds a *manually triggered main-branch* release staging workflow that
+reuses same-run native/quality/RC gates, revalidates package and five CycloneDX
+SBOM identities and hashes, and prepares SHA256SUMS and a tag proposal.
+The dedicated attestation job uses OIDC/Sigstore to create real signed
+provenance and five SBOM attestations with narrowly scoped token permissions.
+No tag, GitHub Release, or public binary publication is automatic. The local
+annotated-tag automation requires previously completed M11.9/M12.5 reviews.
+The new offline test suite checks the staging logic but does not issue actual
+GitHub signatures. Host-side release staging/signature verification must pass
+before M12.6 engineering acceptance. Public release authorization remains
+blocked pending actual redistribution/security disposition.
+
+See [M12.6 staging guide](M12_6_RELEASE_STAGING.md).

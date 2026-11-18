@@ -9,6 +9,17 @@ I rebuilt my 2020 *SkittlesIP* engineering-class project as a modern, extensible
 > boundaries. Historical M10.1–M10.7 issue notes below remain as development
 > records, not a statement that those features are unavailable today.
 
+## M12.6 — v1.0.0 release staging and signed attestations (Issue #89)
+
+A manually dispatched, main-only [release staging workflow](docs/M12_6_RELEASE_STAGING.md)
+now reuses the full exact-source Release Candidate CI and prepares the five
+unmodified packages, CycloneDX drafts, `SHA256SUMS`, and a v1.0.0 **tag proposal**.
+A narrowly privileged staging job creates real GitHub Sigstore provenance and
+five package-specific SBOM attestations. **No tag, release or publication is
+performed.** The M11.9 redistribution review and M12.5 vulnerability/NOTICE
+findings remain genuine blockers to public release authorization; staging
+success does not waive them.
+
 ## M12.4 — Windows 10/11 portable ZIP engineering acceptance (Issue #87)
 
 The maintainer reports successful manual extraction and GUI/CLI use of the

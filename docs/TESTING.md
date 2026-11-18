@@ -1512,3 +1512,22 @@ See [M12.5 release security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md).
 The observed FFmpeg CVE-2026-8461 vendor vulnerabilities and M11.9 license
 notices are **outstanding public-release blockers**; green test results do
 not change those decisions.
+
+## M12.6 — manual release staging, checksum and signing regressions
+
+The new offline tests exercise the actual five-artifact staging and strict
+checksum checks using synthetic bytes, including corrupted input package,
+incorrect run/source, missing/extra assets, replaced SBOM, and unreviewed tag
+blocking. They verify the main-only manually dispatched GitHub signing job and
+its narrow token permissions. They do not generate Sigstore certificates locally.
+
+```bash
+python3 -m unittest discover -s tests/quality -p 'test_release_staging_m126.py' -v
+python3 -m unittest discover -s tests/quality -p 'test_*.py' -q
+python3 scripts/check_ci_policy.py
+```
+
+See [M12.6 staging](M12_6_RELEASE_STAGING.md). The native 150-CTest baseline
+and original 20 required PR CI checks remain unchanged; the staging job requires
+separate manual workflow_dispatch on main. M11.9 and M12.5 release sign-off
+remain unresolved and must not be bypassed to produce a tag.

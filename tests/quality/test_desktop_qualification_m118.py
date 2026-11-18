@@ -1,6 +1,6 @@
 """M11.8: hardware-free tests of manual GUI/device evidence; never open a camera."""
 import copy
-from datetime import date, timedelta
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
@@ -189,10 +189,24 @@ class DesktopQualificationM118Tests(unittest.TestCase):
                     q.validate(item)
 
     def test_future_date_rejected(self):
+        # The validator uses UTC, not the host's local calendar day. A local
+        # "tomorrow" may already be today in UTC (e.g. after 19:00 EST).
         item = self.evidence()
-        item['test_date_utc'] = (date.today() + timedelta(days=1)).isoformat()
-        with self.assertRaisesRegex(q.EvidenceError, 'future'):
-            q.validate(item)
+        for utc_hour in (0, 12, 23):
+            with self.subTest(utc_hour=utc_hour), mock.patch.object(q, 'datetime') as clock:
+                clock.now.return_value = datetime(2026, 11, 18, utc_hour, 30,
+                                                  tzinfo=timezone.utc)
+                item['test_date_utc'] = '2026-11-19'
+                with self.assertRaisesRegex(q.EvidenceError, 'future'):
+                    q.validate(item)
+                clock.now.assert_called_once_with(timezone.utc)
+
+                # The same UTC calendar date must remain valid, even just
+                # after UTC midnight when US local time is still the prior day.
+                clock.reset_mock()
+                item['test_date_utc'] = '2026-11-18'
+                self.assertEqual(q.validate(item)['status'], 'MANUAL_EVIDENCE_RECORDED')
+                clock.now.assert_called_once_with(timezone.utc)
 
     def test_six_platform_complete_matrix(self):
         folder = self.base / 'matrix'

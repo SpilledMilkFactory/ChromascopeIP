@@ -13,6 +13,11 @@ CMakeUserPresets.json.example text eol=lf
 *.yaml text eol=lf
 *.patch text eol=lf
 
+# License and NOTICE payloads are SHA-256 pinned to their upstream LF bytes.
+# Git for Windows may otherwise convert .txt files to CRLF (core.autocrlf=true),
+# causing genuine notice verification to fail during Windows packaging.
+licenses/*.txt text eol=lf
+
 # The original photographs and other binary media remain byte-identical.
 *.jpg -text
 *.jpeg -text

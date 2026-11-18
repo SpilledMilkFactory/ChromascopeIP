@@ -31,6 +31,15 @@ jobs:
         with:
           persist-credentials: false
 
+      # Fail before the expensive native builds if a Windows checkout has
+      # altered the byte-pinned legal notices (for example LF -> CRLF).
+      - name: Verify pinned third-party notices before Windows build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -c "from scripts.third_party_notices import notice_payloads; print('Verified', len(notice_payloads()), 'pinned third-party notices')"
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned legal notice preflight failed.' }
+
       - name: Confirm Windows x64 and MSVC 2022 toolchain
         shell: pwsh
         run: |

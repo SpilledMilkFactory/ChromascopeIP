@@ -1053,7 +1053,7 @@ int main(int argc, char* argv[]) {
                    "caches and backups are not securely erased.\n"
                 << "Third-party dependencies, build downloads, OS facilities and "
                    "externally copied files are outside this runtime policy.\n"
-                << "Details: docs/M7_6_LOCAL_PRIVACY.md\n";
+                << "Details: docs/PRIVACY_GUIDE.md\n";
             return 0;
         }
         for (int i = 1; i < argc; ++i) {

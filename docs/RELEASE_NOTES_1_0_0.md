@@ -60,11 +60,11 @@ and validate each downloaded artifact against the **same final release's**
 [Changelog](CHANGELOG.md) · [Examples](RELEASE_EXAMPLES_1_0_0.md) ·
 [GUI guide](USER_GUIDE.md) · [CLI reference](CLI_REFERENCE.md) ·
 [Privacy](PRIVACY_GUIDE.md) · [Security](../SECURITY.md) ·
-[Release verification](M12_6_RELEASE_STAGING.md).
+[Release verification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M12_6_RELEASE_STAGING.md).
 
 ### Maintainer-only publication steps — remove from public release text
 
-- Review [M12.7 publication readiness](M12_7_PUBLICATION_READINESS.md).
+- Review [M12.7 publication readiness](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M12_7_PUBLICATION_READINESS.md).
 - Resolve M11.9 redistribution/NOTICE and M12.5 vulnerability/privacy
   sign-offs; do not write or publish `APPROVED` without supporting evidence.
 - Check the final tag/source SHA and re-run same-source staging after M12.7

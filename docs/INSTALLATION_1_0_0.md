@@ -3,7 +3,7 @@
 **Status: staged release candidate, not an approved/public release.** Obtain
 artifacts from the official release only **after** publication. The existing
 M12.6 GitHub Actions staged bundle is for maintainer qualification, not a
-public download. Review [release readiness](M12_7_PUBLICATION_READINESS.md)
+public download. Review [release readiness](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M12_7_PUBLICATION_READINESS.md)
 before distributing any binaries.
 
 ## Supported targets and file names
@@ -90,4 +90,4 @@ The camera remains off until explicitly activated. Saved preferences require
 explicit user action; camera/device behavior and media codec support are
 platform-dependent. Review [GUI](USER_GUIDE.md), [CLI](CLI_REFERENCE.md),
 [privacy](PRIVACY_GUIDE.md), [troubleshooting](TROUBLESHOOTING.md), and
-[device boundaries](M11_8_DESKTOP_DEVICE_QUALIFICATION.md).
+[device boundaries](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M11_8_DESKTOP_DEVICE_QUALIFICATION.md).

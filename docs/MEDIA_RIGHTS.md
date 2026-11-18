@@ -9,7 +9,7 @@ I inherited four original JPEG samples from the former SkittlesIP collaboration 
 | `samples/skittles/s3.jpg` | Archived SkittlesIP sample | Unverified | Unverified | Hold |
 | `samples/skittles/s4.jpg` | Archived SkittlesIP sample | Unverified | Unverified | Hold |
 
-The machine-readable [`fixture_provenance.json`](fixture_provenance.json) records original SHA-256 checksums and intentionally sets `release_bundle_allowed=false`. `scripts/check_provenance.py` validates this declaration; it does not prove ownership or convey permission. `--release` intentionally fails until a separate, reviewed rights-clearance change is made.
+The machine-readable [`fixture_provenance.json`](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/fixture_provenance.json) records original SHA-256 checksums and intentionally sets `release_bundle_allowed=false`. `scripts/check_provenance.py` validates this declaration; it does not prove ownership or convey permission. `--release` intentionally fails until a separate, reviewed rights-clearance change is made.
 
 ## Evidence required before authorizing redistribution
 

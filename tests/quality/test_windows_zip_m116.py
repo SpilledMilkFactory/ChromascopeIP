@@ -159,6 +159,10 @@ class WindowsZipM116Tests(unittest.TestCase):
             target = stage / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text('fixture\n')
+        for name in pack.SHIPPED_USER_GUIDES:
+            target = stage / pack.DOCDIR / 'docs' / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text('fixture user guide\n')
         pack.write_runtime_notes(stage, {f'bin/{name}': sorted(pack.read_pe_imports(bin_dir/name))
                                          for name in pack.APP_EXES}, {dll})
         imports = {f'bin/{file.name}': sorted(pack.read_pe_imports(file))
@@ -173,7 +177,31 @@ class WindowsZipM116Tests(unittest.TestCase):
             root = Path(tmp); _, output = self.make_package(root)
             evidence = pack.inspect(output)
             self.assertEqual(evidence['bundled_crt'], ['vcruntime140.dll'])
-            self.assertEqual(evidence['files'], 11)  # two EXEs + CRT + 6 notices + notes + manifest
+            self.assertEqual(evidence['files'], 11 + len(pack.SHIPPED_USER_GUIDES))
+
+    def test_zip_blocks_internal_docs_even_with_matching_manifest(self):
+        # Inspection must reject missing guides or an internal sign-off file
+        # even if an attacker regenerates the manifest and ZIP checksums.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stage, archive = self.make_package(root)
+            guides = stage / pack.DOCDIR / 'docs'
+            bad = guides / 'M12_5_RELEASE_SECURITY_SIGNOFF.md'
+            bad.write_text('unapproved private audit\n')
+            imports = {f'bin/{p.name}': sorted(pack.read_pe_imports(p))
+                       for p in (stage / 'bin').iterdir()}
+            pack.write_manifest(stage, imports, {'vcruntime140.dll'})
+            archive.unlink()
+            pack.make_zip(stage, archive)
+            with self.assertRaisesRegex(pack.PackageError, 'unapproved user documentation'):
+                pack.inspect(archive)
+            bad.unlink()
+            (guides / 'PRIVACY_GUIDE.md').unlink()
+            pack.write_manifest(stage, imports, {'vcruntime140.dll'})
+            archive.unlink()
+            pack.make_zip(stage, archive)
+            with self.assertRaisesRegex(pack.PackageError, 'missing/unapproved user documentation'):
+                pack.inspect(archive)
 
     def test_zip_tampering_and_missing_dependency_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -388,6 +416,10 @@ class WindowsZipM116Tests(unittest.TestCase):
                 for name in pack.APP_EXES:
                     (stage / 'bin' / name).write_bytes(pe_binary('KERNEL32.dll',
                                                                'VCRUNTIME140.dll'))
+                for name in pack.SHIPPED_USER_GUIDES:
+                    doc = stage / pack.DOCDIR / 'docs' / name
+                    doc.parent.mkdir(parents=True, exist_ok=True)
+                    doc.write_text('fixture user guide\n')
                 return ''
             def fake_extras(stage, glfw, imgui):
                 for rel in pack.REQUIRED_DOCS[:-1]:

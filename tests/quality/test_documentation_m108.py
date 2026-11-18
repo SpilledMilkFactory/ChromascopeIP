@@ -29,6 +29,14 @@ class CurrentDocumentationTests(unittest.TestCase):
             self.assertGreater(len(links), 5, name)
             for link in links:
                 with self.subTest(source=name, target=link):
+                    prefix = 'https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/'
+                    if link.startswith(prefix):
+                        # Source-only engineering records are linked online in
+                        # installed guides. Still require the target to exist
+                        # in the current repository, without network access.
+                        target = link[len(prefix):].split('#', 1)[0]
+                        self.assertTrue((ROOT / target).is_file(), f'{name}: {link}')
+                        continue
                     self.assertFalse(link.startswith(('https:', 'http:', 'file:', '//')))
                     target = link.split('#', 1)[0]
                     if target:

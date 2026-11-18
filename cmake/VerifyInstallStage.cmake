@@ -32,6 +32,38 @@ foreach(_file IN ITEMS "${CHROMASCOPE_BINDIR}/chromascope-cli${_exe}"
         message(FATAL_ERROR "Missing staged file after relocation: ${_file}")
     endif()
 endforeach()
+# Packaging policy: only the explicitly approved current user guides are
+# installed under docs/. The presence of one extra .md/.json is a failure,
+# including maintainer sign-off, historical notebooks and provenance fixtures.
+set(_expected_user_guides
+    "INSTALLATION_1_0_0.md"
+    "USER_GUIDE.md"
+    "CLI_REFERENCE.md"
+    "PRIVACY_GUIDE.md"
+    "TROUBLESHOOTING.md"
+    "RELEASE_EXAMPLES_1_0_0.md"
+    "RELEASE_NOTES_1_0_0.md"
+    "CHANGELOG.md"
+    "IMAGE_FILTER_PROFILES.md"
+    "SEGMENTATION_PROFILES.md"
+    "MEDIA_RIGHTS.md"
+    "RESOURCE_BUDGETS.md"
+)
+list(SORT _expected_user_guides)
+set(_installed_doc_root "${_relocated}/${CHROMASCOPE_DOCDIR}/docs")
+file(GLOB_RECURSE _doc_files RELATIVE "${_installed_doc_root}"
+    LIST_DIRECTORIES FALSE "${_installed_doc_root}/*")
+list(SORT _doc_files)
+if(NOT "${_doc_files}" STREQUAL "${_expected_user_guides}")
+    message(FATAL_ERROR
+        "Installed user-documentation allowlist mismatch.\n"
+        "Expected: ${_expected_user_guides}\nActual: ${_doc_files}")
+endif()
+if(EXISTS "${_relocated}/${CHROMASCOPE_DOCDIR}/docs/history" OR
+   EXISTS "${_relocated}/${CHROMASCOPE_DOCDIR}/docs/M12_5_RELEASE_SECURITY_SIGNOFF.md" OR
+   EXISTS "${_relocated}/${CHROMASCOPE_DOCDIR}/docs/fixture_provenance.json")
+    message(FATAL_ERROR "Source-only engineering documents leaked into installation")
+endif()
 file(GLOB_RECURSE _staged_entries LIST_DIRECTORIES FALSE "${_relocated}/*")
 foreach(_entry IN LISTS _staged_entries)
     if(_entry MATCHES "\\.(jpg|jpeg|png|mp4|avi|onnx|pth|pt)$")

@@ -50,15 +50,21 @@ class DocumentationRestructureTests(unittest.TestCase):
                 name = link.split('#', 1)[0].split('?', 1)[0]
                 if not name or re.match(r'^(?:[a-z]+:|//)', name):
                     continue
-                if not (page.parent / name).exists():
+                # PACKAGED_README is installed one level above docs/ and
+                # renamed README.md; its relative links are valid there.
+                base = ROOT if page.name in ('PACKAGED_README.md', 'PACKAGED_SECURITY.md') else page.parent
+                if not (base / name).exists():
                     broken.append(f'{page.relative_to(ROOT)}: {link}')
         self.assertEqual([], broken)
 
     def test_installer_ships_current_guides_not_old_milestone_diary(self):
         install = (ROOT / 'cmake/ChromascopeInstall.cmake').read_text()
-        self.assertIn('PATTERN "history" EXCLUDE', install)
-        self.assertIn('install(DIRECTORY docs/', install)
-        self.assertIn('install(FILES LICENSE README.md SECURITY.md', install)
+        self.assertIn('set(CHROMASCOPE_SHIPPED_USER_GUIDES', install)
+        self.assertIn('install(FILES ${CHROMASCOPE_SHIPPED_USER_GUIDES}', install)
+        self.assertNotRegex(install, r'(?m)^\s*install\(DIRECTORY docs/')
+        self.assertIn('RENAME "README.md"', install)
+        self.assertIn('install(FILES LICENSE', install)
+        self.assertIn('docs/PACKAGED_SECURITY.md', install)
 
 
 if __name__ == '__main__':

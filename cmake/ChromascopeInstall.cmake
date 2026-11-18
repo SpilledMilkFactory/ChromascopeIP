@@ -42,14 +42,35 @@ if(TARGET chromascope-gui)
         RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endif()
 
-# Shippable metadata, first-party guidance and notice texts only. In
-# particular: no samples/*.jpg, videos, models/*.onnx, or test fixtures.
-install(FILES LICENSE README.md SECURITY.md
+# Explicit allowlist for *binary-distribution* user documentation. Do not
+# package the repository-wide docs/ tree: that includes source-only engineering
+# history, qualification contracts, audit drafts and internal provenance data.
+# License and third-party notices are installed independently below.
+install(FILES LICENSE
     DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}")
-install(DIRECTORY docs/
-    DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}/docs"
-    FILES_MATCHING PATTERN "*.md" PATTERN "*.json"
-    PATTERN "history" EXCLUDE)
+install(FILES docs/PACKAGED_SECURITY.md
+    DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}" RENAME "SECURITY.md")
+install(FILES docs/PACKAGED_README.md
+    DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}" RENAME "README.md")
+
+# This list is intentionally reviewed as a release packaging surface. Do not
+# replace it with a glob or install(DIRECTORY docs/ ...).
+set(CHROMASCOPE_SHIPPED_USER_GUIDES
+    docs/INSTALLATION_1_0_0.md
+    docs/USER_GUIDE.md
+    docs/CLI_REFERENCE.md
+    docs/PRIVACY_GUIDE.md
+    docs/TROUBLESHOOTING.md
+    docs/RELEASE_EXAMPLES_1_0_0.md
+    docs/RELEASE_NOTES_1_0_0.md
+    docs/CHANGELOG.md
+    docs/IMAGE_FILTER_PROFILES.md
+    docs/SEGMENTATION_PROFILES.md
+    docs/MEDIA_RIGHTS.md
+    docs/RESOURCE_BUDGETS.md
+)
+install(FILES ${CHROMASCOPE_SHIPPED_USER_GUIDES}
+    DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}/docs")
 install(DIRECTORY licenses/
     DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}/licenses"
     FILES_MATCHING PATTERN "*.txt" PATTERN "*.md")

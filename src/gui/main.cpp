@@ -537,6 +537,43 @@ struct App {
         }
     }
 
+    [[nodiscard]] chromascope::LiveRecordingPresentation live_record_presentation() const {
+        chromascope::LiveRecordingPresentation presentation;
+        if (!live_inference_active || !live_displayed || !camera_frame_visible ||
+            workspace_mode != 2) return presentation;
+        const auto snap = live_inference.snapshot();
+        if (snap.stage != chromascope::LiveInferenceStage::Running ||
+            snap.camera_generation != camera_generation ||
+            snap.session != live_displayed->session ||
+            live_displayed->camera_generation != camera_generation) return presentation;
+        const auto& analyzed = live_displayed->frame;
+        const auto stamp = analyzed.image.metadata().timestamp;
+        if (!stamp || stamp->domain != chromascope::TimestampDomain::CaptureMonotonic ||
+            camera_texture.source_width != analyzed.image.width() ||
+            camera_texture.source_height != analyzed.image.height() ||
+            !chromascope::live_overlay_matches(
+                {camera_generation, snap.session, camera_frame_index,
+                 camera_texture.source_width, camera_texture.source_height, camera_frame_time},
+                {live_displayed->camera_generation, live_displayed->session,
+                 analyzed.index, analyzed.image.width(), analyzed.image.height(), stamp->value}))
+            return presentation;
+        presentation.displayed = live_displayed;
+        presentation.visible = {camera_generation, snap.session, camera_frame_index,
+            camera_texture.source_width, camera_texture.source_height, camera_frame_time};
+        // Matches the on-screen GUI's user-controlled visibility exactly.
+        const auto detected_at = live_displayed->inference.detections.timestamp();
+        presentation.show_boxes = live_show_bounding_boxes && detected_at &&
+            detected_at->domain == stamp->domain && detected_at->value == stamp->value &&
+            live_displayed->inference.detections.width() == analyzed.image.width() &&
+            live_displayed->inference.detections.height() == analyzed.image.height();
+        presentation.show_labels = presentation.show_boxes && live_show_confidence_labels;
+        presentation.minimum_score = static_cast<double>(live_display_confidence_threshold);
+        if (presentation.show_boxes && live_enable_tracking && live_track_frame &&
+            chromascope::live_overlay_matches(presentation.visible, live_track_frame->key))
+            presentation.track_ids = live_track_frame->detection_ids;
+        return presentation;
+    }
+
     void update_camera() {
         // Drain the bounded event queue and upload only the newest frame.
         // Never perform driver operations or GL operations on the worker.
@@ -554,10 +591,12 @@ struct App {
                     if (chromascope::camera_preview_can_publish(
                             *event, camera_generation, camera_capture.state()) &&
                         workspace_mode == 2) {
-                        // Feed *each* authorized camera frame to the bounded writer
-                        // before preview's newest-only coalescing/inference moves it.
+                        // Recording samples the CURRENT displayed inference frame
+                        // (with matching boxes) when enabled, not stale boxes
+                        // projected onto this newer raw camera capture.
+                        // The incoming capture timestamp still drives file FPS.
                         if (live_recorder.accepting() && event->frame)
-                            live_recorder.submit(*event->frame);
+                            live_recorder.submit(*event->frame, live_record_presentation());
                         newest = std::move(event->frame);
                     }
                     break;
@@ -1281,8 +1320,10 @@ struct App {
 
     void draw_live_record_controls(bool in_modal) {
         if (in_modal) {
-            ImGui::TextWrapped("Camera video is saved locally without audio. Live detection "
-                "annotations remain preview-only; they are not burned into recordings.");
+            ImGui::TextWrapped("Camera video is saved locally without audio. Visible live "
+                "detection boxes and labels are burned into the recording while inference "
+                "is active. Turn inference off to record raw footage. The recorded image "
+                "follows the analyzed preview while inference runs.");
             const auto record_state = live_recorder.status();
             ImGui::BeginDisabled(live_recorder.accepting() ||
                 record_state.stage == chromascope::LiveRecordingStage::Finalizing);

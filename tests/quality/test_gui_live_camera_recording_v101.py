@@ -23,11 +23,26 @@ class LiveRecordingPolicyTests(unittest.TestCase):
     def test_camera_generation_guard_and_no_second_camera_open(self):
         update = GUI.split("    void update_camera() {", 1)[1].split("    void update() {", 1)[0]
         self.assertIn('camera_preview_can_publish(', update)
-        self.assertIn('live_recorder.submit(*event->frame);', update)
-        self.assertLess(update.index('live_recorder.submit(*event->frame)'),
+        self.assertIn('live_recorder.submit(*event->frame, live_record_presentation());', update)
+        self.assertLess(update.index('live_recorder.submit(*event->frame, live_record_presentation())'),
                         update.index('newest = std::move(event->frame)'))
         self.assertNotIn('CameraSource::open', CORE)
         self.assertIn('live_recorder.stop();', GUI.split('    void stop_camera() noexcept {', 1)[1].split('    void switch_workspace(', 1)[0])
+
+    def test_live_overlay_burn_in_tracks_visible_inference_state(self):
+        # Visible analyzed-frame identity must be validated before the recorder
+        # may access its corresponding pixels or render overlay geometry.
+        self.assertIn('live_record_presentation() const', GUI)
+        self.assertIn('live_overlay_matches(', GUI)
+        self.assertIn('presentation.show_boxes = live_show_bounding_boxes', GUI)
+        self.assertIn('presentation.show_labels = presentation.show_boxes && live_show_confidence_labels', GUI)
+        self.assertIn('presentation.minimum_score', GUI)
+        self.assertIn('render_live_recording_pixels(frame->capture, frame->presentation)', CORE)
+        self.assertIn('live_confidence_visible(detection.score, presentation.minimum_score)', CORE)
+        self.assertIn('object_confidence_label(detection)', CORE)
+        self.assertIn('live_overlay_matches(presentation.visible, result_key)', CORE)
+        self.assertIn('if (!presentation.displayed) return raw();', CORE)
+        self.assertNotIn('they are not burned into recordings', GUI)
 
     def test_bounded_writer_and_finalize(self):
         for fragment in ('kPendingLimit = 4', 'pending_.pop_front()',

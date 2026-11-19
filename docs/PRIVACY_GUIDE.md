@@ -64,9 +64,13 @@ Recording is a **separate explicit action** after camera capture starts. The Liv
 workspace has Start/Stop recording controls; the Export dialog selects AVI/MJPEG
 or MP4 (depending on the operating system's available encoder) and an optional
 output path. If blank, a timestamped `ChromascopeIP-Live-...` file is created
-in the operating system's Videos directory. The file contains camera pixels
-without audio; preview-only live detection overlays are **not** burned into
-the file. The recording worker uses a bounded queue and may drop captured
+in the operating system's Videos directory. The file contains silent camera video;
+**the currently displayed, frame-matched detection boxes and labels are burned
+into recorded pixels while live inference and overlay display are active**.
+Turning inference off during recording returns output to unannotated camera
+pixels. When inference is on, the recording follows the analyzed preview frame
+and may repeat it between inference completions; stale boxes are never applied
+to a different raw capture. The recording worker uses a bounded queue and may drop captured
 frames when storage cannot keep up. Stopping the camera, clearing the session
 or leaving the workspace requests recording finalization. Previously saved
 recordings are never deleted by session clearing. No recording starts when

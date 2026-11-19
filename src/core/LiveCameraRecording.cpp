@@ -1,5 +1,9 @@
 #include "chromascope/LiveCameraRecording.hpp"
 #include "chromascope/ImageFrameCV.hpp"
+#include "chromascope/AnnotationBridge.hpp"
+#include "chromascope/LiveGuiControlPolicy.hpp"
+
+#include <opencv2/imgproc.hpp>
 
 #include <opencv2/videoio.hpp>
 
@@ -132,6 +136,80 @@ fs::path resolve_live_recording_path(const fs::path& requested, LiveRecordingFor
     return destination;
 }
 
+// The recording uses the analyzed pixels held by the live preview while
+// inference is enabled. This is intentional: projecting a previous inference
+// onto a newer raw capture would draw stale boxes in the wrong places.
+// Timestamps for writer pacing still come from the current capture packet.
+cv::Mat render_live_recording_pixels(const CameraFramePacket& capture,
+                                     const LiveRecordingPresentation& presentation) {
+    const auto raw = [&] { return to_cv_mat_copy(capture.image); };
+    if (!presentation.displayed) return raw();
+    const auto& analyzed = *presentation.displayed;
+    const auto& image = analyzed.frame.image;
+    const auto& detections = analyzed.inference.detections;
+    const auto stamp = image.metadata().timestamp;
+    const auto detected_at = detections.timestamp();
+    const LiveOverlayFrameKey result_key{
+        analyzed.camera_generation, analyzed.session, analyzed.frame.index,
+        image.width(), image.height(), stamp ? stamp->value : std::chrono::nanoseconds{-1}};
+    if (!stamp || stamp->domain != TimestampDomain::CaptureMonotonic ||
+        image.format() != PixelFormat::BGR8 ||
+        !live_overlay_matches(presentation.visible, result_key) ||
+        // The current camera must not have changed geometry between capture
+        // and the analyzed preview; such a transition must remain raw.
+        capture.image.width() != image.width() ||
+        capture.image.height() != image.height()) return raw();
+
+    cv::Mat pixels = to_cv_mat_copy(image);
+    if (!presentation.show_boxes) return pixels;
+    if (!detected_at || detected_at->domain != stamp->domain ||
+        detected_at->value != stamp->value ||
+        detections.width() != image.width() ||
+        detections.height() != image.height()) return pixels;
+
+    // The same source-pixel box geometry, confidence gate and labels used by
+    // the live preview; draw directly into a PRIVATE copy on the writer thread.
+    // The recorder doesn't mutate the immutable inference result or source.
+    const cv::Scalar outline(235, 205, 45); // BGR for GUI RGB (45,205,235)
+    const cv::Scalar label_background(31, 35, 8);
+    const cv::Scalar label_text(241, 255, 218);
+    for (std::size_t i = 0; i < detections.objects().size(); ++i) {
+        const auto& detection = detections.objects()[i];
+        if (!live_confidence_visible(detection.score, presentation.minimum_score)) continue;
+        const auto* box = std::get_if<BoxGeometry>(&detection.geometry);
+        if (!box) continue;
+        const double x0 = std::clamp(box->x, 0.0, static_cast<double>(image.width()));
+        const double y0 = std::clamp(box->y, 0.0, static_cast<double>(image.height()));
+        const double x1 = std::clamp(box->x + box->width, 0.0, static_cast<double>(image.width()));
+        const double y1 = std::clamp(box->y + box->height, 0.0, static_cast<double>(image.height()));
+        if (!(x1 > x0 && y1 > y0)) continue;
+        const cv::Point first(static_cast<int>(std::floor(x0)), static_cast<int>(std::floor(y0)));
+        const cv::Point last(std::max(first.x, static_cast<int>(std::ceil(x1)) - 1),
+                             std::max(first.y, static_cast<int>(std::ceil(y1)) - 1));
+        cv::rectangle(pixels, first, last, outline, 2, cv::LINE_AA);
+        if (!presentation.show_labels) continue;
+        auto caption = object_confidence_label(detection);
+        if (i < presentation.track_ids.size() && presentation.track_ids[i] != 0)
+            caption += " | ID " + std::to_string(presentation.track_ids[i]);
+        constexpr int font = cv::FONT_HERSHEY_SIMPLEX;
+        constexpr double scale = 0.5;
+        constexpr int thickness = 1;
+        int baseline = 0;
+        const cv::Size label_size = cv::getTextSize(caption, font, scale, thickness, &baseline);
+        const int width = std::min(image.width(), label_size.width + 8);
+        const int height = std::min(image.height(), label_size.height + baseline + 5);
+        if (width <= 0 || height <= 0) continue;
+        const int label_x = std::clamp(first.x, 0, image.width() - width);
+        const int preferred_y = first.y >= height + 3 ? first.y - height - 3 : first.y + 3;
+        const int label_y = std::clamp(preferred_y, 0, image.height() - height);
+        cv::rectangle(pixels, cv::Rect(label_x, label_y, width, height), label_background, cv::FILLED);
+        cv::putText(pixels, caption, cv::Point(label_x + 4,
+                    label_y + std::min(height - 2, label_size.height + 1)),
+                    font, scale, label_text, thickness, cv::LINE_AA);
+    }
+    return pixels;
+}
+
 LiveCameraRecorder::~LiveCameraRecorder() {
     stop();
     if (worker_.joinable()) worker_.join();
@@ -185,7 +263,8 @@ void LiveCameraRecorder::stop() noexcept {
     cv_.notify_one();
 }
 
-void LiveCameraRecorder::submit(const CameraFramePacket& frame) {
+void LiveCameraRecorder::submit(const CameraFramePacket& frame,
+                                const LiveRecordingPresentation& presentation) {
     std::lock_guard lock(mutex_);
     if (!accepting_) return;
     const auto& stamp = frame.image.metadata().timestamp;
@@ -194,19 +273,23 @@ void LiveCameraRecorder::submit(const CameraFramePacket& frame) {
         ++status_.dropped_frames;
         return;
     }
-    // Copy only while explicitly recording, with a hard pixel-byte cap.
-    const auto bytes = frame.image.pixels().size();
-    if (bytes > kByteLimit) {
+    // Overestimate duplicate shared analyzed buffers to enforce an upper bound
+    // even when the producer retains several distinct presentation frames.
+    const std::size_t raw_bytes = frame.image.pixels().size();
+    const std::size_t overlay_bytes = presentation.displayed
+        ? presentation.displayed->frame.image.pixels().size() : 0;
+    if (raw_bytes > kByteLimit || overlay_bytes > kByteLimit - raw_bytes) {
         ++status_.dropped_frames;
         return;
     }
+    const auto bytes = raw_bytes + overlay_bytes;
     while (!pending_.empty() && (pending_.size() >= kPendingLimit ||
            bytes > kByteLimit - queued_bytes_)) {
-        queued_bytes_ -= pending_.front().image.pixels().size();
+        queued_bytes_ -= pending_.front().bytes;
         pending_.pop_front();
         ++status_.dropped_frames;
     }
-    pending_.push_back(frame);
+    pending_.push_back({frame, presentation, bytes});
     queued_bytes_ += bytes;
     cv_.notify_one();
 }
@@ -236,7 +319,7 @@ void LiveCameraRecorder::run(fs::path destination, LiveRecordingFormat format, d
         std::uint64_t written = 0;
         bool opened = false;
         for (;;) {
-            std::optional<CameraFramePacket> frame;
+            std::optional<PendingFrame> frame;
             {
                 std::unique_lock lock(mutex_);
                 cv_.wait(lock, [&] { return stop_requested_ || !pending_.empty(); });
@@ -245,12 +328,12 @@ void LiveCameraRecorder::run(fs::path destination, LiveRecordingFormat format, d
                     continue;
                 }
                 frame.emplace(std::move(pending_.front()));
-                queued_bytes_ -= frame->image.pixels().size();
+                queued_bytes_ -= frame->bytes;
                 pending_.pop_front();
             }
-            const auto stamp = frame->image.metadata().timestamp;
+            const auto stamp = frame->capture.image.metadata().timestamp;
             if (!stamp) continue;
-            auto pixels = to_cv_mat_copy(frame->image);
+            auto pixels = render_live_recording_pixels(frame->capture, frame->presentation);
             if (pixels.empty() || pixels.type() != CV_8UC3)
                 throw std::runtime_error("Unsupported live recording frame pixel format");
             if (!opened) {
@@ -265,7 +348,7 @@ void LiveCameraRecorder::run(fs::path destination, LiveRecordingFormat format, d
                 first_time = stamp->value;
                 std::lock_guard lock(mutex_);
                 if (!stop_requested_) status_.stage = LiveRecordingStage::Recording;
-                status_.message = "Recording local camera video (no audio or overlay burn-in).";
+                status_.message = "Recording local camera video (displayed overlays included when enabled; no audio).";
             }
             if (pixels.size() != dimensions)
                 throw std::runtime_error("Camera frame geometry changed during recording");

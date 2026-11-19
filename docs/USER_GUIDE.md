@@ -65,9 +65,14 @@ to save a timestamped `ChromascopeIP-Live-...` file in the OS Videos folder.
 Choose **Start recording** in the Live Camera sidebar or Export dialog;
 **Stop recording** finalizes the silent file asynchronously. The toolbar shows
 **RECORDING** in red while capturing and **SAVING** during finalization.
-Both recording and inference can run independently; the output consists of raw
-camera pixels, not the optional GUI preview overlays. A bounded recording
-queue may drop frames under heavy load; the writer compensates with repeated
+Both recording and inference can run independently. When inference is enabled
+and its boxes are visible, the currently displayed frame-matched boxes, labels,
+and optional temporary track IDs are burned into the saved footage. Turn off
+inference (or hide boxes) while recording to return to unannotated footage.
+While inference is enabled, the recorded pixels follow the analyzed preview,
+which may hold a frame between inference completions; boxes are never projected
+onto a different captured frame. A bounded recording queue may drop frames
+under heavy load; the writer compensates with repeated
 frames to maintain capture-time alignment. If the platform has no compatible
 MP4 encoder, the application reports the failure instead of silently changing
 formats. Camera Stop, workspace switch and session clearing also stop and

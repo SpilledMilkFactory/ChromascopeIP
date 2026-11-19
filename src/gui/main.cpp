@@ -12,6 +12,7 @@
 #include "chromascope/AsyncRecordedVideoDetection.hpp"
 #include "chromascope/AnnotatedVideoExport.hpp"
 #include "chromascope/AsyncCameraCapture.hpp"
+#include "chromascope/LiveCameraRecording.hpp"
 #include "chromascope/AsyncLiveCameraInference.hpp"
 #include "chromascope/CameraDiscovery.hpp"
 #include "chromascope/CameraPreviewPolicy.hpp"
@@ -160,6 +161,11 @@ struct App {
     // entering this workspace never open a device or request OS permission.
     // Capture thread owns driver I/O; texture uploads stay on the GUI thread.
     chromascope::AsyncCameraCapture camera_capture;
+    // A separate, opt-in bounded writer; preview/inference do not own its output.
+    chromascope::LiveCameraRecorder live_recorder;
+    std::array<char, 4096> live_record_path{}; // Empty = OS Videos folder + timestamp.
+    int live_record_format = 0; // AVI/MJPEG; MP4/H.264 or MPEG-4.
+    std::string live_record_error;
     chromascope::AsyncLiveCameraInference live_inference;
     std::shared_ptr<const chromascope::LiveInferenceResult> live_displayed;
     chromascope::LiveObjectTracker live_tracker; // GUI-thread only, no media stored
@@ -434,6 +440,7 @@ struct App {
     }
 
     void stop_camera() noexcept {
+        live_recorder.stop();
         cancel_live_inference();
         // stop() returns immediately even if native driver I/O is blocked;
         // STOPPING remains visible until the worker actually closes the camera.
@@ -512,6 +519,7 @@ struct App {
     }
 
     void start_camera() {
+        live_recorder.stop();
         cancel_live_inference();
         // Only called by the explicit user-facing Start camera button.
         // No probes, fallback, recording, inference or model loading.
@@ -546,16 +554,22 @@ struct App {
                     if (chromascope::camera_preview_can_publish(
                             *event, camera_generation, camera_capture.state()) &&
                         workspace_mode == 2) {
+                        // Feed *each* authorized camera frame to the bounded writer
+                        // before preview's newest-only coalescing/inference moves it.
+                        if (live_recorder.accepting() && event->frame)
+                            live_recorder.submit(*event->frame);
                         newest = std::move(event->frame);
                     }
                     break;
                 case chromascope::CameraCaptureEventKind::Stopped:
+                    live_recorder.stop();
                     cancel_live_inference();
                     camera_status = "Camera closed. No capture active.";
                     camera_texture.reset();
                     camera_frame_visible = false;
                     break;
                 case chromascope::CameraCaptureEventKind::Error:
+                    live_recorder.stop();
                     cancel_live_inference();
                     camera_status = "Camera error (" + std::string(
                         chromascope::camera_error_name(event->error_code.value_or(
@@ -1119,7 +1133,10 @@ struct App {
         } else {
             ImGui::TextWrapped("LIVE CAMERA: Navigating here does not open a device. "
                 "Select backend/device, press Start camera, and separately start CPU inference. "
-                "Stop/leave workspace requests camera release. Pause freezes analysis, not capture.");
+                "Recording requires a separate Start recording action after the camera opens. "
+                "Use Export to select AVI/MP4 output or an optional destination. "
+                "Stop/leave workspace requests camera release and finalizes recording. "
+                "Pause freezes analysis, not capture or recording.");
         }
         ImGui::Separator();
         ImGui::TextWrapped("Ctrl+1: Still images | Ctrl+2: Recorded video | Ctrl+3: Live camera");
@@ -1195,7 +1212,8 @@ struct App {
             "Person boxes are COCO class 0 predictions, not identities.");
         ImGui::TextWrapped("Images, model weights, decoded frames, camera "
             "preview pixels and caches stay local. Live inference requires "
-            "a separate Start action; no recording or uploads. "
+            "a separate Start action. Live recording is a separate, explicit "
+            "local action; no recording or uploads occur automatically. "
             "File exports are explicit; AVI exports discard audio.");
         ImGui::TextDisabled("No automatic ImGui layout/log file is written.");
         ImGui::Separator();
@@ -1213,6 +1231,81 @@ struct App {
         ImGui::Separator();
         ImGui::TextDisabled("Privacy details: docs/PRIVACY_GUIDE.md");
         ImGui::EndPopup();
+    }
+
+    void start_live_recording() {
+        try {
+            if (workspace_mode != 2 ||
+                camera_capture.state() != chromascope::CameraCaptureState::Capturing)
+                throw std::invalid_argument("Start the camera before recording");
+            const auto format = live_record_format == 0
+                ? chromascope::LiveRecordingFormat::AVI
+                : chromascope::LiveRecordingFormat::MP4;
+            const std::filesystem::path custom(live_record_path.data());
+            auto destination = chromascope::resolve_live_recording_path(custom, format);
+            // Create the user's default Videos folder only after an explicit
+            // Start recording action, not on startup, browsing or modal open.
+            if (custom.empty()) {
+                std::error_code error;
+                std::filesystem::create_directories(destination.parent_path(), error);
+                if (error) throw std::filesystem::filesystem_error(
+                    "Cannot create Videos folder", destination.parent_path(), error);
+            }
+            const double reported = camera_active_format.fps;
+            const double fps = std::isfinite(reported) && reported >= 1.0 && reported <= 120.0
+                ? reported : 30.0;
+            live_recorder.start(destination, format, fps);
+            live_record_error.clear();
+        } catch (const std::exception& error) {
+            live_record_error = std::string("Recording not started: ") + error.what();
+        }
+    }
+
+    void draw_live_record_actions() {
+        const auto rec = live_recorder.status();
+        const bool running = live_recorder.accepting();
+        const bool finalizing = rec.stage == chromascope::LiveRecordingStage::Finalizing;
+        ImGui::BeginDisabled(running || finalizing ||
+            camera_capture.state() != chromascope::CameraCaptureState::Capturing);
+        if (ImGui::Button("Start recording", ImVec2(-1, 0))) start_live_recording();
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!running);
+        if (ImGui::Button("Stop recording", ImVec2(-1, 0))) live_recorder.stop();
+        ImGui::EndDisabled();
+        ImGui::Text("Frames encoded: %llu | dropped: %llu",
+            static_cast<unsigned long long>(rec.frames_written),
+            static_cast<unsigned long long>(rec.dropped_frames));
+        ImGui::TextWrapped("%s", rec.message.c_str());
+        if (!live_record_error.empty()) ImGui::TextWrapped("%s", live_record_error.c_str());
+    }
+
+    void draw_live_record_controls(bool in_modal) {
+        if (in_modal) {
+            ImGui::TextWrapped("Camera video is saved locally without audio. Live detection "
+                "annotations remain preview-only; they are not burned into recordings.");
+            const auto record_state = live_recorder.status();
+            ImGui::BeginDisabled(live_recorder.accepting() ||
+                record_state.stage == chromascope::LiveRecordingStage::Finalizing);
+            ImGui::SetNextItemWidth(-1.0F);
+            ImGui::InputText("##live_record_destination", live_record_path.data(), live_record_path.size());
+            ImGui::TextDisabled("Optional filename or directory; blank uses your OS Videos folder.");
+            ImGui::Combo("Recording format", &live_record_format,
+                "AVI (MJPEG)\0MP4 (H.264 / MPEG-4)\0");
+            ImGui::EndDisabled();
+            if (live_record_path[0] == '\0') {
+                try {
+                    const auto format = live_record_format == 0
+                        ? chromascope::LiveRecordingFormat::AVI
+                        : chromascope::LiveRecordingFormat::MP4;
+                    ImGui::TextWrapped("Default: %s",
+                        chromascope::default_live_recording_path(format).string().c_str());
+                } catch (const std::exception& error) {
+                    ImGui::TextWrapped("Default unavailable: %s", error.what());
+                }
+            }
+            ImGui::TextDisabled("MP4 encoder availability depends on the installed OS backend.");
+        }
+        draw_live_record_actions();
     }
 
     // One mode-aware export entry; no export operations execute when opening
@@ -1240,8 +1333,8 @@ struct App {
             ImGui::TextUnformatted("ANNOTATED VIDEO EXPORT (M6.4)");
             draw_video_export_controls();
         } else {
-            ImGui::TextWrapped("Live Camera does not offer a file export. "
-                "Select Still Images or Recorded Video to export explicitly.");
+            ImGui::TextUnformatted("LOCAL LIVE CAMERA RECORDING");
+            draw_live_record_controls(true);
         }
         ImGui::EndPopup();
     }
@@ -2206,6 +2299,10 @@ struct App {
         if (ImGui::Button("Stop camera", ImVec2(-1, 0))) stop_camera();
         ImGui::EndDisabled();
         ImGui::Separator();
+        ImGui::TextUnformatted("LIVE RECORDING (OPT-IN)");
+        ImGui::TextDisabled("Destination and AVI/MP4 format: Export menu.");
+        draw_live_record_controls(false);
+        ImGui::Separator();
         ImGui::TextUnformatted("LIVE OBJECT / PERSON DETECTION (OPT-IN)");
         ImGui::TextWrapped("Only pinned local NanoDet COCO-80 inference. "
                            "Person mode detects class 0; optional temporary box tracking is NOT identification.");
@@ -2423,8 +2520,21 @@ struct App {
             ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
             : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", camera_badge.label);
         ImGui::SetItemTooltip("The camera opens only after Start camera. Leaving Live Camera requests Stop.");
-        same_line_if_fits(small_button_width("Help (F1)"));
-        if (ImGui::Button("Help (F1)")) help_requested = true;
+        const auto record_state = live_recorder.status().stage;
+        const bool recording_now = record_state == chromascope::LiveRecordingStage::Starting ||
+            record_state == chromascope::LiveRecordingStage::Recording;
+        const bool saving_now = record_state == chromascope::LiveRecordingStage::Finalizing;
+        const char* recording_label = recording_now ? "RECORDING" :
+            (saving_now ? "SAVING" : "NOT RECORDING");
+        same_line_if_fits(text_width(recording_label));
+        ImGui::TextColored(recording_now ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F) :
+            (saving_now ? ImVec4(0.98F, 0.75F, 0.30F, 1.0F) :
+                ImVec4(0.52F, 0.78F, 0.62F, 1.0F)), "%s", recording_label);
+        ImGui::SetItemTooltip("Recording starts only after an explicit Start recording action.");
+        toolbar_divider_if_fits(small_button_width("Help (F1)"));
+        if (ImGui::Selectable("Help (F1)", false, ImGuiSelectableFlags_None,
+                              ImVec2(small_button_width("Help (F1)"), ImGui::GetFrameHeight())))
+            help_requested = true;
 
         // Second row: session clearing precedes both people-workflow shortcuts.
         // It invokes the exact same explicit session-clearing action as before.

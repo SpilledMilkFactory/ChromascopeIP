@@ -61,6 +61,7 @@ add_library(chromascope_core STATIC
     src/core/CameraSource.cpp
     src/core/CameraDiscovery.cpp
     src/core/AsyncCameraCapture.cpp
+    src/core/LiveCameraRecording.cpp
     src/core/AsyncLiveCameraInference.cpp
     src/core/AsyncVideoDecoder.cpp
     src/core/VideoPlayer.cpp
@@ -84,6 +85,10 @@ target_include_directories(chromascope_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/
 target_include_directories(chromascope_core SYSTEM PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(chromascope_core PUBLIC ${OpenCV_LIBS} Threads::Threads)
 target_compile_features(chromascope_core PUBLIC cxx_std_20)
+if(WIN32)
+    # SHGetKnownFolderPath(FOLDERID_Videos) and CoTaskMemFree.
+    target_link_libraries(chromascope_core PUBLIC shell32 ole32)
+endif()
 chromascope_apply_quality(chromascope_core)
 
 add_executable(chromascope-cli src/cli/main.cpp src/cli/CameraCliCapture.cpp

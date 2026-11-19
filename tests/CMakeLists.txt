@@ -908,3 +908,7 @@ foreach(m106_target IN ITEMS chromascope_regression_malformed_media_preflight
     target_compile_definitions(${m106_target} PRIVATE
         CHROMASCOPE_M106_SEED_MANIFEST="${CMAKE_CURRENT_SOURCE_DIR}/fuzz/seeds/manifest.txt")
 endforeach()
+
+# v1.0.1: camera-free, cross-platform live recording policy validation.
+chromascope_add_cpp_test(chromascope_unit_live_camera_recording
+    unit/test_live_camera_recording.cpp "unit;camera;recording;privacy;negative" 20)

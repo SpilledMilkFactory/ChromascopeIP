@@ -58,11 +58,26 @@ The decoding backend, source frame index, presentation geometry and inference ou
 4. Temporary numeric tracking IDs are **session-local and opt-in**, not identity recognition; they reset with the live session. Frame-drop scheduling can skip captured frames under overload. Boxes should correspond to the same capture generation/timestamp as the displayed frame.
 5. Choose **Stop**, leave the workspace or reset the session to request capture shutdown and clear previews. Physical device release can lag if an OS driver blocks a native open/read; the GUI does **not** have a hard driver-interrupt guarantee.
 
+**Optional local recording (v1.0.1 development):** After Start camera, open **Export**
+to choose AVI (MJPEG) or MP4 (H.264/MPEG-4 when the OS codec is available) and
+optionally enter a destination filename or existing folder. Leave the field empty
+to save a timestamped `ChromascopeIP-Live-...` file in the OS Videos folder.
+Choose **Start recording** in the Live Camera sidebar or Export dialog;
+**Stop recording** finalizes the silent file asynchronously. The toolbar shows
+**RECORDING** in red while capturing and **SAVING** during finalization.
+Both recording and inference can run independently; the output consists of raw
+camera pixels, not the optional GUI preview overlays. A bounded recording
+queue may drop frames under heavy load; the writer compensates with repeated
+frames to maintain capture-time alignment. If the platform has no compatible
+MP4 encoder, the application reports the failure instead of silently changing
+formats. Camera Stop, workspace switch and session clearing also stop and
+finalize recording. Previously completed files remain on disk.
+
 No automatic video recording or screenshot capture accompanies starting a live preview. [Live controls](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_5_LIVE_GUI_CONTROLS.md), [temporary tracks](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_4_TEMPORARY_TRACKING.md), [Linux smoke](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_7_LINUX_CAMERA_SMOKE.md) and [real-device qualification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_7_LIVE_DEVICE_QUALIFICATION.md) document behavior and limitations. Windows Server CI checks the **CLI/core**, not native Windows 10/11 desktop camera behavior.
 
 ## Local settings and session cleanup
 
-Under **Local privacy and session controls**, **Save preferences** explicitly persists validated non-sensitive GUI settings. Reload and Delete are separate actions; startup may read an already saved file, but the GUI does not auto-save changes. Linux preferences live under `$XDG_CONFIG_HOME/chromascopeip/preferences-v1.conf` (fallback `$HOME/.config/chromascopeip/preferences-v1.conf`); Windows uses `%APPDATA%\ChromascopeIP\preferences-v1.conf`. No image/model paths, camera indices, frames or tracking IDs belong in that file.
+In the **Preferences** dialog, **Save preferences** explicitly persists validated non-sensitive GUI settings. Reload and Delete are separate actions; startup may read an already saved file, but the GUI does not auto-save changes. Linux preferences live under `$XDG_CONFIG_HOME/chromascopeip/preferences-v1.conf` (fallback `$HOME/.config/chromascopeip/preferences-v1.conf`); Windows uses `%APPDATA%\ChromascopeIP\preferences-v1.conf`. No image/model paths, camera indices, frames or tracking IDs belong in that file.
 
 **Clear loaded media, model and results** requests cancellation and clears application-held session state; it does **not** delete original files, explicit exports, saved preferences, OS caches or backups. Use **Delete saved preferences** separately. Loading settings or switching workspaces never activates a camera. See [M10.2 settings](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_2_VERSIONED_PREFERENCES.md) and [privacy guide](PRIVACY_GUIDE.md).
 

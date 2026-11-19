@@ -57,3 +57,17 @@ write diagnostic messages to stderr for an excluded stream. This restriction
 does not sandbox native parsers or certify absence of OS/network behavior.
 The [current source clearance report](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M11_9_M12_5_CLEARANCE_REPORT.md)
 describes remaining release blockers.
+
+## Optional local live-camera recording (v1.0.1 development)
+
+Recording is a **separate explicit action** after camera capture starts. The Live Camera
+workspace has Start/Stop recording controls; the Export dialog selects AVI/MJPEG
+or MP4 (depending on the operating system's available encoder) and an optional
+output path. If blank, a timestamped `ChromascopeIP-Live-...` file is created
+in the operating system's Videos directory. The file contains camera pixels
+without audio; preview-only live detection overlays are **not** burned into
+the file. The recording worker uses a bounded queue and may drop captured
+frames when storage cannot keep up. Stopping the camera, clearing the session
+or leaving the workspace requests recording finalization. Previously saved
+recordings are never deleted by session clearing. No recording starts when
+opening the camera, entering the workspace or opening the Export dialog.

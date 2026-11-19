@@ -2021,30 +2021,61 @@ struct App {
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
+        // v1.0.1 UI polish: a single compact header on the default 1440px
+        // window. Narrow windows wrap controls as needed instead of clipping
+        // them. Only presentation/spacing changes; all actions are unchanged.
+        const ImGuiStyle& toolbar_style = ImGui::GetStyle();
+        const float toolbar_right = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x -
+            toolbar_style.WindowPadding.x;
+        const auto text_width = [](const char* label) {
+            return ImGui::CalcTextSize(label).x;
+        };
+        const auto radio_width = [&](const char* label) {
+            return ImGui::GetFrameHeight() + toolbar_style.ItemInnerSpacing.x + text_width(label);
+        };
+        const auto small_button_width = [&](const char* label) {
+            // Conservative estimate also permits spacing at non-default DPI.
+            return text_width(label) + 2.0F * toolbar_style.FramePadding.x;
+        };
+        const auto same_line_if_fits = [&](float next_width) {
+            if (ImGui::GetItemRectMax().x + toolbar_style.ItemSpacing.x + next_width > toolbar_right)
+                return false;
+            ImGui::SameLine();
+            return true;
+        };
+        const auto toolbar_divider_if_fits = [&](float next_width) {
+            const float divider_width = text_width("|") +
+                2.0F * toolbar_style.ItemSpacing.x;
+            if (same_line_if_fits(divider_width + next_width)) {
+                ImGui::TextDisabled("|");
+                ImGui::SameLine();
+            }
+        };
+
         ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP");
-        if (viewport->WorkSize.x >= 960.0F * ui_content_scale) ImGui::SameLine();
-        ImGui::TextDisabled("v%s  |  Images, video & local camera  |  OpenCV 5.1.0 / ImGui 1.93.0", CHROMASCOPE_RELEASE_VERSION);
-        ImGui::Separator();
+        ImGui::SameLine();
+        ImGui::TextDisabled("v%s", CHROMASCOPE_RELEASE_VERSION);
+        toolbar_divider_if_fits(radio_width("Still images"));
         if (ImGui::RadioButton("Still images", workspace_mode == 0))
             switch_workspace(0);
-        ImGui::SameLine();
+        same_line_if_fits(radio_width("Recorded video"));
         if (ImGui::RadioButton("Recorded video", workspace_mode == 1))
             switch_workspace(1);
-        if (viewport->WorkSize.x >= 660.0F * ui_content_scale) ImGui::SameLine();
+        same_line_if_fits(radio_width("Live camera"));
         if (ImGui::RadioButton("Live camera", workspace_mode == 2))
             switch_workspace(2); // no implicit device opening
-        if (viewport->WorkSize.x >= 850.0F * ui_content_scale) ImGui::SameLine();
         const auto camera_badge = chromascope::camera_preview_badge(camera_capture.state());
+        same_line_if_fits(text_width(camera_badge.label));
         ImGui::TextColored(camera_badge.may_be_active
             ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
             : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", camera_badge.label);
         ImGui::SetItemTooltip("The camera opens only after Start camera. Leaving Live Camera requests Stop.");
-        ImGui::SameLine();
+        same_line_if_fits(small_button_width("Help (F1)"));
         if (ImGui::SmallButton("Help (F1)")) help_requested = true;
-        draw_help();
-        ImGui::Separator();
-        // M7.5 person quick-entry actions select the existing, verified
-        // person-only policies; they never load weights or run inference.
+
+        // M7.5: same person quick-entry actions and status, now in the header.
+        // These only select policies; no model or camera is loaded implicitly.
+        toolbar_divider_if_fits(small_button_width("People in image"));
         if (ImGui::SmallButton("People in image")) {
             switch_workspace(0);
             show_overlay = true;
@@ -2054,7 +2085,7 @@ struct App {
                 detector_session.clear_results();
             }
         }
-        if (viewport->WorkSize.x >= 560.0F * ui_content_scale) ImGui::SameLine();
+        same_line_if_fits(small_button_width("People in video"));
         if (ImGui::SmallButton("People in video")) {
             switch_workspace(1);
             video_show_detections = true;
@@ -2064,20 +2095,24 @@ struct App {
                 video_detection_profile = 1;
             }
         }
-        ImGui::SameLine();
+        char person_status[128]{};
         if (workspace_mode == 1 && video_detection_profile == 1) {
-            ImGui::TextDisabled("PERSON ONLY | COCO 0 | cutoff >= %.2f",
+            std::snprintf(person_status, sizeof(person_status), "PERSON ONLY | COCO 0 | cutoff >= %.2f",
                 static_cast<double>(std::max({video_person_display_threshold,
                     static_cast<float>(detector_options.confidence_threshold),
                     detector_class_overrides[0].value_or(0.0F)})));
         } else if (workspace_mode == 0 && detector_profile != 0) {
-            ImGui::TextDisabled("STILL PEOPLE | COCO 0 | cutoff >= %.2f",
+            std::snprintf(person_status, sizeof(person_status), "STILL PEOPLE | COCO 0 | cutoff >= %.2f",
                 static_cast<double>(std::max({still_person_display_threshold,
                     static_cast<float>(detector_options.confidence_threshold),
                     detector_class_overrides[0].value_or(0.0F)})));
         } else {
-            ImGui::TextDisabled("Select a people workflow; no automatic model loading");
+            std::snprintf(person_status, sizeof(person_status),
+                "Select a people workflow; no automatic model loading");
         }
+        same_line_if_fits(text_width(person_status));
+        ImGui::TextDisabled("%s", person_status);
+        draw_help();
         ImGui::Separator();
         // M7.6: local-only and retention controls are visible in both workspaces.
         if (ImGui::CollapsingHeader("Local privacy and session controls", ImGuiTreeNodeFlags_DefaultOpen)) {

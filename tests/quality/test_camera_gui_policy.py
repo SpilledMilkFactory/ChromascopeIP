@@ -13,7 +13,7 @@ class CameraGuiPolicyTests(unittest.TestCase):
         self.assertNotIn("camera_capture.start", constructor)
         switching = source.split("    void switch_workspace(", 1)[1].split("    void start_camera()", 1)[0]
         self.assertNotIn("camera_capture.start", switching)
-        self.assertIn('ImGui::RadioButton("Live camera"', source)
+        self.assertIn('ImGui::RadioButton("Live Camera"', source)
         self.assertIn('if (ImGui::Button("Start camera",', source)
         self.assertIn('if (ImGui::Button("Stop camera",', source)
         self.assertIn("camera_preview_badge(camera_capture.state())", source)

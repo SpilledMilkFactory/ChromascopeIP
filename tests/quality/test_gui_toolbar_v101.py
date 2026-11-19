@@ -1,4 +1,4 @@
-"""v1.0.1 GUI toolbar and Preferences modal wiring checks (no GPU required)."""
+"""v1.0.1 toolbar, Preferences and Export GUI wiring checks (no GPU required)."""
 from pathlib import Path
 import unittest
 
@@ -14,7 +14,19 @@ class ToolbarPolishTests(unittest.TestCase):
             '        if (workspace_mode == 1) {\n            draw_video_ui();', 1
         )[0]
         cls.preferences = src.split("    void draw_preferences() {", 1)[1].split(
+            "    void draw_export() {", 1
+        )[0]
+        cls.export = src.split("    void draw_export() {", 1)[1].split(
             "    void open_file_picker(", 1
+        )[0]
+        cls.modal_header = src.split("    static bool modal_header(", 1)[1].split(
+            "    void draw_preferences() {", 1
+        )[0]
+        cls.still_export = src.split("    void draw_still_export_controls() {", 1)[1].split(
+            "    void draw_video_export_controls() {", 1
+        )[0]
+        cls.video_export = src.split("    void draw_video_export_controls() {", 1)[1].split(
+            "    void draw_video_ui() {", 1
         )[0]
 
     def test_two_rows_and_requested_order_without_old_version_metadata(self):
@@ -23,15 +35,15 @@ class ToolbarPolishTests(unittest.TestCase):
             'ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP")',
             'ImGui::TextDisabled("v%s", CHROMASCOPE_RELEASE_VERSION)',
             'ImGui::Selectable("Preferences"',
-            'ImGui::RadioButton("Still images"',
-            'ImGui::RadioButton("Recorded video"',
-            'ImGui::RadioButton("Live camera"',
+            'ImGui::Selectable("Export"',
+            'ImGui::RadioButton("Still Images"',
+            'ImGui::RadioButton("Recorded Video"',
+            'ImGui::RadioButton("Live Camera"',
             'camera_preview_badge(camera_capture.state())',
-            'ImGui::SmallButton("Help (F1)")',
-            'ImGui::NewLine();',
+            'ImGui::Button("Help (F1)")',
             'ImGui::Button("Clear loaded media, model and results")',
-            'ImGui::SmallButton("People in image")',
-            'ImGui::SmallButton("People in video")',
+            'ImGui::Button("People in image")',
+            'ImGui::Button("People in video")',
             '"Select a people workflow; no automatic model loading"',
         )
         positions = [header.index(item) for item in controls]
@@ -41,10 +53,13 @@ class ToolbarPolishTests(unittest.TestCase):
 
     def test_row_dividers_and_responsive_wrapping(self):
         header = self.toolbar
-        self.assertEqual(header.count("ImGui::NewLine();"), 1)
+        # NewLine inserted a redundant empty line; normal widget layout
+        # already positions Clear on the next row after Help.
+        self.assertNotIn("ImGui::NewLine();", header)
+        self.assertNotIn('ImGui::Dummy(ImVec2(0', header)
         self.assertEqual(header.count("ImGui::Separator();"), 1)
         self.assertEqual(header.count('ImGui::TextDisabled("|");'), 1)
-        self.assertEqual(header.count("toolbar_divider_if_fits("), 3)  # two first-row dividers, one second-row divider
+        self.assertEqual(header.count("toolbar_divider_if_fits("), 4)  # three first-row dividers and one second-row divider
         self.assertGreaterEqual(header.count("same_line_if_fits("), 6)
         self.assertIn("toolbar_right", header)
         self.assertIn("ImGui::GetItemRectMax().x", header)
@@ -54,7 +69,8 @@ class ToolbarPolishTests(unittest.TestCase):
         header = self.toolbar
         for expected in (
             "switch_workspace(0)", "switch_workspace(1)", "switch_workspace(2)",
-            "help_requested = true", "draw_help();", "draw_preferences();",
+            "help_requested = true", "draw_help();", "draw_preferences();", "draw_export();",
+            "export_requested = true",
             "camera_badge.may_be_active", "camera_badge.label",
             "The camera opens only after Start camera",
             "show_overlay = true", "show_labels = true", "detector_profile = 1",
@@ -76,13 +92,14 @@ class ToolbarPolishTests(unittest.TestCase):
         self.assertIn("preferences_requested = true;", header)
         self.assertIn('ImGui::OpenPopup("ChromascopeIP Preferences")', popup)
         self.assertIn('ImGui::BeginPopupModal("ChromascopeIP Preferences"', popup)
-        self.assertIn('ImGui::Button("Close preferences")', popup)
-        self.assertIn('ImGui::CloseCurrentPopup()', popup)
+        self.assertIn('modal_header("Preferences", "x##close_preferences", "Close Preferences")', popup)
+        self.assertIn('ImGuiWindowFlags_NoTitleBar', popup)
         self.assertNotIn('ImGui::CollapsingHeader("Local privacy and session controls"', source)
         self.assertIn('ImGui::TextUnformatted("Local privacy and session controls")', popup)
         self.assertNotIn('ImGui::Button("Clear loaded media, model and results")', popup)
         self.assertEqual(header.count("draw_preferences();"), 1)
         self.assertLess(header.index("draw_help();"), header.index("draw_preferences();"))
+        self.assertLess(header.index("draw_preferences();"), header.index("draw_export();"))
 
     def test_preferences_preserve_privacy_copy_and_save_reload_delete_callbacks(self):
         popup = self.preferences
@@ -121,7 +138,74 @@ class ToolbarPolishTests(unittest.TestCase):
             self.assertIn(expected, header)
             self.assertNotIn(expected, self.preferences)
         self.assertEqual(header.count(r"\n"), 2)  # bounded-width tooltip lines
-        self.assertLess(header.index(tooltip), header.index('ImGui::SmallButton("People in image")'))
+        self.assertLess(header.index(tooltip), header.index('ImGui::Button("People in image")'))
+
+    def test_modal_close_x_tooltips_and_click_outside(self):
+        helper = self.modal_header
+        self.assertIn('ImGui::Button(close_id, ImVec2(close_width, 0.0F))', helper)
+        self.assertIn('ImGui::SetItemTooltip(close_tooltip)', helper)
+        self.assertIn('ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - close_width', helper)
+        self.assertIn('!ImGui::IsWindowAppearing()', helper)
+        self.assertIn('ImGui::IsMouseClicked(ImGuiMouseButton_Left)', helper)
+        self.assertIn('!ImGui::IsMouseHoveringRect(top_left, bottom_right, false)', helper)
+        self.assertIn('if (close_clicked || backdrop_clicked)', helper)
+        self.assertIn('ImGui::CloseCurrentPopup();', helper)
+        self.assertIn('modal_header("Preferences", "x##close_preferences", "Close Preferences")',
+                      self.preferences)
+        self.assertIn('modal_header("Export", "x##close_export", "Close Export")',
+                      self.export)
+        self.assertNotIn('ImGui::Button("Close preferences")', self.preferences)
+        self.assertNotIn('ImGui::Button("Close Export")', self.export)
+
+    def test_mode_aware_export_modal_and_original_callbacks(self):
+        modal = self.export
+        self.assertIn('ImGui::OpenPopup("ChromascopeIP Export")', modal)
+        self.assertIn('ImGui::BeginPopupModal("ChromascopeIP Export"', modal)
+        self.assertIn('if (workspace_mode == 0)', modal)
+        self.assertIn('draw_still_export_controls();', modal)
+        self.assertIn('else if (workspace_mode == 1)', modal)
+        self.assertIn('draw_video_export_controls();', modal)
+        self.assertIn('Live Camera does not offer a file export.', modal)
+        for expected in ('ImGui::Combo("Export image", &export_base_mode',
+                         'ImGui::InputText("##export", export_path.data(), export_path.size())',
+                         'if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();',
+                         'if (ImGui::Button("Export person boxes on original", ImVec2(-1, 0))) save_person();',
+                         'ImGui::BeginDisabled(!person_available)',
+                         'detector_session.snapshot()',
+                         'ImGui::EndDisabled()'):
+            self.assertIn(expected, self.still_export)
+        for expected in ('video_player.has_source()',
+                         'ImGui::InputText("AVI destination"',
+                         'ImGui::Checkbox("Discard source audio (silent AVI)"',
+                         'ImGui::Checkbox("Override nominal source FPS"',
+                         'ImGui::SliderFloat("Output FPS"',
+                         'ImGui::Button("Export annotated AVI", ImVec2(-1, 0))) start_video_export();',
+                         'ImGui::Button("Cancel AVI export", ImVec2(-1, 0)))',
+                         'video_export_worker.request_stop()',
+                         'video_export_count.load()',
+                         'video_export_status_mutex',
+                         'video_export_perf.encode'):
+            self.assertIn(expected, self.video_export)
+        # No duplicate export path/handlers left in the sidebars.
+        video_sidebar = self.source.split('    void draw_video_ui() {', 1)[1].split(
+            '    void draw_camera_ui() {', 1)[0]
+        still_sidebar = self.source.split('    void draw_ui() {', 1)[1]
+        self.assertNotIn('ImGui::InputText("AVI destination"', video_sidebar)
+        self.assertNotIn('ImGui::Combo("Export image"', still_sidebar)
+        self.assertNotIn('start_video_export()', modal)  # triggered only by explicit button
+        self.assertNotIn('save_person()', modal)
+
+    def test_header_full_size_controls_and_new_labels(self):
+        for expected in ('ImGui::Button("Help (F1)")',
+                         'ImGui::Button("People in image")',
+                         'ImGui::Button("People in video")'):
+            self.assertIn(expected, self.toolbar)
+            self.assertNotIn(expected.replace('ImGui::Button(', 'ImGui::SmallButton('), self.toolbar)
+        for label in ('Still Images', 'Recorded Video', 'Live Camera'):
+            self.assertIn(f'ImGui::RadioButton("{label}"', self.toolbar)
+        self.assertNotIn('ImGui::RadioButton("Still images"', self.toolbar)
+        self.assertNotIn('ImGui::RadioButton("Recorded video"', self.toolbar)
+        self.assertNotIn('ImGui::RadioButton("Live camera"', self.toolbar)
 
 
 if __name__ == "__main__":

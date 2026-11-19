@@ -214,6 +214,7 @@ struct App {
     float sidebar_width_logical = 345.0F;
     bool help_requested = false;
     bool preferences_requested = false;
+    bool export_requested = false;
     std::string preferences_status = "Preferences are not saved automatically.";
     bool browser_show_hidden = false;
     std::filesystem::path browser_selected;
@@ -1122,6 +1123,35 @@ struct App {
         ImGui::EndPopup();
     }
 
+    // Both in-app dialogs use the same small top-right close control.
+    // Modal backdrop clicks dismiss the dialog without acting on the workspace.
+    // Ignore the opening mouse press so a click on the toolbar cannot
+    // immediately dismiss a newly opened popup.
+    static bool modal_header(const char* heading, const char* close_id,
+                             const char* close_tooltip) {
+        const ImVec2 top_left = ImGui::GetWindowPos();
+        const ImVec2 size = ImGui::GetWindowSize();
+        const ImVec2 bottom_right(top_left.x + size.x, top_left.y + size.y);
+        const bool backdrop_clicked = !ImGui::IsWindowAppearing() &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            !ImGui::IsMouseHoveringRect(top_left, bottom_right, false);
+
+        ImGui::TextUnformatted(heading);
+        ImGui::SameLine();
+        const float close_width = ImGui::GetFrameHeight();
+        const float close_x = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - close_width;
+        if (ImGui::GetCursorPosX() < close_x)
+            ImGui::SetCursorPosX(close_x);
+        const bool close_clicked = ImGui::Button(close_id, ImVec2(close_width, 0.0F));
+        ImGui::SetItemTooltip(close_tooltip);
+        if (close_clicked || backdrop_clicked) {
+            ImGui::CloseCurrentPopup();
+            return true;
+        }
+        ImGui::Separator();
+        return false;
+    }
+
     void draw_preferences() {
         if (preferences_requested) {
             ImGui::OpenPopup("ChromascopeIP Preferences");
@@ -1132,7 +1162,12 @@ struct App {
                                         std::min(440.0F * ui_content_scale, work.y * 0.92F)),
                                  ImGuiCond_Appearing);
         if (!ImGui::BeginPopupModal("ChromascopeIP Preferences", nullptr,
-                                    ImGuiWindowFlags_NoSavedSettings)) return;
+                                    ImGuiWindowFlags_NoSavedSettings |
+                                    ImGuiWindowFlags_NoTitleBar)) return;
+        if (modal_header("Preferences", "x##close_preferences", "Close Preferences")) {
+            ImGui::EndPopup();
+            return;
+        }
         ImGui::TextUnformatted("Local privacy and session controls");
         ImGui::Separator();
         ImGui::TextWrapped("This app's first-party runtime has no upload, "
@@ -1157,8 +1192,37 @@ struct App {
         ImGui::TextWrapped("%s", preferences_status.c_str());
         ImGui::Separator();
         ImGui::TextDisabled("Privacy details: docs/PRIVACY_GUIDE.md");
-        ImGui::Separator();
-        if (ImGui::Button("Close preferences")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+
+    // One mode-aware export entry; no export operations execute when opening
+    // the dialog. Source-specific callbacks stay unchanged and explicit.
+    void draw_export() {
+        if (export_requested) {
+            ImGui::OpenPopup("ChromascopeIP Export");
+            export_requested = false;
+        }
+        const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
+        ImGui::SetNextWindowSize(ImVec2(std::min(620.0F * ui_content_scale, work.x * 0.94F),
+                                        std::min(490.0F * ui_content_scale, work.y * 0.92F)),
+                                 ImGuiCond_Appearing);
+        if (!ImGui::BeginPopupModal("ChromascopeIP Export", nullptr,
+                                    ImGuiWindowFlags_NoSavedSettings |
+                                    ImGuiWindowFlags_NoTitleBar)) return;
+        if (modal_header("Export", "x##close_export", "Close Export")) {
+            ImGui::EndPopup();
+            return;
+        }
+        if (workspace_mode == 0) {
+            ImGui::TextUnformatted("STILL IMAGE EXPORT");
+            draw_still_export_controls();
+        } else if (workspace_mode == 1) {
+            ImGui::TextUnformatted("ANNOTATED VIDEO EXPORT (M6.4)");
+            draw_video_export_controls();
+        } else {
+            ImGui::TextWrapped("Live Camera does not offer a file export. "
+                "Select Still Images or Recorded Video to export explicitly.");
+        }
         ImGui::EndPopup();
     }
 
@@ -1539,6 +1603,58 @@ struct App {
         }
     }
 
+    // Original still-image export settings and callbacks, moved unchanged
+    // out of the sidebar and into the shared mode-aware Export dialog.
+    void draw_still_export_controls() {
+        ImGui::Combo("Export image", &export_base_mode,
+                     "As configured\0Original pixels\0Processed pixels\0");
+        ImGui::InputText("##export", export_path.data(), export_path.size());
+        if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
+        const auto still_person_snapshot = detector_session.snapshot();
+        const bool person_available = detector_profile != 0 &&
+            still_person_snapshot.stage == chromascope::DnnGuiStage::Completed &&
+            still_person_snapshot.person_detections && input_frame;
+        ImGui::BeginDisabled(!person_available);
+        if (ImGui::Button("Export person boxes on original", ImVec2(-1, 0))) save_person();
+        ImGui::EndDisabled();
+    }
+
+    // The original AVI export widgets and handlers, now hosted by Export.
+    // Cancel and progress remain accessible while a background export runs.
+    void draw_video_export_controls() {
+        const bool has_source = video_player.has_source();
+        ImGui::TextDisabled("Codec: MJPEG / AVI | Timing: constant FPS");
+        ImGui::InputText("AVI destination", video_export_path.data(), video_export_path.size());
+        ImGui::Checkbox("Discard source audio (silent AVI)", &video_export_audio_ack);
+        ImGui::Checkbox("Override nominal source FPS", &video_export_override_fps);
+        if (video_export_override_fps)
+            ImGui::SliderFloat("Output FPS", &video_export_fps, 1.0F, 120.0F, "%.1f");
+        ImGui::TextDisabled("Source VFR timestamps are not retained in AVI.");
+        ImGui::BeginDisabled(!has_source || video_export_busy.load() || !video_export_audio_ack);
+        if (ImGui::Button("Export annotated AVI", ImVec2(-1, 0))) start_video_export();
+        ImGui::EndDisabled();
+        if (video_export_busy.load() &&
+            ImGui::Button("Cancel AVI export", ImVec2(-1, 0)))
+            video_export_worker.request_stop();
+        ImGui::Text("Frames encoded: %llu",
+            static_cast<unsigned long long>(video_export_count.load()));
+        {
+            std::lock_guard lock(video_export_status_mutex);
+            ImGui::TextWrapped("%s", video_export_status.c_str());
+            const auto show_stage = [](const char* label, const chromascope::VideoStageStatistics& stats) {
+                if (stats.measured()) ImGui::Text("%s: %.3f ms/frame, %.1f ms total (%llu samples)",
+                    label, stats.mean_ms(), stats.total_ms(),
+                    static_cast<unsigned long long>(stats.samples));
+                else ImGui::TextDisabled("%s: not measured", label);
+            };
+            show_stage("AVI decode", video_export_perf.decode);
+            show_stage("AVI inference", video_export_perf.inference);
+            show_stage("AVI overlay", video_export_perf.overlay);
+            show_stage("AVI encode", video_export_perf.encode);
+        }
+        ImGui::TextDisabled("CPU stage wall time; model loading, file closing/publishing and GPU time excluded.");
+    }
+
     void draw_video_ui() {
         const auto layout = panel_layout();
         ImGui::BeginChild("Video controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
@@ -1762,38 +1878,6 @@ struct App {
                 static_cast<unsigned long long>(video_overlay_draw_perf.samples));
         ImGui::TextDisabled("Decoder and NanoDet run off-thread; cached overlays only.");
         ImGui::TextDisabled("Frames not yet processed or evicted show no overlay.");
-        ImGui::Separator();
-        ImGui::TextUnformatted("ANNOTATED VIDEO EXPORT (M6.4)");
-        ImGui::TextDisabled("Codec: MJPEG / AVI | Timing: constant FPS");
-        ImGui::InputText("AVI destination", video_export_path.data(), video_export_path.size());
-        ImGui::Checkbox("Discard source audio (silent AVI)", &video_export_audio_ack);
-        ImGui::Checkbox("Override nominal source FPS", &video_export_override_fps);
-        if (video_export_override_fps)
-            ImGui::SliderFloat("Output FPS", &video_export_fps, 1.0F, 120.0F, "%.1f");
-        ImGui::TextDisabled("Source VFR timestamps are not retained in AVI.");
-        ImGui::BeginDisabled(!has_source || video_export_busy.load() || !video_export_audio_ack);
-        if (ImGui::Button("Export annotated AVI", ImVec2(-1, 0))) start_video_export();
-        ImGui::EndDisabled();
-        if (video_export_busy.load() &&
-            ImGui::Button("Cancel AVI export", ImVec2(-1, 0)))
-            video_export_worker.request_stop();
-        ImGui::Text("Frames encoded: %llu",
-            static_cast<unsigned long long>(video_export_count.load()));
-        {
-            std::lock_guard lock(video_export_status_mutex);
-            ImGui::TextWrapped("%s", video_export_status.c_str());
-            const auto show_stage = [](const char* label, const chromascope::VideoStageStatistics& stats) {
-                if (stats.measured()) ImGui::Text("%s: %.3f ms/frame, %.1f ms total (%llu samples)",
-                    label, stats.mean_ms(), stats.total_ms(),
-                    static_cast<unsigned long long>(stats.samples));
-                else ImGui::TextDisabled("%s: not measured", label);
-            };
-            show_stage("AVI decode", video_export_perf.decode);
-            show_stage("AVI inference", video_export_perf.inference);
-            show_stage("AVI overlay", video_export_perf.overlay);
-            show_stage("AVI encode", video_export_perf.encode);
-        }
-        ImGui::TextDisabled("CPU stage wall time; model loading, file closing/publishing and GPU time excluded.");
         ImGui::Separator();
         ImGui::TextWrapped("%s", video_player.status().c_str());
         if (!video_status.empty()) ImGui::TextWrapped("%s", video_status.c_str());
@@ -2062,8 +2146,8 @@ struct App {
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
-        // v1.0.1 UI polish: two compact action rows with a menu-style
-        // Preferences entry and a separate privacy/preferences modal.
+        // v1.0.1 UI polish: two compact action rows with menu-style
+        // Preferences and Export entries and dedicated modal dialogs.
         // Narrow windows wrap controls as needed; behavior is unchanged.
         const ImGuiStyle& toolbar_style = ImGui::GetStyle();
         const float toolbar_right = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x -
@@ -2102,14 +2186,18 @@ struct App {
         if (ImGui::Selectable("Preferences", false, ImGuiSelectableFlags_None,
                               ImVec2(small_button_width("Preferences"), ImGui::GetFrameHeight())))
             preferences_requested = true;
-        toolbar_divider_if_fits(radio_width("Still images"));
-        if (ImGui::RadioButton("Still images", workspace_mode == 0))
+        toolbar_divider_if_fits(small_button_width("Export"));
+        if (ImGui::Selectable("Export", false, ImGuiSelectableFlags_None,
+                              ImVec2(small_button_width("Export"), ImGui::GetFrameHeight())))
+            export_requested = true;
+        toolbar_divider_if_fits(radio_width("Still Images"));
+        if (ImGui::RadioButton("Still Images", workspace_mode == 0))
             switch_workspace(0);
-        same_line_if_fits(radio_width("Recorded video"));
-        if (ImGui::RadioButton("Recorded video", workspace_mode == 1))
+        same_line_if_fits(radio_width("Recorded Video"));
+        if (ImGui::RadioButton("Recorded Video", workspace_mode == 1))
             switch_workspace(1);
-        same_line_if_fits(radio_width("Live camera"));
-        if (ImGui::RadioButton("Live camera", workspace_mode == 2))
+        same_line_if_fits(radio_width("Live Camera"));
+        if (ImGui::RadioButton("Live Camera", workspace_mode == 2))
             switch_workspace(2); // no implicit device opening
         const auto camera_badge = chromascope::camera_preview_badge(camera_capture.state());
         same_line_if_fits(text_width(camera_badge.label));
@@ -2118,11 +2206,12 @@ struct App {
             : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", camera_badge.label);
         ImGui::SetItemTooltip("The camera opens only after Start camera. Leaving Live Camera requests Stop.");
         same_line_if_fits(small_button_width("Help (F1)"));
-        if (ImGui::SmallButton("Help (F1)")) help_requested = true;
+        if (ImGui::Button("Help (F1)")) help_requested = true;
 
         // Second row: session clearing precedes both people-workflow shortcuts.
         // It invokes the exact same explicit session-clearing action as before.
-        ImGui::NewLine();
+        // The normal ImGui vertical layout starts the next row automatically;
+        // NewLine here created an unintended empty row above these actions.
         if (ImGui::Button("Clear loaded media, model and results"))
             clear_private_session();
         ImGui::SetItemTooltip("Clearing cancels pending work and releases displayed\n"
@@ -2132,7 +2221,7 @@ struct App {
         // M7.5: same person quick-entry actions and status, now on row two.
         // These only select policies; no model or camera is loaded implicitly.
         toolbar_divider_if_fits(small_button_width("People in image"));
-        if (ImGui::SmallButton("People in image")) {
+        if (ImGui::Button("People in image")) {
             switch_workspace(0);
             show_overlay = true;
             show_labels = true;
@@ -2142,7 +2231,7 @@ struct App {
             }
         }
         same_line_if_fits(small_button_width("People in video"));
-        if (ImGui::SmallButton("People in video")) {
+        if (ImGui::Button("People in video")) {
             switch_workspace(1);
             video_show_detections = true;
             if (video_detection_profile != 1) {
@@ -2170,6 +2259,7 @@ struct App {
         ImGui::TextDisabled("%s", person_status);
         draw_help();
         draw_preferences();
+        draw_export();
         ImGui::Separator();
         if (workspace_mode == 1) {
             draw_video_ui();
@@ -2288,7 +2378,7 @@ struct App {
         }
         ImGui::Separator();
 
-        ImGui::TextUnformatted("VIEW & EXPORT");
+        ImGui::TextUnformatted("VIEW");
         if (ImGui::Combo("Preview mode", &preview_mode,
                          "Result\0Original\0Side by side\0"))
             refresh_overlay();
@@ -2339,17 +2429,6 @@ struct App {
             }
             if (changed) refresh_overlay();
         }
-        ImGui::Combo("Export image", &export_base_mode,
-                     "As configured\0Original pixels\0Processed pixels\0");
-        ImGui::InputText("##export", export_path.data(), export_path.size());
-        if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
-        const auto still_person_snapshot = detector_session.snapshot();
-        const bool person_available = detector_profile != 0 &&
-            still_person_snapshot.stage == chromascope::DnnGuiStage::Completed &&
-            still_person_snapshot.person_detections && input_frame;
-        ImGui::BeginDisabled(!person_available);
-        if (ImGui::Button("Export person boxes on original", ImVec2(-1, 0))) save_person();
-        ImGui::EndDisabled();
         ImGui::Separator();
         ImGui::TextUnformatted("RESULTS");
         if (pending_ticket != 0) {

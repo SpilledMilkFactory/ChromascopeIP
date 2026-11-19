@@ -184,7 +184,7 @@ class ToolbarPolishTests(unittest.TestCase):
                          'ImGui::InputText("AVI destination"',
                          'ImGui::Checkbox("Discard source audio (silent AVI)"',
                          'ImGui::Checkbox("Override nominal source FPS"',
-                         'ImGui::SliderFloat("Output FPS"',
+                         'slider_float("Output FPS"',
                          'ImGui::Button("Export annotated AVI", ImVec2(-1, 0))) start_video_export();',
                          'ImGui::Button("Cancel AVI export", ImVec2(-1, 0)))',
                          'video_export_worker.request_stop()',

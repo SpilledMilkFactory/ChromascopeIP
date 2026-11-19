@@ -216,6 +216,10 @@ struct App {
     bool preferences_requested = false;
     bool export_requested = false;
     std::string preferences_status = "Preferences are not saved automatically.";
+    // The last explicitly saved/loaded profile is the reset baseline. Values
+    // not represented in schema v1 retain their original built-in defaults.
+    // This snapshot never contains media/model paths or camera session state.
+    std::optional<chromascope::GuiPreferences> active_preference_defaults;
     bool browser_show_hidden = false;
     std::filesystem::path browser_selected;
     std::string browser_status_message;
@@ -290,6 +294,7 @@ struct App {
                 (void)processors.create({id, options});
             chromascope::write_gui_preferences_file(
                 *file, chromascope::serialize_gui_preferences(prefs));
+            active_preference_defaults = prefs;
             preferences_status = "Preferences explicitly saved. No media/model paths stored.";
         } catch (const std::exception& error) {
             preferences_status = std::string("Preferences not saved: ") + error.what();
@@ -302,6 +307,7 @@ struct App {
             if (!file) throw std::runtime_error("No valid OS configuration directory");
             const auto input = chromascope::read_gui_preferences_file(*file);
             if (!input) {
+                active_preference_defaults.reset();
                 preferences_status = "No saved preferences. Using defaults.";
                 return;
             }
@@ -360,6 +366,7 @@ struct App {
             live_enable_tracking = false;
             live_inference_active = false;
             live_paused = false;
+            active_preference_defaults = prefs;
             preferences_status = "Validated schema v1 preferences loaded (no hardware activated).";
         } catch (const std::exception& error) {
             preferences_status = std::string("Preferences rejected; current values retained: ") + error.what();
@@ -1367,6 +1374,61 @@ struct App {
         ImGui::EndPopup();
     }
 
+    // Right-click on a slider to restore its active preference-profile value
+    // (if persisted), otherwise the control's existing application default.
+    // Return true on reset just as on a drag so existing effects and
+    // cancellation paths are executed without duplicating business logic.
+    [[nodiscard]] double slider_ui_default(std::string_view key, double fallback) const {
+        if (active_preference_defaults) {
+            const auto it = active_preference_defaults->ui.find(key);
+            if (it != active_preference_defaults->ui.end()) return it->second;
+        }
+        return fallback;
+    }
+
+    [[nodiscard]] double slider_profile_default(std::string_view profile,
+                                                 std::string_view key, double fallback) const {
+        if (active_preference_defaults) {
+            const auto found = active_preference_defaults->profiles.find(profile);
+            if (found != active_preference_defaults->profiles.end()) {
+                const auto value = found->second.find(key);
+                if (value != found->second.end()) return value->second;
+            }
+        }
+        return fallback;
+    }
+
+    // A popup is attached to the actual ImGui slider item, not its label text.
+    static bool slider_reset_menu() {
+        bool reset = false;
+        if (ImGui::BeginPopupContextItem()) {
+            reset = ImGui::MenuItem("Reset to Default Value");
+            ImGui::EndPopup();
+        }
+        return reset;
+    }
+
+    static bool slider_float(const char* label, float* current, float minimum,
+                             float maximum, float default_value,
+                             const char* format = "%.3f") {
+        bool changed = ImGui::SliderFloat(label, current, minimum, maximum, format);
+        if (slider_reset_menu() && *current != default_value) {
+            *current = default_value;
+            changed = true;
+        }
+        return changed;
+    }
+
+    static bool slider_int(const char* label, int* current, int minimum,
+                           int maximum, int default_value) {
+        bool changed = ImGui::SliderInt(label, current, minimum, maximum);
+        if (slider_reset_menu() && *current != default_value) {
+            *current = default_value;
+            changed = true;
+        }
+        return changed;
+    }
+
     void draw_detector_controls() {
         ImGui::Separator();
         ImGui::TextUnformatted("PERSON DETECTION / MODEL (M7.5)");
@@ -1406,19 +1468,22 @@ struct App {
                             std::string(chromascope::nanodet_class_label(id)).c_str());
         }
         float confidence = static_cast<float>(detector_options.confidence_threshold);
-        if (ImGui::SliderFloat("Confidence cutoff", &confidence, 0.0f, 1.0f, "%.2f")) {
+        if (slider_float("Confidence cutoff", &confidence, 0.0f, 1.0f,
+                         static_cast<float>(chromascope::DnnGuiOptions{}.confidence_threshold), "%.2f")) {
             detector_options.confidence_threshold = confidence;
             detector_session.clear_results();
         }
         float iou = static_cast<float>(detector_options.nms_iou_threshold);
-        if (ImGui::SliderFloat("NMS IoU cutoff", &iou, 0.0f, 1.0f, "%.2f")) {
+        if (slider_float("NMS IoU cutoff", &iou, 0.0f, 1.0f,
+                         static_cast<float>(chromascope::DnnGuiOptions{}.nms_iou_threshold), "%.2f")) {
             detector_options.nms_iou_threshold = iou;
             detector_session.clear_results();
         }
-        if (ImGui::SliderInt("Max detections", &detector_options.max_detections, 1, 512))
+        if (slider_int("Max detections", &detector_options.max_detections, 1, 512,
+                       chromascope::DnnGuiOptions{}.max_detections))
             detector_session.clear_results();
-        if (ImGui::SliderFloat("Still-image person display threshold", &still_person_display_threshold,
-                               0.0F, 1.0F, "%.2f"))
+        if (slider_float("Still-image person display threshold", &still_person_display_threshold,
+                             0.0F, 1.0F, 0.50F, "%.2f"))
             detector_session.clear_results();
         ImGui::TextDisabled("Person boxes require BOTH confidence and display thresholds.");
         ImGui::Text("Effective person cutoff: %.2f",
@@ -1426,8 +1491,8 @@ struct App {
                 static_cast<float>(detector_options.confidence_threshold),
                 detector_class_overrides[0].value_or(0.0F)})));
         if (ImGui::CollapsingHeader("Per-class thresholds (recorded-video detection)")) {
-            ImGui::SliderInt("COCO class ID", &detector_selected_class, 0,
-                             chromascope::kNanoDetClassCount - 1);
+            slider_int("COCO class ID", &detector_selected_class, 0,
+                       chromascope::kNanoDetClassCount - 1, 0);
             ImGui::Text("Class: %s", std::string(chromascope::nanodet_class_label(
                 detector_selected_class)).c_str());
             auto& override_score = detector_class_overrides[
@@ -1440,8 +1505,8 @@ struct App {
             }
             if (override_score.has_value()) {
                 float score = *override_score;
-                if (ImGui::SliderFloat("Class confidence", &score,
-                                       0.0F, 1.0F, "%.2f")) {
+                if (slider_float("Class confidence", &score,
+                                 0.0F, 1.0F, 0.75F, "%.2f")) {
                     override_score = score;
                     if (detector_selected_class == 0) detector_session.clear_results();
                 }
@@ -1628,7 +1693,7 @@ struct App {
         ImGui::Checkbox("Discard source audio (silent AVI)", &video_export_audio_ack);
         ImGui::Checkbox("Override nominal source FPS", &video_export_override_fps);
         if (video_export_override_fps)
-            ImGui::SliderFloat("Output FPS", &video_export_fps, 1.0F, 120.0F, "%.1f");
+            slider_float("Output FPS", &video_export_fps, 1.0F, 120.0F, 25.0F, "%.1f");
         ImGui::TextDisabled("Source VFR timestamps are not retained in AVI.");
         ImGui::BeginDisabled(!has_source || video_export_busy.load() || !video_export_audio_ack);
         if (ImGui::Button("Export annotated AVI", ImVec2(-1, 0))) start_video_export();
@@ -1659,6 +1724,7 @@ struct App {
         const auto layout = panel_layout();
         ImGui::BeginChild("Video controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("RECORDED VIDEO");
+        ImGui::SetNextItemWidth(-1.0F);
         ImGui::InputText("##video_path", video_path.data(), video_path.size());
         if (ImGui::Button("Open video", ImVec2(159.0F * ui_content_scale, 0.0F))) open_video(video_path.data());
         ImGui::SameLine();
@@ -1707,15 +1773,23 @@ struct App {
             if (video_seek_target > last) video_seek_target = last;
             ImGui::SliderScalar("Timeline", ImGuiDataType_U64,
                                 &video_seek_target, &first, &last);
-            if (ImGui::IsItemActive()) {
+            const bool timeline_active = ImGui::IsItemActive();
+            const bool timeline_deactivated_after_edit = ImGui::IsItemDeactivatedAfterEdit();
+            const bool timeline_deactivated = ImGui::IsItemDeactivated();
+            // Reset must seek immediately: selecting a context menu is not a
+            // drag-deactivation event, so do not rely on that callback alone.
+            const bool timeline_reset = slider_reset_menu();
+            if (timeline_reset) video_seek_target = first;
+            if (timeline_active) {
                 video_scrubbing = true;
                 video_player.pause();
             }
-            if (ImGui::IsItemDeactivatedAfterEdit()) {
+            if (timeline_deactivated_after_edit || timeline_reset) {
                 video_scrubbing = false;
+                video_player.pause();
                 try { video_player.seek(video_seek_target); }
                 catch (const std::exception& e) { video_status = e.what(); }
-            } else if (ImGui::IsItemDeactivated()) video_scrubbing = false;
+            } else if (timeline_deactivated) video_scrubbing = false;
             ImGui::TextDisabled("Reported frames: %llu (decoder estimate)",
                 static_cast<unsigned long long>(*metadata->reported_frame_count));
         } else {
@@ -1731,7 +1805,13 @@ struct App {
             catch (const std::exception& e) { video_status = e.what(); }
         }
         float playback_rate = static_cast<float>(video_player.playback_fps());
-        if (ImGui::SliderFloat("Playback FPS", &playback_rate, 1.0f, 120.0f, "%.1f"))
+        float default_playback_fps = 30.0F;
+        if (metadata && metadata->frames_per_second &&
+            std::isfinite(*metadata->frames_per_second) &&
+            *metadata->frames_per_second >= 1.0 && *metadata->frames_per_second <= 120.0)
+            default_playback_fps = static_cast<float>(*metadata->frames_per_second);
+        if (slider_float("Playback FPS", &playback_rate, 1.0f, 120.0f,
+                         default_playback_fps, "%.1f"))
             video_player.set_playback_fps(static_cast<double>(playback_rate));
         ImGui::TextDisabled("Decoder timing when available; otherwise nominal/30 FPS.");
         ImGui::TextDisabled("Audio ignored: no decoding, playback, or synchronization.");
@@ -1757,8 +1837,9 @@ struct App {
             video_export_worker.request_stop();
         }
         if (video_detection_profile == 1) {
-            if (ImGui::SliderFloat("Person display threshold", &video_person_display_threshold,
-                                   0.0F, 1.0F, "%.2f")) {
+            if (slider_float("Person display threshold", &video_person_display_threshold,
+                             0.0F, 1.0F,
+                             static_cast<float>(slider_ui_default("video_person_display_threshold", 0.50)), "%.2f")) {
                 video_detection.cancel();
                 video_export_worker.request_stop();
             }
@@ -1783,22 +1864,25 @@ struct App {
             open_file_picker(false, true);
         float confidence = static_cast<float>(detector_options.confidence_threshold);
         bool video_policy_changed = false;
-        if (ImGui::SliderFloat("Video confidence", &confidence, 0.0f, 1.0f, "%.2f")) {
+        if (slider_float("Video confidence", &confidence, 0.0f, 1.0f,
+                         static_cast<float>(chromascope::DnnGuiOptions{}.confidence_threshold), "%.2f")) {
             detector_options.confidence_threshold = confidence;
             video_policy_changed = true;
         }
         float iou = static_cast<float>(detector_options.nms_iou_threshold);
-        if (ImGui::SliderFloat("Video NMS IoU", &iou, 0.0f, 1.0f, "%.2f")) {
+        if (slider_float("Video NMS IoU", &iou, 0.0f, 1.0f,
+                         static_cast<float>(chromascope::DnnGuiOptions{}.nms_iou_threshold), "%.2f")) {
             detector_options.nms_iou_threshold = iou;
             video_policy_changed = true;
         }
-        video_policy_changed |= ImGui::SliderInt("Video max boxes", &detector_options.max_detections, 1, 512);
-        video_policy_changed |= ImGui::SliderFloat("Video weak-candidate floor", &video_uncertainty_floor,
-                                                   0.0F, 1.0F, "%.2f");
+        video_policy_changed |= slider_int("Video max boxes", &detector_options.max_detections, 1, 512,
+                                             chromascope::DnnGuiOptions{}.max_detections);
+        video_policy_changed |= slider_float("Video weak-candidate floor", &video_uncertainty_floor,
+                                               0.0F, 1.0F, 0.35F, "%.2f");
         ImGui::TextDisabled("Diagnostic only: weak scores do not become boxes or an unknown class.");
         if (ImGui::CollapsingHeader("Video per-class confidence")) {
-            ImGui::SliderInt("Video class ID", &detector_selected_class, 0,
-                             chromascope::kNanoDetClassCount - 1);
+            slider_int("Video class ID", &detector_selected_class, 0,
+                       chromascope::kNanoDetClassCount - 1, 0);
             ImGui::Text("COCO: %s", std::string(chromascope::nanodet_class_label(
                 detector_selected_class)).c_str());
             auto& threshold = detector_class_overrides[
@@ -1811,7 +1895,7 @@ struct App {
             }
             if (threshold) {
                 float value = *threshold;
-                if (ImGui::SliderFloat("Video class confidence", &value, 0.0F, 1.0F, "%.2f")) {
+                if (slider_float("Video class confidence", &value, 0.0F, 1.0F, 0.75F, "%.2f")) {
                     threshold = value;
                     video_policy_changed = true;
                 }
@@ -1997,17 +2081,19 @@ struct App {
         ImGui::BeginDisabled(live_inference_active);
         ImGui::Combo("Live detection profile", &live_detection_profile,
             "COCO-80 objects\0Person only (COCO ID 0)\0");
-        ImGui::SliderFloat("Live confidence cutoff", &live_confidence_threshold,
-            0.01F, 1.0F, "%.2f");
+        slider_float("Live confidence cutoff", &live_confidence_threshold,
+            0.01F, 1.0F, static_cast<float>(slider_ui_default("live_confidence_threshold", 0.50)), "%.2f");
         if (live_detection_profile == 1)
-            ImGui::SliderFloat("Live person display cutoff", &live_person_display_threshold,
-                0.01F, 1.0F, "%.2f");
+            slider_float("Live person display cutoff", &live_person_display_threshold,
+                0.01F, 1.0F, static_cast<float>(slider_ui_default("live_person_display_threshold", 0.50)), "%.2f");
         ImGui::Combo("Inference frame-drop policy", &live_drop_strategy,
             "Keep newest (replace pending)\0Keep oldest (discard incoming)\0");
-        ImGui::SliderInt("Minimum capture spacing (ms)",
-            &live_min_capture_spacing_ms, 0, 1000);
-        ImGui::SliderInt("Max inference submission FPS (0=uncapped)",
-            &live_max_inference_fps, 0, 60);
+        slider_int("Minimum capture spacing (ms)",
+            &live_min_capture_spacing_ms, 0, 1000,
+            static_cast<int>(slider_ui_default("live_min_capture_spacing_ms", 0)));
+        slider_int("Max inference submission FPS (0=uncapped)",
+            &live_max_inference_fps, 0, 60,
+            static_cast<int>(slider_ui_default("live_max_inference_fps", 0)));
         ImGui::InputText("Local ONNX model", detector_model_path.data(), detector_model_path.size());
         ImGui::Checkbox("Enable temporary track IDs", &live_enable_tracking);
         ImGui::EndDisabled();
@@ -2024,8 +2110,9 @@ struct App {
         if (ImGui::Button(live_paused ? "Resume live inference" : "Pause live inference",
                           ImVec2(-1, 0))) toggle_live_pause();
         ImGui::EndDisabled();
-        ImGui::SliderFloat("Live overlay display confidence", &live_display_confidence_threshold,
-                           0.01F, 1.0F, "%.2f");
+        slider_float("Live overlay display confidence", &live_display_confidence_threshold,
+                         0.01F, 1.0F,
+                         static_cast<float>(slider_ui_default("live_display_confidence_threshold", 0.50)), "%.2f");
         ImGui::TextDisabled("Display-only threshold; lower values cannot recover model-filtered boxes.");
         ImGui::TextDisabled("FPS cap limits inference submissions, not physical camera FPS.");
         const auto live_state = live_inference.snapshot();
@@ -2275,6 +2362,7 @@ struct App {
         const auto layout = panel_layout();
         ImGui::BeginChild("Controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("INPUT IMAGE");
+        ImGui::SetNextItemWidth(-1.0F);
         ImGui::InputText("##path", path.data(), path.size());
         if (ImGui::Button("Open image", ImVec2(159.0F * ui_content_scale, 0.0F))) load(path.data());
         ImGui::SameLine();
@@ -2285,9 +2373,14 @@ struct App {
         if (!legacy_sample_directory)
             ImGui::TextDisabled("Samples are not redistributed; browse for your own media.");
         ImGui::BeginDisabled(!legacy_sample_directory.has_value());
+        // Keep all four samples equally sized while the left splitter resizes.
+        // The final button consumes remaining width to avoid rounding gaps.
+        const float sample_spacing = ImGui::GetStyle().ItemSpacing.x;
+        const float sample_width = std::max(1.0F,
+            (ImGui::GetContentRegionAvail().x - 3.0F * sample_spacing) / 4.0F);
         for (int n = 1; n <= 4; ++n) {
             const std::string button = "s" + std::to_string(n) + ".jpg";
-            if (ImGui::Button(button.c_str(), ImVec2(75, 0))) {
+            if (ImGui::Button(button.c_str(), ImVec2(n == 4 ? -1.0F : sample_width, 0.0F))) {
                 load(*legacy_sample_directory / button);
             }
             if (n != 4) ImGui::SameLine();
@@ -2317,14 +2410,20 @@ struct App {
         if (selected_profile == "skittles") {
             ImGui::TextDisabled("Legacy colored-circle detector.");
             float accumulator = static_cast<float>(settings.accumulator_threshold);
-            if (ImGui::SliderFloat("Circle threshold", &accumulator, 18.0f, 55.0f, "%.0f"))
+            if (slider_float("Circle threshold", &accumulator, 18.0f, 55.0f,
+                             static_cast<float>(slider_profile_default("skittles", "accumulator_threshold",
+                                                                          chromascope::Settings{}.accumulator_threshold)), "%.0f"))
                 settings.accumulator_threshold = accumulator;
             ImGui::SetItemTooltip("Lower values: more candidates; more false positives.");
             float minimum_confidence = static_cast<float>(settings.minimum_confidence);
-            if (ImGui::SliderFloat("Color confidence", &minimum_confidence, 0.0f, 0.95f, "%.2f"))
+            if (slider_float("Color confidence", &minimum_confidence, 0.0f, 0.95f,
+                             static_cast<float>(slider_profile_default("skittles", "minimum_confidence",
+                                                                          chromascope::Settings{}.minimum_confidence)), "%.2f"))
                 settings.minimum_confidence = minimum_confidence;
             int max_size = settings.max_dimension;
-            if (ImGui::SliderInt("Analysis max size", &max_size, 512, 2000))
+            if (slider_int("Analysis max size", &max_size, 512, 2000,
+                           static_cast<int>(slider_profile_default("skittles", "max_dimension",
+                                                                           chromascope::Settings{}.max_dimension))))
                 settings.max_dimension = max_size;
         } else {
             for (const auto& descriptor : descriptors) {
@@ -2335,9 +2434,11 @@ struct App {
                     const std::string label = option.key;
                     if (option.integral) {
                         int current = static_cast<int>(options.at(option.key));
-                        if (ImGui::SliderInt(label.c_str(), &current,
-                                             static_cast<int>(option.minimum),
-                                             static_cast<int>(option.maximum))) {
+                        if (slider_int(label.c_str(), &current,
+                                       static_cast<int>(option.minimum),
+                                       static_cast<int>(option.maximum),
+                                       static_cast<int>(slider_profile_default(selected_profile,
+                                                                              option.key, option.default_value)))) {
                             if ((option.key == "kernel_size" || option.key == "morph_kernel" ||
                                  option.key == "blur_kernel") && current % 2 == 0)
                                 current = current < static_cast<int>(options.at(option.key))
@@ -2346,9 +2447,11 @@ struct App {
                         }
                     } else {
                         float current = static_cast<float>(options.at(option.key));
-                        if (ImGui::SliderFloat(label.c_str(), &current,
-                              static_cast<float>(option.minimum),
-                              static_cast<float>(option.maximum), "%.1f"))
+                        if (slider_float(label.c_str(), &current,
+                                       static_cast<float>(option.minimum),
+                                       static_cast<float>(option.maximum),
+                                       static_cast<float>(slider_profile_default(selected_profile,
+                                                                                option.key, option.default_value)), "%.1f"))
                             options.at(option.key) = current;
                     }
                 }

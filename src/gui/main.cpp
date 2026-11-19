@@ -1143,7 +1143,7 @@ struct App {
         if (ImGui::GetCursorPosX() < close_x)
             ImGui::SetCursorPosX(close_x);
         const bool close_clicked = ImGui::Button(close_id, ImVec2(close_width, 0.0F));
-        ImGui::SetItemTooltip(close_tooltip);
+        ImGui::SetItemTooltip("%s", close_tooltip);
         if (close_clicked || backdrop_clicked) {
             ImGui::CloseCurrentPopup();
             return true;

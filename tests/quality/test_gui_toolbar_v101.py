@@ -143,7 +143,7 @@ class ToolbarPolishTests(unittest.TestCase):
     def test_modal_close_x_tooltips_and_click_outside(self):
         helper = self.modal_header
         self.assertIn('ImGui::Button(close_id, ImVec2(close_width, 0.0F))', helper)
-        self.assertIn('ImGui::SetItemTooltip(close_tooltip)', helper)
+        self.assertIn('ImGui::SetItemTooltip("%s", close_tooltip)', helper)
         self.assertIn('ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - close_width', helper)
         self.assertIn('!ImGui::IsWindowAppearing()', helper)
         self.assertIn('ImGui::IsMouseClicked(ImGuiMouseButton_Left)', helper)
@@ -156,6 +156,12 @@ class ToolbarPolishTests(unittest.TestCase):
                       self.export)
         self.assertNotIn('ImGui::Button("Close preferences")', self.preferences)
         self.assertNotIn('ImGui::Button("Close Export")', self.export)
+
+    def test_modal_tooltip_uses_literal_format_for_warning_as_error_builds(self):
+        # ImGui SetItemTooltip uses printf-style formatting. Passing a runtime
+        # string as the format triggers -Werror=format-security under GCC.
+        self.assertIn('ImGui::SetItemTooltip("%s", close_tooltip);', self.modal_header)
+        self.assertNotIn('ImGui::SetItemTooltip(close_tooltip);', self.modal_header)
 
     def test_mode_aware_export_modal_and_original_callbacks(self):
         modal = self.export

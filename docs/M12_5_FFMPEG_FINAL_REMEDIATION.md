@@ -1,7 +1,9 @@
-# M12.5 — Focused FFmpeg security remediation candidate
+# M12.5 — Focused FFmpeg security remediation (engineering record)
 
-**Prepared 2026-11-18. Technical status: IMPLEMENTED / PENDING_TARGET_VERIFICATION.**
-**No M12.5 release authorization is asserted.**
+**Prepared 2026-11-18. Initial technical status: IMPLEMENTED / PENDING_TARGET_VERIFICATION (historical baseline).**
+
+**2026-11-18 update:** Native target qualification has since passed. Hosted Release Staging CI #4 (`44425058385`, source `aaed9bd63ce8886142a1cdf907e9323dd0987597`) passed 151/151 native Linux CTests on Debian 12/13 and Ubuntu 24.04/26.04, 150 Windows native CTests, ASan/UBSan checks, installed patched OpenCV video I/O consumers and same-source package validation. FFmpeg registry inspection confirms JPEG XL absent on Debian 12 and present on the other three targets; external LCEVC is disabled on all four. The maintainer accepted the mitigated and documented residual media-processing risks in the [M12.5 security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md). Statements below describing pending native verification are historical, not current, and the scope of protection remains the patched supported capture path, not the system FFmpeg implementation.
+**The original engineering patch did not authorize release; subsequent bounded M12.5 approval is recorded in the linked tracked sign-off.**
 
 This change set follows the accepted M11.9/M12.5 remediation and Release Staging CI #3,
 source `0ff5be752bad6e5560f25d00af0ac09086468c1f` (run `44380265790`).

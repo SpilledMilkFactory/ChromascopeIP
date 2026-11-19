@@ -1,96 +1,41 @@
 # M12.5 — release security sign-off
 
-**2026-11-18: RELEASE SIGN-OFF BLOCKED. Technical remediation is partial.**
+**Review date: 2026-11-18. Security decision: APPROVED for the bounded v1.0.0 release configuration.**
 
-The [coordinated clearance report](M11_9_M12_5_CLEARANCE_REPORT.md) is the current
-technical record. The [2026-11-17 review](history/M12_5_REVIEW_2026_11_17.md)
-preserves the earlier source and documented-dependency review. No historical
-commit reconstruction or repeated desktop VM acceptance is required.
+The maintainer explicitly authorized the final security disposition on 2026-11-18 after the OpenCV security bootstrap, local native tests, five-platform CI and exact-source Release Staging CI #4 completed. This is an attributable, risk-scoped authorization, **not** a claim that FFmpeg, all codecs, drivers, models, or dependencies are free of vulnerabilities. The independent packet and hosted workflow evidence are summarized in [the final clearance decisions](M11_9_FINAL_CLEARANCE_DECISIONS.md). No historical commit reconstruction is required. This source and package evidence does not prove Microsoft REDIST license entitlement, which is a separate M11.9 check. The [2026-11-17 source and documented-dependency review](history/M12_5_REVIEW_2026_11_17.md) is retained as historical evidence.
 
-| Area | Current decision |
+## Reviewed configuration and evidence
+
+| Area | Release disposition |
 | --- | --- |
-| Dependency identity | PARTIAL final qualification: five historical packages inspected at source `66a8c0227278c27e0a4f2ef80ecb8a12ece4ffe5`, run `44248667196`; new Ubuntu package separately checked. Compiled OpenCV reports now supplement ELF/PE inventory. Final same-source five-target rebuild remains necessary. |
-| Licenses and notices | Pinned OpenCV LICENSE/COPYRIGHT and embedded notices corrected, including Protobuf, HarfBuzz, FlatBuffers, LAPACK, FLANN/SoftFloat, codecs, GLFW and ImGui fonts/stb. All 29 package/topic decisions remain formally pending; Microsoft VC143 entitlement needs maintainer confirmation. |
-| Vulnerabilities | MagicYUV/CineForm/SANM decoder exclusions implemented before probing and playback; audio decoders excluded during probing. CVE-2026-125264 parser exposure and complete vendor-runtime advisory reconciliation remain BLOCKED. No blanket FFmpeg clearance. |
-| Privacy | REVIEWED FOR FIRST-PARTY DESIGN, NOT CERTIFIED. Existing explicit capture, inference, save and export controls remain intact. Native parsers are in-process; no network-forensics certification. |
+| Dependency identity | **ACCEPTED FOR SECURITY SCOPE.** The five staging #4 candidates are from source `aaed9bd63ce8886142a1cdf907e9323dd0987597`, run `44425058385`. All 15 checksum entries match, five standalone packages match staged copies, five CycloneDX inventories exist, and provenance bundles have matching subjects. A final documentation commit changes the source SHA; those packages are qualification evidence, **not** the final publishable bytes. |
+| Licenses and notices | **OUTSIDE THIS SECURITY APPROVAL.** Pinned OpenCV/Protobuf/HarfBuzz/FlatBuffers/GLFW/ImGui and other notice checks passed. The 29 M11.9 topics are handled separately in [M11.9 final decisions](M11_9_FINAL_CLEARANCE_DECISIONS.md); security approval is not Microsoft REDIST entitlement or patent clearance. |
+| Vulnerabilities | **REMEDIATED / ACCEPTED WITH DOCUMENTED LIMITATIONS.** OpenCV 5.1.0 patched FFmpeg capture enforces decoder exclusions and `AVFMT_FLAG_NOPARSE` before opening/probing recorded media; hostile `fflags` cannot override the latter. External LCEVC is unavailable in all four inspected runtimes and fail-closed if enabled; hardware decoder requests and named NVDEC/CUVID overrides are rejected in supported capture paths. |
+| Privacy | **REVIEWED FOR FIRST-PARTY DESIGN, NOT CERTIFIED.** Camera and inference remain opt-in, application telemetry/uploads are not introduced, output remains user-directed. This is a source-only privacy assessment, not a verified host-network, driver, crash-dump, or hardware audit. |
 
-## CVE-2026-8461 / MagicYUV
+### Exact qualification
 
-The [Debian tracker](https://security-tracker.debian.org/tracker/CVE-2026-8461)
-and [Ubuntu tracker](https://ubuntu.com/security/CVE-2026-8461) were consulted
-again on 2026-11-18. Debian 12 remains vulnerable; Debian 13 is fixed at
-`7:7.1.5-0+deb13u1`; Ubuntu 24.04 and Ubuntu 26.04 remain vulnerable. The exact
-installed vendor revision, rather than an upstream version number alone, matters.
+- Debian 12 AMD64, Debian 13 AMD64, Ubuntu 24.04 AMD64 and Ubuntu 26.04 AMD64: **151/151 native Release CTests per target**, same-source package qualifications and installed-OpenCV video consumers passed in hosted CI.
+- Windows x64: **150 native CTests** passed with Media Foundation / DirectShow; no FFmpeg is bundled into the Windows ZIP.
+- Ubuntu 24.04 first-party ASan/UBSan: **151/151 CTests**; static-analysis gate and 20 PR checks passed.
+- Local Ubuntu 26.04: patched OpenCV rebuilt into a fresh installation, CTests/sanitizers and installed-videoio security checks passed according to the maintainer's supplied terminal output.
+- Release Staging CI #4, run `44425058385`: 10 workflow artifacts, five distribution packages and five CycloneDX inventories generated. Six Sigstore bundles have matching subject hashes; cryptographic attestation verification with `gh attestation verify` remains a **publication gate**, not a claim made here.
 
-The prior potential downstream runtime exposure is now demonstrated: recorded
-files reach `CAP_ANY`, built-in FFmpeg opens them and probes streams before the
-application validates decoded frames. A benign MagicYUV file opens on the old
-local prefix. In the corrected build it fails under explicit FFmpeg, Automatic,
-and OpenCV MJPEG, including a renamed extension and hostile environment options.
+### Specific FFmpeg security findings
 
-Linux bootstrap still uses OpenCV 5.1.0 at upstream
-`e4f78fbcf1a773fbed69e14500e8b734963eb585` with an explicit, checksum-verified
-local patch. The patch excludes affected decoders before `avformat_find_stream_info`
-and independently rejects their codec IDs in the playback context. It also
-excludes non-video decoders: source audio is ignored by the application.
-The four Linux packagers require the exact patch fingerprint in their build
-marker and package provenance. Windows disables FFmpeg and uses system MSMF;
-this CVE is not applicable to that backend. Final target-runtime testing of the
-new Linux builds remains mandatory. No OS library is claimed patched.
+1. **CVE-2026-8461 / MagicYUV, CineForm, SANM:** The patched OpenCV Linux FFmpeg capture backend excludes the affected video decoders before stream-information probing and again before decoder initialization. The native security consumer verifies rejection across automatic and explicit backend paths, renamed media and hostile options. The system FFmpeg libraries themselves are **not** claimed patched. Vendor record: https://security-tracker.debian.org/tracker/CVE-2026-8461 and https://ubuntu.com/security/CVE-2026-8461; Debian 13 FFmpeg package `7:7.1.5-0+deb13u1` is fixed for that vendor issue while other platforms rely on the application mitigation. The earlier review confirmed potential downstream runtime exposure before the patch.
+2. **CVE-2026-125264 / JPEG XL parser:** Debian 12's inspected `libavcodec59` exposes no JPEG XL parser. The Debian 13, Ubuntu 24.04 and Ubuntu 26.04 compiled runtimes expose the parser; for those builds, the OpenCV FFmpeg capture path sets `AVFMT_FLAG_NOPARSE` before `avformat_open_input()` / `avformat_find_stream_info()` and maintains it for reads. The library-level upstream FFmpeg TOC vulnerability is not backported by this change. Tests cover synthetic MJPEG decoding/seek, auto and explicit FFmpeg selection and hostile option rejection, **not every demuxer or possible native parsing path**.
+3. **CVE-2026-125262 / LCEVC:** The external LCEVC decoder was not enabled in the four inventoried FFmpeg runtimes. An explicit guard prevents capture initialization with a loaded FFmpeg runtime configured to enable it.
+4. **CVE-2026-125265 / NVDEC:** Named hardware decoders are present in vendor registries, but the supported patched capture path rejects hardware decoding requests and named CUVID/NVDEC selection. Presence of a registered decoder alone is not evidence of application exposure.
 
-## Intel acceleration removal
+These restrictions are qualified for the supported application media-loading paths. They do not provide a sandbox for untrusted multimedia, correct system FFmpeg packages, protect unrelated applications, guarantee vendor CVEs will never affect future runtimes, or establish universal zero-vulnerability status. Driver/codec updates and newly discovered relevant advisories require continuing review. The maintainer accepts the bounded residual attack surface for this v1.0.0 release.
 
-Linux bootstrap now disables IPP, matching Windows. The previously inspected
-Linux binaries embedded IPPICV 2026.1.0 and compiled proprietary wrapper sources.
-The archive's supplied license clearly permits binary-form redistribution; it
-does not clearly establish the wrapper-source grant. Removing the optional
-acceleration removes that unresolved input from new builds. The installed
-consumer checks that the compiled build report says `Intel IPP: NO`. Original
-photographic regressions remain required; no detector thresholds change.
+### Distribution boundaries and review limitations
 
-## Other findings and release decision
+Four Linux `.deb` files embed patched OpenCV and depend on the distribution-supplied FFmpeg shared libraries. Windows uses system Microsoft media components and bundles app-local VC143 runtime DLLs. Third-party license and applicable patent/redistribution rights are reviewed separately under M11.9. NanoDet ONNX weights are external. The owner confirmed personal authorship of `samples/skittles/s1.jpg` through `s4.jpg`, but those photos and model weights are excluded from binary release packages (`release_bundle_allowed=false`); this is not a general public repository media-rights certification.
 
-The full report distinguishes vendor vulnerabilities, known unreachable API
-paths and unresolved cases. In particular, decoder exclusion does not disable
-FFmpeg parsers: CVE-2026-125264 (JPEG XL parser CPU exhaustion) cannot be called
-resolved by the MagicYUV whitelist. Distribution library/backport versions and
-remaining codec paths must be reconciled before security approval.
+This review does not execute a live vulnerability scan of each installed target system. No external legal opinion or universal parser/privacy certification is asserted. If a new material issue is unresolved, record it as **BLOCKED or UNKNOWN** and reassess this approval. The pre-remediation 20-check same-run CI and historic five-package inspections remain baseline evidence only. This procedure does not create tags or publish packages.
 
-The standard NanoDet Apache text is no longer substituted for OpenCV's license.
-The pinned OpenCV source has no top-level NOTICE file; its COPYRIGHT and
-embedded third-party notices are retained independently.
-Correct notice content does not prove Microsoft REDIST entitlement or settle
-codec/patent terms. Actual modified packages need a new same-run matrix, five
-SBOMs, hashes and attestations. The 29 package/topic decisions remain tied to
-those exact final bytes, with real reviewers and evidence.
+**Decision authority:** ChromascopeIP maintainer (SpilledMilkFactory), explicitly authorized in the 2026-11-18 release-review conversation. Technical evidence was independently analyzed and approval is intentionally limited to the documented supported configuration.
 
-NanoDet ONNX weights are external; no weights or photographs are added to binary
-packages. The owner confirmed authorship of `samples/skittles/s1.jpg` through
-`s4.jpg` on 2026-11-18, resolving the former public repository photo-rights
-question. See [media rights](MEDIA_RIGHTS.md). That statement does not approve
-third-party redistribution or public release.
-
-The release-tag helper and its authorization assertion are unchanged. This
-file deliberately contains no approved sign-off marker. No tag or public
-release is authorized.
-
-This procedure does not create tags or publish packages. The accepted historical
-20-check same-run CI is retained as baseline evidence, not a claim of a new
-hosted run. Privacy conclusions remain a source-only assessment supported by
-control tests. The review does not execute a live vulnerability scan of each
-installed target system. No external legal opinion or universal parser/privacy
-certification is asserted. If an issue is unresolved, record it as **BLOCKED or UNKNOWN**.
-
-## 2026-11-18 — Additive FFmpeg parser remediation candidate (not approved)
-
-A separate tracked [technical remediation report](M12_5_FFMPEG_FINAL_REMEDIATION.md)
-documents an additive pinned OpenCV patch that applies `AVFMT_FLAG_NOPARSE`
-before `avformat_open_input()` and `avformat_find_stream_info()`, prevents
-`fflags` overrides, rejects configured external LCEVC runtimes and hardware
-decoding requests, and extends the installed-OpenCV consumer and package
-identity checks. The source-only Python quality suite passed 435 tests in the
-prepared snapshot. **The new code has not passed the four native FFmpeg
-runtimes or five-platform CI**; compatibility with required formats and seeking
-remains a qualification gate. Historical successful staging evidence cannot
-be reused as approval for the new source bytes. The blocked release status
-and 29 pending M11.9 decisions above are unchanged.
+M12.5 RELEASE SIGN-OFF: APPROVED

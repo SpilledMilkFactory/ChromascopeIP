@@ -46,8 +46,9 @@ and validate each downloaded artifact against the **same final release's**
   included in the binary distributions. Provide only media and models you are
   authorized to use.
 - Linux video support uses system-provided codec libraries; codec availability
-  and security updates depend on your OS. Before publication, the release
-  maintainer must resolve the outstanding FFmpeg MagicYUV advisory review.
+  and security updates depend on your OS. The supported Linux OpenCV FFmpeg
+  capture path uses pre-probe parser and decoder restrictions to mitigate
+  specified vulnerabilities; this does not patch the system FFmpeg libraries.
 - Live camera behavior depends on hardware, permissions and drivers; ordinary
   CI does not certify every physical device. No auto-recording is performed.
 - Not an audio/video conversion suite: annotated video export is silent

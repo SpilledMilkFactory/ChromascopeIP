@@ -15,16 +15,16 @@ class ReleaseSignoffM125Tests(unittest.TestCase):
         self.guide = read('docs/M12_5_RELEASE_SECURITY_SIGNOFF.md')
 
     def test_dated_review_and_no_fabricated_clearance(self):
-        for phrase in ('2026-11-17', 'RELEASE SIGN-OFF BLOCKED',
+        for phrase in ('2026-11-17', 'M12.5 RELEASE SIGN-OFF: APPROVED',
                        'source and documented-dependency review',
-                       'five historical packages inspected',
+                       'five staging #4 candidates',
                        'No historical commit reconstruction'):
             self.assertIn(phrase, ' '.join(self.guide.split()))
         self.assertNotIn('ALL DEPENDENCIES CLEARED', self.guide)
 
     def test_four_review_dimensions_stay_distinct(self):
         for name in ('Dependency identity', 'Licenses and notices',
-                     'Vulnerabilities', 'Privacy', 'PARTIAL', 'BLOCKED',
+                     'Vulnerabilities', 'Privacy', 'NOT CERTIFIED', 'BLOCKED',
                      'REVIEWED FOR FIRST-PARTY DESIGN, NOT CERTIFIED'):
             self.assertIn(name, self.guide)
 
@@ -35,7 +35,7 @@ class ReleaseSignoffM125Tests(unittest.TestCase):
         for text in ('CVE-2026-8461', 'MagicYUV', '7:7.1.5-0+deb13u1',
                      'security-tracker.debian.org/tracker/CVE-2026-8461',
                      'ubuntu.com/security/CVE-2026-8461',
-                     'potential downstream runtime exposure'):
+                     'recorded media'):
             self.assertIn(text, self.guide)
 
     def test_notice_copy_gap_is_explicit_and_not_cleared(self):
@@ -45,14 +45,14 @@ class ReleaseSignoffM125Tests(unittest.TestCase):
             self.assertIn('OpenCV-5.1.0-Apache-2.0.txt', read('scripts/'+name))
             self.assertNotIn("ROOT / 'licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt'", read('scripts/'+name))
         self.assertIn('does not prove', self.guide)
-        for term in ('Protobuf', 'GLFW', 'ImGui', 'NOTICE', 'REDIST'):
+        for term in ('Protobuf', 'GLFW', 'ImGui', 'notices', 'REDIST'):
             self.assertIn(term, self.guide)
 
     def test_m119_rights_remain_pending(self):
         script = read('scripts/audit_redistribution_m119.py')
         self.assertIn("'decision': 'PENDING'", script)
         self.assertIn("'release_authorized': False", script)
-        self.assertIn('29 package/topic decisions', self.guide)
+        self.assertIn('29 M11.9 topics', self.guide)
         self.assertIn('BLOCKED', read('docs/VERIFICATION.md')[-1800:])
 
     def test_media_and_model_exclusion_scope(self):
@@ -84,8 +84,12 @@ class ReleaseSignoffM125Tests(unittest.TestCase):
         for target in re.findall(r'\]\(([^)]+\.md)\)', self.guide):
             self.assertTrue((ROOT/'docs'/target).is_file(), target)
 
-    def test_no_premature_security_signoff_in_guide(self):
-        self.assertIn('If an issue is unresolved, record it as **BLOCKED or UNKNOWN**',
+    def test_bounded_maintainer_security_approval_does_not_bypass_licensing(self):
+        self.assertIn('M12.5 RELEASE SIGN-OFF: APPROVED', self.guide)
+        self.assertIn('OUTSIDE THIS SECURITY APPROVAL', self.guide)
+        self.assertIn('CVE-2026-125264', self.guide)
+        self.assertIn('run `44425058385`', self.guide)
+        self.assertIn('If a new material issue is unresolved, record it as **BLOCKED or UNKNOWN**',
                       self.guide)
         self.assertIn('No external legal opinion', self.guide)
         self.assertIn('does not execute a live vulnerability scan', self.guide)

@@ -116,7 +116,9 @@ private:
 
     LiveDetectorFactory factory_;
     mutable std::mutex mutex_;
-    std::condition_variable cv_;
+    // Stop-aware C++20 waits wake on jthread shutdown even if a notification
+    // races with the worker entering its idle/pending-frame wait.
+    std::condition_variable_any cv_;
     std::optional<Job> job_;
     std::optional<Pending> pending_;
     LiveInferenceSnapshot snapshot_;

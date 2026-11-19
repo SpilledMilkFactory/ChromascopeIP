@@ -20,8 +20,8 @@ class ResponsiveInputAndSliderResetTests(unittest.TestCase):
                              + r'\s+ImGui::SetNextItemWidth\(-1\.0F\);\s+'
                              + re.escape(f'ImGui::InputText("{label}"'))
         # In both modes Browse continues filling the available row.
-        self.assertIn('ImGui::Button("Browse...", ImVec2(-1, 0))', SRC)
-        self.assertIn('ImGui::Button("Browse video...", ImVec2(-1, 0))', SRC)
+        self.assertIn('ImGui::Button("Browse...", ImVec2(-1.0F, 0.0F))', SRC)
+        self.assertIn('ImGui::Button("Browse video...", ImVec2(-1.0F, 0.0F))', SRC)
 
     def test_sample_buttons_scale_with_sidebar_splitter(self):
         self.assertIn('ImGui::GetContentRegionAvail().x - 3.0F * sample_spacing', SRC)
@@ -74,7 +74,7 @@ class ResponsiveInputAndSliderResetTests(unittest.TestCase):
         self.assertIn('video_policy_changed |= slider_int("Video max boxes"', SRC)
         self.assertIn('if (video_policy_changed) {\n            video_detection.cancel();', SRC)
         self.assertIn('if (slider_float("Playback FPS"', SRC)
-        self.assertIn('video_player.set_playback_fps(static_cast<double>(playback_rate));', SRC)
+        self.assertIn('video_player.set_playback_fps(static_cast<double>(video_manual_playback_fps));', SRC)
         self.assertIn('video_export_worker.request_stop();', SRC)
 
 

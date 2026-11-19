@@ -151,6 +151,11 @@ struct App {
     chromascope::ImageViewport video_view;
     std::uint64_t video_seek_target = 0;
     bool video_scrubbing = false;
+    // Seek at a bounded cadence while dragging; always commit the final frame.
+    std::optional<chromascope::VideoPlayer::Clock::time_point> last_scrub_seek_at;
+    std::optional<std::uint64_t> last_scrub_seek_index;
+    bool video_use_source_fps = true;
+    float video_manual_playback_fps = 30.0F;
     // M8.4: a third, explicitly opt-in camera workspace. Construction and
     // entering this workspace never open a device or request OS permission.
     // Capture thread owns driver I/O; texture uploads stay on the GUI thread.
@@ -908,6 +913,10 @@ struct App {
         video_view.fit();
         video_seek_target = 0;
         video_scrubbing = false;
+        last_scrub_seek_at.reset();
+        last_scrub_seek_index.reset();
+        video_use_source_fps = true;
+        video_manual_playback_fps = 30.0F;
         video_export_audio_ack = false;
         video_status.clear();
         input.release();
@@ -994,6 +1003,10 @@ struct App {
             video_view.fit();
             video_seek_target = 0;
             video_scrubbing = false;
+            last_scrub_seek_at.reset();
+            last_scrub_seek_index.reset();
+            video_use_source_fps = true;
+            video_manual_playback_fps = 30.0F;
             video_status.clear();
             std::snprintf(video_path.data(), video_path.size(), "%s", file.string().c_str());
             switch_workspace(1);
@@ -1408,31 +1421,98 @@ struct App {
         return reset;
     }
 
+    // Reserve enough room for both the slider and its label. When a narrow
+    // sidebar cannot accommodate both, move the wrapped label above a
+    // full-width slider instead of clipping the description at the right edge.
+    static bool control_label_above(const char* label) {
+        const float available = ImGui::GetContentRegionAvail().x;
+        const float label_width = ImGui::CalcTextSize(label, nullptr, true).x;
+        const float minimum_track = std::max(110.0F, 5.0F * ImGui::GetFrameHeight());
+        if (available - label_width - ImGui::GetStyle().ItemInnerSpacing.x < minimum_track) {
+            ImGui::TextWrapped("%s", label);
+            ImGui::SetNextItemWidth(-1.0F);
+            return true;
+        }
+        ImGui::SetNextItemWidth(available - label_width - ImGui::GetStyle().ItemInnerSpacing.x);
+        return false;
+    }
+
     static bool slider_float(const char* label, float* current, float minimum,
                              float maximum, float default_value,
                              const char* format = "%.3f") {
-        bool changed = ImGui::SliderFloat(label, current, minimum, maximum, format);
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        bool changed = ImGui::SliderFloat(wrapped ? "##value" : label,
+                                         current, minimum, maximum, format);
         if (slider_reset_menu() && *current != default_value) {
             *current = default_value;
             changed = true;
         }
+        ImGui::PopID();
         return changed;
     }
 
     static bool slider_int(const char* label, int* current, int minimum,
                            int maximum, int default_value) {
-        bool changed = ImGui::SliderInt(label, current, minimum, maximum);
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        bool changed = ImGui::SliderInt(wrapped ? "##value" : label,
+                                       current, minimum, maximum);
         if (slider_reset_menu() && *current != default_value) {
             *current = default_value;
             changed = true;
         }
+        ImGui::PopID();
         return changed;
+    }
+
+    // Combo boxes and labeled text/numeric inputs also need room for their
+    // labels when the user drags the splitter to its narrowest position.
+    static bool responsive_combo(const char* label, int* value, const char* items) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        const bool changed = ImGui::Combo(wrapped ? "##value" : label, value, items);
+        ImGui::PopID();
+        return changed;
+    }
+
+    static bool responsive_input_text(const char* label, char* value, std::size_t capacity) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        const bool changed = ImGui::InputText(wrapped ? "##value" : label, value, capacity);
+        ImGui::PopID();
+        return changed;
+    }
+
+    static bool responsive_input_int(const char* label, int* value) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        const bool changed = ImGui::InputInt(wrapped ? "##value" : label, value);
+        ImGui::PopID();
+        return changed;
+    }
+
+    static bool responsive_seek_input(const char* label, std::uint64_t* value) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        const bool changed = ImGui::InputScalar(wrapped ? "##value" : label,
+            ImGuiDataType_U64, value, nullptr, nullptr, nullptr,
+            ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::PopID();
+        return changed;
+    }
+
+    // Equal-sized buttons in a row, irrespective of the sidebar splitter.
+    static float control_button_width(int columns) {
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        return std::max(1.0F,
+            (ImGui::GetContentRegionAvail().x - spacing * (columns - 1)) / columns);
     }
 
     void draw_detector_controls() {
         ImGui::Separator();
         ImGui::TextUnformatted("PERSON DETECTION / MODEL (M7.5)");
-        if (ImGui::Combo("Detector profile", &detector_profile,
+        if (responsive_combo("Detector profile", &detector_profile,
                          "Disabled (classical profiles)\0NanoDet COCO-80 / CPU\0")) {
             detector_session.unload();
         }
@@ -1442,7 +1522,7 @@ struct App {
         }
         ImGui::TextWrapped("NanoDet-Plus-M 1.5x, 416 x 416, 80 classes. "
                            "ONNX weights are not bundled.");
-        if (ImGui::InputText("ONNX path", detector_model_path.data(),
+        if (responsive_input_text("ONNX path", detector_model_path.data(),
                              detector_model_path.size())) {
             // Editing a path invalidates the prior verified identity immediately.
             detector_session.unload();
@@ -1726,29 +1806,38 @@ struct App {
         ImGui::TextUnformatted("RECORDED VIDEO");
         ImGui::SetNextItemWidth(-1.0F);
         ImGui::InputText("##video_path", video_path.data(), video_path.size());
-        if (ImGui::Button("Open video", ImVec2(159.0F * ui_content_scale, 0.0F))) open_video(video_path.data());
+        const float video_file_button_width = control_button_width(2);
+        if (ImGui::Button("Open video", ImVec2(video_file_button_width, 0.0F)))
+            open_video(video_path.data());
+        ImGui::SetItemTooltip("Open the local recording at the path above. "
+                              "Video decoding runs on a bounded background worker.");
         ImGui::SameLine();
-        if (ImGui::Button("Browse video...", ImVec2(-1, 0))) open_file_picker(true);
-        ImGui::TextDisabled("Decoder runs on a bounded background worker.");
+        if (ImGui::Button("Browse video...", ImVec2(-1.0F, 0.0F)))
+            open_file_picker(true);
+        ImGui::SetItemTooltip("Browse for a local video file instead of typing "
+                              "or pasting its absolute path.");
         ImGui::Separator();
 
         const bool has_source = video_player.has_source();
         ImGui::BeginDisabled(!has_source);
-        if (ImGui::Button(video_player.playing() ? "Pause" : "Play", ImVec2(108.0F * ui_content_scale, 0.0F))) {
+        const float transport_button_width = control_button_width(3);
+        if (ImGui::Button(video_player.playing() ? "Pause" : "Play",
+                          ImVec2(transport_button_width, 0.0F))) {
             if (video_player.playing()) video_player.pause();
             else video_player.play();
         }
         ImGui::SameLine();
-        if (ImGui::Button("< Frame", ImVec2(99.0F * ui_content_scale, 0.0F))) {
+        if (ImGui::Button("< Frame", ImVec2(transport_button_width, 0.0F))) {
             try { video_player.step_backward(); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Frame >", ImVec2(99.0F * ui_content_scale, 0.0F))) {
+        if (ImGui::Button("Frame >", ImVec2(-1.0F, 0.0F))) {
             try { video_player.step_forward(); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
-        if (ImGui::Button("Beginning", ImVec2(159.0F * ui_content_scale, 0.0F))) {
+        const float seek_button_width = control_button_width(2);
+        if (ImGui::Button("Beginning", ImVec2(seek_button_width, 0.0F))) {
             try { video_player.seek(0); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
@@ -1758,6 +1847,11 @@ struct App {
             video_detection.cancel();
             video_opened_path.clear();
             video_player.close();
+            video_scrubbing = false;
+            last_scrub_seek_at.reset();
+            last_scrub_seek_index.reset();
+            video_use_source_fps = true;
+            video_manual_playback_fps = 30.0F;
             video_texture.reset();
             video_view.fit();
         }
@@ -1771,32 +1865,54 @@ struct App {
             const std::uint64_t first = 0;
             const std::uint64_t last = *metadata->reported_frame_count - 1;
             if (video_seek_target > last) video_seek_target = last;
+            ImGui::SetNextItemWidth(-1.0F);
             ImGui::SliderScalar("Timeline", ImGuiDataType_U64,
                                 &video_seek_target, &first, &last);
             const bool timeline_active = ImGui::IsItemActive();
             const bool timeline_deactivated_after_edit = ImGui::IsItemDeactivatedAfterEdit();
             const bool timeline_deactivated = ImGui::IsItemDeactivated();
-            // Reset must seek immediately: selecting a context menu is not a
-            // drag-deactivation event, so do not rely on that callback alone.
             const bool timeline_reset = slider_reset_menu();
             if (timeline_reset) video_seek_target = first;
             if (timeline_active) {
+                // VideoPlayer::seek() enqueues work on the bounded decoder thread.
+                // Throttle requests so dragging previews intermediate frames
+                // instead of repeatedly cancelling every in-flight decode.
                 video_scrubbing = true;
                 video_player.pause();
+                const auto now = chromascope::VideoPlayer::Clock::now();
+                constexpr auto scrub_interval = std::chrono::milliseconds(150);
+                if ((!last_scrub_seek_index || *last_scrub_seek_index != video_seek_target) &&
+                    (!last_scrub_seek_at || now - *last_scrub_seek_at >= scrub_interval)) {
+                    try {
+                        video_player.seek(video_seek_target);
+                        last_scrub_seek_index = video_seek_target;
+                        last_scrub_seek_at = now;
+                    } catch (const std::exception& e) { video_status = e.what(); }
+                }
             }
             if (timeline_deactivated_after_edit || timeline_reset) {
                 video_scrubbing = false;
                 video_player.pause();
-                try { video_player.seek(video_seek_target); }
-                catch (const std::exception& e) { video_status = e.what(); }
-            } else if (timeline_deactivated) video_scrubbing = false;
+                // Always commit the final chosen frame, including an unissued
+                // target skipped by the throttled preview requests.
+                if (timeline_reset || !last_scrub_seek_index ||
+                    *last_scrub_seek_index != video_seek_target) {
+                    try { video_player.seek(video_seek_target); }
+                    catch (const std::exception& e) { video_status = e.what(); }
+                }
+                last_scrub_seek_at.reset();
+                last_scrub_seek_index.reset();
+            } else if (timeline_deactivated) {
+                video_scrubbing = false;
+                last_scrub_seek_at.reset();
+                last_scrub_seek_index.reset();
+            }
             ImGui::TextDisabled("Reported frames: %llu (decoder estimate)",
                 static_cast<unsigned long long>(*metadata->reported_frame_count));
         } else {
             ImGui::TextDisabled("Total frame count unavailable: use absolute seek.");
         }
-        if (ImGui::InputScalar("Seek index", ImGuiDataType_U64, &video_seek_target,
-                               nullptr, nullptr, nullptr, ImGuiInputTextFlags_EnterReturnsTrue)) {
+        if (responsive_seek_input("Seek index", &video_seek_target)) {
             try { video_player.seek(video_seek_target); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
@@ -1804,16 +1920,31 @@ struct App {
             try { video_player.seek(video_seek_target); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
-        float playback_rate = static_cast<float>(video_player.playback_fps());
         float default_playback_fps = 30.0F;
         if (metadata && metadata->frames_per_second &&
             std::isfinite(*metadata->frames_per_second) &&
             *metadata->frames_per_second >= 1.0 && *metadata->frames_per_second <= 120.0)
             default_playback_fps = static_cast<float>(*metadata->frames_per_second);
+        if (ImGui::Checkbox("Use Source FPS", &video_use_source_fps)) {
+            if (video_use_source_fps) {
+                video_player.clear_playback_fps_override();
+            } else {
+                // Start manual mode at the source's current effective FPS,
+                // with no unexpected speed jump on the first toggle.
+                video_manual_playback_fps = static_cast<float>(video_player.playback_fps());
+                video_player.set_playback_fps(video_manual_playback_fps);
+            }
+        }
+        float playback_rate = video_use_source_fps
+            ? static_cast<float>(video_player.playback_fps()) : video_manual_playback_fps;
+        ImGui::BeginDisabled(video_use_source_fps);
         if (slider_float("Playback FPS", &playback_rate, 1.0f, 120.0f,
-                         default_playback_fps, "%.1f"))
-            video_player.set_playback_fps(static_cast<double>(playback_rate));
-        ImGui::TextDisabled("Decoder timing when available; otherwise nominal/30 FPS.");
+                         default_playback_fps, "%.1f")) {
+            video_manual_playback_fps = playback_rate;
+            video_player.set_playback_fps(static_cast<double>(video_manual_playback_fps));
+        }
+        ImGui::EndDisabled();
+        ImGui::TextDisabled("Source mode follows media timestamps; manual FPS overrides playback pacing.");
         ImGui::TextDisabled("Audio ignored: no decoding, playback, or synchronization.");
         if (metadata) {
             if (metadata->rotation.clockwise_degrees)
@@ -1831,7 +1962,7 @@ struct App {
         ImGui::EndDisabled();
         ImGui::Separator();
         ImGui::TextUnformatted("RECORDED-VIDEO DETECTION / PEOPLE (M7.5)");
-        if (ImGui::Combo("Video detection profile", &video_detection_profile,
+        if (responsive_combo("Video detection profile", &video_detection_profile,
                 "COCO-80 objects\0Person only (COCO ID 0)\0")) {
             video_detection.cancel();
             video_export_worker.request_stop();
@@ -1854,7 +1985,7 @@ struct App {
                 ImGui::Text("%02d  %s", id,
                     std::string(chromascope::nanodet_class_label(id)).c_str());
         }
-        ImGui::InputText("ONNX model", detector_model_path.data(),
+        responsive_input_text("ONNX model", detector_model_path.data(),
                          detector_model_path.size());
         if (ImGui::IsItemEdited()) {
             video_detection.cancel();
@@ -2062,7 +2193,7 @@ struct App {
                 camera_index = device.index;
         }
         ImGui::TextDisabled("Discovery is unverified. Windows: enter an index manually.");
-        ImGui::InputInt("Device index", &camera_index);
+        responsive_input_int("Device index", &camera_index);
         ImGui::TextDisabled("OpenCV device index, 0 to 255; indices are backend-specific.");
         ImGui::TextDisabled("Format: driver-selected (M8.2 strict format API retained).");
         const bool opening = current_state == chromascope::CameraCaptureState::Starting;
@@ -2079,14 +2210,14 @@ struct App {
         ImGui::TextWrapped("Only pinned local NanoDet COCO-80 inference. "
                            "Person mode detects class 0; optional temporary box tracking is NOT identification.");
         ImGui::BeginDisabled(live_inference_active);
-        ImGui::Combo("Live detection profile", &live_detection_profile,
+        responsive_combo("Live detection profile", &live_detection_profile,
             "COCO-80 objects\0Person only (COCO ID 0)\0");
         slider_float("Live confidence cutoff", &live_confidence_threshold,
             0.01F, 1.0F, static_cast<float>(slider_ui_default("live_confidence_threshold", 0.50)), "%.2f");
         if (live_detection_profile == 1)
             slider_float("Live person display cutoff", &live_person_display_threshold,
                 0.01F, 1.0F, static_cast<float>(slider_ui_default("live_person_display_threshold", 0.50)), "%.2f");
-        ImGui::Combo("Inference frame-drop policy", &live_drop_strategy,
+        responsive_combo("Inference frame-drop policy", &live_drop_strategy,
             "Keep newest (replace pending)\0Keep oldest (discard incoming)\0");
         slider_int("Minimum capture spacing (ms)",
             &live_min_capture_spacing_ms, 0, 1000,
@@ -2094,7 +2225,7 @@ struct App {
         slider_int("Max inference submission FPS (0=uncapped)",
             &live_max_inference_fps, 0, 60,
             static_cast<int>(slider_ui_default("live_max_inference_fps", 0)));
-        ImGui::InputText("Local ONNX model", detector_model_path.data(), detector_model_path.size());
+        responsive_input_text("Local ONNX model", detector_model_path.data(), detector_model_path.size());
         ImGui::Checkbox("Enable temporary track IDs", &live_enable_tracking);
         ImGui::EndDisabled();
         ImGui::BeginDisabled(live_inference_active || !capturing);
@@ -2364,10 +2495,14 @@ struct App {
         ImGui::TextUnformatted("INPUT IMAGE");
         ImGui::SetNextItemWidth(-1.0F);
         ImGui::InputText("##path", path.data(), path.size());
-        if (ImGui::Button("Open image", ImVec2(159.0F * ui_content_scale, 0.0F))) load(path.data());
+        const float image_file_button_width = control_button_width(2);
+        if (ImGui::Button("Open image", ImVec2(image_file_button_width, 0.0F)))
+            load(path.data());
+        ImGui::SetItemTooltip("Open the local image at the absolute path entered above.");
         ImGui::SameLine();
-        if (ImGui::Button("Browse...", ImVec2(-1, 0))) open_file_picker();
-        ImGui::TextDisabled("Browse folders or paste an absolute image path.");
+        if (ImGui::Button("Browse...", ImVec2(-1.0F, 0.0F))) open_file_picker();
+        ImGui::SetItemTooltip("Browse folders to select a local image file "
+                              "instead of typing or pasting its absolute path.");
         ImGui::Spacing();
         ImGui::TextUnformatted("ORIGINAL SKITTLES SAMPLES");
         if (!legacy_sample_directory)
@@ -2482,7 +2617,7 @@ struct App {
         ImGui::Separator();
 
         ImGui::TextUnformatted("VIEW");
-        if (ImGui::Combo("Preview mode", &preview_mode,
+        if (responsive_combo("Preview mode", &preview_mode,
                          "Result\0Original\0Side by side\0"))
             refresh_overlay();
         if (ImGui::Checkbox("Synchronize comparison navigation", &synchronize_comparison) &&

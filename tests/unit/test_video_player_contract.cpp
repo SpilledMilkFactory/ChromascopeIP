@@ -34,7 +34,13 @@ int main() {
         must_throw([&] { player.set_playback_fps(NAN); }, "NaN FPS rejected");
         player.set_playback_fps(24);
         require(player.playback_fps() == 24, "explicit FPS setting");
+        require(!player.using_source_playback_fps(), "manual mode reported");
+        player.clear_playback_fps_override();
+        require(player.using_source_playback_fps(), "source mode restored");
+        require(player.playback_fps() == 30, "no-source nominal fallback");
+        player.set_playback_fps(48);
         player.close();
+        require(player.using_source_playback_fps(), "closing clears manual FPS");
         require(!player.has_source() && !player.current_frame(), "closed source is empty");
         std::cout << "PASS: VideoPlayer headless lifecycle and configuration\n";
         return 0;

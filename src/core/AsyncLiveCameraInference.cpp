@@ -186,7 +186,7 @@ void AsyncLiveCameraInference::run(std::stop_token token) noexcept {
         Job job;
         {
             std::unique_lock lock(mutex_);
-            cv_.wait(lock, [&] { return token.stop_requested() || job_.has_value(); });
+            cv_.wait(lock, token, [&] { return job_.has_value(); });
             if (token.stop_requested()) return;
             job = std::move(*job_);
             job_.reset();
@@ -205,8 +205,8 @@ void AsyncLiveCameraInference::run(std::stop_token token) noexcept {
                 std::uint64_t input_epoch = 0;
                 {
                     std::unique_lock lock(mutex_);
-                    cv_.wait(lock, [&] {
-                        return token.stop_requested() || snapshot_.session != job.session ||
+                    cv_.wait(lock, token, [&] {
+                        return snapshot_.session != job.session ||
                                pending_.has_value() || job_.has_value();
                     });
                     if (token.stop_requested() || snapshot_.session != job.session || job_) break;

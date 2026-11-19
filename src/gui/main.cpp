@@ -151,6 +151,11 @@ struct App {
     chromascope::ImageViewport video_view;
     std::uint64_t video_seek_target = 0;
     bool video_scrubbing = false;
+    // Seek at a bounded cadence while dragging; always commit the final frame.
+    std::optional<chromascope::VideoPlayer::Clock::time_point> last_scrub_seek_at;
+    std::optional<std::uint64_t> last_scrub_seek_index;
+    bool video_use_source_fps = true;
+    float video_manual_playback_fps = 30.0F;
     // M8.4: a third, explicitly opt-in camera workspace. Construction and
     // entering this workspace never open a device or request OS permission.
     // Capture thread owns driver I/O; texture uploads stay on the GUI thread.
@@ -213,7 +218,13 @@ struct App {
     float ui_content_scale = 1.0F;
     float sidebar_width_logical = 345.0F;
     bool help_requested = false;
+    bool preferences_requested = false;
+    bool export_requested = false;
     std::string preferences_status = "Preferences are not saved automatically.";
+    // The last explicitly saved/loaded profile is the reset baseline. Values
+    // not represented in schema v1 retain their original built-in defaults.
+    // This snapshot never contains media/model paths or camera session state.
+    std::optional<chromascope::GuiPreferences> active_preference_defaults;
     bool browser_show_hidden = false;
     std::filesystem::path browser_selected;
     std::string browser_status_message;
@@ -288,6 +299,7 @@ struct App {
                 (void)processors.create({id, options});
             chromascope::write_gui_preferences_file(
                 *file, chromascope::serialize_gui_preferences(prefs));
+            active_preference_defaults = prefs;
             preferences_status = "Preferences explicitly saved. No media/model paths stored.";
         } catch (const std::exception& error) {
             preferences_status = std::string("Preferences not saved: ") + error.what();
@@ -300,6 +312,7 @@ struct App {
             if (!file) throw std::runtime_error("No valid OS configuration directory");
             const auto input = chromascope::read_gui_preferences_file(*file);
             if (!input) {
+                active_preference_defaults.reset();
                 preferences_status = "No saved preferences. Using defaults.";
                 return;
             }
@@ -358,6 +371,7 @@ struct App {
             live_enable_tracking = false;
             live_inference_active = false;
             live_paused = false;
+            active_preference_defaults = prefs;
             preferences_status = "Validated schema v1 preferences loaded (no hardware activated).";
         } catch (const std::exception& error) {
             preferences_status = std::string("Preferences rejected; current values retained: ") + error.what();
@@ -899,6 +913,10 @@ struct App {
         video_view.fit();
         video_seek_target = 0;
         video_scrubbing = false;
+        last_scrub_seek_at.reset();
+        last_scrub_seek_index.reset();
+        video_use_source_fps = true;
+        video_manual_playback_fps = 30.0F;
         video_export_audio_ack = false;
         video_status.clear();
         input.release();
@@ -985,6 +1003,10 @@ struct App {
             video_view.fit();
             video_seek_target = 0;
             video_scrubbing = false;
+            last_scrub_seek_at.reset();
+            last_scrub_seek_index.reset();
+            video_use_source_fps = true;
+            video_manual_playback_fps = 30.0F;
             video_status.clear();
             std::snprintf(video_path.data(), video_path.size(), "%s", file.string().c_str());
             switch_workspace(1);
@@ -1118,6 +1140,109 @@ struct App {
             "access. Session clearing does not delete previously exported files. "
             "See docs/USER_GUIDE.md and docs/PRIVACY_GUIDE.md.");
         if (ImGui::Button("Close help")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+
+    // Both in-app dialogs use the same small top-right close control.
+    // Modal backdrop clicks dismiss the dialog without acting on the workspace.
+    // Ignore the opening mouse press so a click on the toolbar cannot
+    // immediately dismiss a newly opened popup.
+    static bool modal_header(const char* heading, const char* close_id,
+                             const char* close_tooltip) {
+        const ImVec2 top_left = ImGui::GetWindowPos();
+        const ImVec2 size = ImGui::GetWindowSize();
+        const ImVec2 bottom_right(top_left.x + size.x, top_left.y + size.y);
+        const bool backdrop_clicked = !ImGui::IsWindowAppearing() &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            !ImGui::IsMouseHoveringRect(top_left, bottom_right, false);
+
+        ImGui::TextUnformatted(heading);
+        ImGui::SameLine();
+        const float close_width = ImGui::GetFrameHeight();
+        const float close_x = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - close_width;
+        if (ImGui::GetCursorPosX() < close_x)
+            ImGui::SetCursorPosX(close_x);
+        const bool close_clicked = ImGui::Button(close_id, ImVec2(close_width, 0.0F));
+        ImGui::SetItemTooltip("%s", close_tooltip);
+        if (close_clicked || backdrop_clicked) {
+            ImGui::CloseCurrentPopup();
+            return true;
+        }
+        ImGui::Separator();
+        return false;
+    }
+
+    void draw_preferences() {
+        if (preferences_requested) {
+            ImGui::OpenPopup("ChromascopeIP Preferences");
+            preferences_requested = false;
+        }
+        const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
+        ImGui::SetNextWindowSize(ImVec2(std::min(620.0F * ui_content_scale, work.x * 0.94F),
+                                        std::min(440.0F * ui_content_scale, work.y * 0.92F)),
+                                 ImGuiCond_Appearing);
+        if (!ImGui::BeginPopupModal("ChromascopeIP Preferences", nullptr,
+                                    ImGuiWindowFlags_NoSavedSettings |
+                                    ImGuiWindowFlags_NoTitleBar)) return;
+        if (modal_header("Preferences", "x##close_preferences", "Close Preferences")) {
+            ImGui::EndPopup();
+            return;
+        }
+        ImGui::TextUnformatted("Local privacy and session controls");
+        ImGui::Separator();
+        ImGui::TextWrapped("This app's first-party runtime has no upload, "
+            "telemetry, face recognition, or identity matching feature. "
+            "Person boxes are COCO class 0 predictions, not identities.");
+        ImGui::TextWrapped("Images, model weights, decoded frames, camera "
+            "preview pixels and caches stay local. Live inference requires "
+            "a separate Start action; no recording or uploads. "
+            "File exports are explicit; AVI exports discard audio.");
+        ImGui::TextDisabled("No automatic ImGui layout/log file is written.");
+        ImGui::Separator();
+        ImGui::TextWrapped("Schema v1 preferences: saved only on request. Profile and "
+            "non-sensitive display settings only; no file paths, model paths, "
+            "camera activation, images or tracking IDs are stored.");
+        if (ImGui::Button("Save preferences")) save_gui_preferences();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(camera_capture.state() == chromascope::CameraCaptureState::Capturing ||
+                             live_inference_active || video_export_busy.load());
+        if (ImGui::Button("Reload saved preferences")) load_gui_preferences();
+        ImGui::EndDisabled();
+        if (ImGui::Button("Delete saved preferences")) delete_saved_gui_preferences();
+        ImGui::TextWrapped("%s", preferences_status.c_str());
+        ImGui::Separator();
+        ImGui::TextDisabled("Privacy details: docs/PRIVACY_GUIDE.md");
+        ImGui::EndPopup();
+    }
+
+    // One mode-aware export entry; no export operations execute when opening
+    // the dialog. Source-specific callbacks stay unchanged and explicit.
+    void draw_export() {
+        if (export_requested) {
+            ImGui::OpenPopup("ChromascopeIP Export");
+            export_requested = false;
+        }
+        const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
+        ImGui::SetNextWindowSize(ImVec2(std::min(620.0F * ui_content_scale, work.x * 0.94F),
+                                        std::min(490.0F * ui_content_scale, work.y * 0.92F)),
+                                 ImGuiCond_Appearing);
+        if (!ImGui::BeginPopupModal("ChromascopeIP Export", nullptr,
+                                    ImGuiWindowFlags_NoSavedSettings |
+                                    ImGuiWindowFlags_NoTitleBar)) return;
+        if (modal_header("Export", "x##close_export", "Close Export")) {
+            ImGui::EndPopup();
+            return;
+        }
+        if (workspace_mode == 0) {
+            ImGui::TextUnformatted("STILL IMAGE EXPORT");
+            draw_still_export_controls();
+        } else if (workspace_mode == 1) {
+            ImGui::TextUnformatted("ANNOTATED VIDEO EXPORT (M6.4)");
+            draw_video_export_controls();
+        } else {
+            ImGui::TextWrapped("Live Camera does not offer a file export. "
+                "Select Still Images or Recorded Video to export explicitly.");
+        }
         ImGui::EndPopup();
     }
 
@@ -1262,10 +1387,132 @@ struct App {
         ImGui::EndPopup();
     }
 
+    // Right-click on a slider to restore its active preference-profile value
+    // (if persisted), otherwise the control's existing application default.
+    // Return true on reset just as on a drag so existing effects and
+    // cancellation paths are executed without duplicating business logic.
+    [[nodiscard]] double slider_ui_default(std::string_view key, double fallback) const {
+        if (active_preference_defaults) {
+            const auto it = active_preference_defaults->ui.find(key);
+            if (it != active_preference_defaults->ui.end()) return it->second;
+        }
+        return fallback;
+    }
+
+    [[nodiscard]] double slider_profile_default(std::string_view profile,
+                                                 std::string_view key, double fallback) const {
+        if (active_preference_defaults) {
+            const auto found = active_preference_defaults->profiles.find(profile);
+            if (found != active_preference_defaults->profiles.end()) {
+                const auto value = found->second.find(key);
+                if (value != found->second.end()) return value->second;
+            }
+        }
+        return fallback;
+    }
+
+    // A popup is attached to the actual ImGui slider item, not its label text.
+    static bool slider_reset_menu() {
+        bool reset = false;
+        if (ImGui::BeginPopupContextItem()) {
+            reset = ImGui::MenuItem("Reset to Default Value");
+            ImGui::EndPopup();
+        }
+        return reset;
+    }
+
+    // Reserve enough room for both the slider and its label. When a narrow
+    // sidebar cannot accommodate both, move the wrapped label above a
+    // full-width slider instead of clipping the description at the right edge.
+    static bool control_label_above(const char* label) {
+        const float available = ImGui::GetContentRegionAvail().x;
+        const float label_width = ImGui::CalcTextSize(label, nullptr, true).x;
+        const float minimum_track = std::max(110.0F, 5.0F * ImGui::GetFrameHeight());
+        if (available - label_width - ImGui::GetStyle().ItemInnerSpacing.x < minimum_track) {
+            ImGui::TextWrapped("%s", label);
+            ImGui::SetNextItemWidth(-1.0F);
+            return true;
+        }
+        ImGui::SetNextItemWidth(available - label_width - ImGui::GetStyle().ItemInnerSpacing.x);
+        return false;
+    }
+
+    static bool slider_float(const char* label, float* current, float minimum,
+                             float maximum, float default_value,
+                             const char* format = "%.3f") {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        bool changed = ImGui::SliderFloat(wrapped ? "##value" : label,
+                                         current, minimum, maximum, format);
+        if (slider_reset_menu() && *current != default_value) {
+            *current = default_value;
+            changed = true;
+        }
+        ImGui::PopID();
+        return changed;
+    }
+
+    static bool slider_int(const char* label, int* current, int minimum,
+                           int maximum, int default_value) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        bool changed = ImGui::SliderInt(wrapped ? "##value" : label,
+                                       current, minimum, maximum);
+        if (slider_reset_menu() && *current != default_value) {
+            *current = default_value;
+            changed = true;
+        }
+        ImGui::PopID();
+        return changed;
+    }
+
+    // Combo boxes and labeled text/numeric inputs also need room for their
+    // labels when the user drags the splitter to its narrowest position.
+    static bool responsive_combo(const char* label, int* value, const char* items) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        const bool changed = ImGui::Combo(wrapped ? "##value" : label, value, items);
+        ImGui::PopID();
+        return changed;
+    }
+
+    static bool responsive_input_text(const char* label, char* value, std::size_t capacity) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        const bool changed = ImGui::InputText(wrapped ? "##value" : label, value, capacity);
+        ImGui::PopID();
+        return changed;
+    }
+
+    static bool responsive_input_int(const char* label, int* value) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        const bool changed = ImGui::InputInt(wrapped ? "##value" : label, value);
+        ImGui::PopID();
+        return changed;
+    }
+
+    static bool responsive_seek_input(const char* label, std::uint64_t* value) {
+        ImGui::PushID(label);
+        const bool wrapped = control_label_above(label);
+        const bool changed = ImGui::InputScalar(wrapped ? "##value" : label,
+            ImGuiDataType_U64, value, nullptr, nullptr, nullptr,
+            ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::PopID();
+        return changed;
+    }
+
+    // Equal-sized buttons in a row, irrespective of the sidebar splitter.
+    static float control_button_width(int columns) {
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        return std::max(1.0F,
+            (ImGui::GetContentRegionAvail().x - spacing * (columns - 1)) / columns);
+    }
+
     void draw_detector_controls() {
         ImGui::Separator();
         ImGui::TextUnformatted("PERSON DETECTION / MODEL (M7.5)");
-        if (ImGui::Combo("Detector profile", &detector_profile,
+        if (responsive_combo("Detector profile", &detector_profile,
                          "Disabled (classical profiles)\0NanoDet COCO-80 / CPU\0")) {
             detector_session.unload();
         }
@@ -1275,7 +1522,7 @@ struct App {
         }
         ImGui::TextWrapped("NanoDet-Plus-M 1.5x, 416 x 416, 80 classes. "
                            "ONNX weights are not bundled.");
-        if (ImGui::InputText("ONNX path", detector_model_path.data(),
+        if (responsive_input_text("ONNX path", detector_model_path.data(),
                              detector_model_path.size())) {
             // Editing a path invalidates the prior verified identity immediately.
             detector_session.unload();
@@ -1301,19 +1548,22 @@ struct App {
                             std::string(chromascope::nanodet_class_label(id)).c_str());
         }
         float confidence = static_cast<float>(detector_options.confidence_threshold);
-        if (ImGui::SliderFloat("Confidence cutoff", &confidence, 0.0f, 1.0f, "%.2f")) {
+        if (slider_float("Confidence cutoff", &confidence, 0.0f, 1.0f,
+                         static_cast<float>(chromascope::DnnGuiOptions{}.confidence_threshold), "%.2f")) {
             detector_options.confidence_threshold = confidence;
             detector_session.clear_results();
         }
         float iou = static_cast<float>(detector_options.nms_iou_threshold);
-        if (ImGui::SliderFloat("NMS IoU cutoff", &iou, 0.0f, 1.0f, "%.2f")) {
+        if (slider_float("NMS IoU cutoff", &iou, 0.0f, 1.0f,
+                         static_cast<float>(chromascope::DnnGuiOptions{}.nms_iou_threshold), "%.2f")) {
             detector_options.nms_iou_threshold = iou;
             detector_session.clear_results();
         }
-        if (ImGui::SliderInt("Max detections", &detector_options.max_detections, 1, 512))
+        if (slider_int("Max detections", &detector_options.max_detections, 1, 512,
+                       chromascope::DnnGuiOptions{}.max_detections))
             detector_session.clear_results();
-        if (ImGui::SliderFloat("Still-image person display threshold", &still_person_display_threshold,
-                               0.0F, 1.0F, "%.2f"))
+        if (slider_float("Still-image person display threshold", &still_person_display_threshold,
+                             0.0F, 1.0F, 0.50F, "%.2f"))
             detector_session.clear_results();
         ImGui::TextDisabled("Person boxes require BOTH confidence and display thresholds.");
         ImGui::Text("Effective person cutoff: %.2f",
@@ -1321,8 +1571,8 @@ struct App {
                 static_cast<float>(detector_options.confidence_threshold),
                 detector_class_overrides[0].value_or(0.0F)})));
         if (ImGui::CollapsingHeader("Per-class thresholds (recorded-video detection)")) {
-            ImGui::SliderInt("COCO class ID", &detector_selected_class, 0,
-                             chromascope::kNanoDetClassCount - 1);
+            slider_int("COCO class ID", &detector_selected_class, 0,
+                       chromascope::kNanoDetClassCount - 1, 0);
             ImGui::Text("Class: %s", std::string(chromascope::nanodet_class_label(
                 detector_selected_class)).c_str());
             auto& override_score = detector_class_overrides[
@@ -1335,8 +1585,8 @@ struct App {
             }
             if (override_score.has_value()) {
                 float score = *override_score;
-                if (ImGui::SliderFloat("Class confidence", &score,
-                                       0.0F, 1.0F, "%.2f")) {
+                if (slider_float("Class confidence", &score,
+                                 0.0F, 1.0F, 0.75F, "%.2f")) {
                     override_score = score;
                     if (detector_selected_class == 0) detector_session.clear_results();
                 }
@@ -1498,34 +1748,96 @@ struct App {
         }
     }
 
+    // Original still-image export settings and callbacks, moved unchanged
+    // out of the sidebar and into the shared mode-aware Export dialog.
+    void draw_still_export_controls() {
+        ImGui::Combo("Export image", &export_base_mode,
+                     "As configured\0Original pixels\0Processed pixels\0");
+        ImGui::InputText("##export", export_path.data(), export_path.size());
+        if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
+        const auto still_person_snapshot = detector_session.snapshot();
+        const bool person_available = detector_profile != 0 &&
+            still_person_snapshot.stage == chromascope::DnnGuiStage::Completed &&
+            still_person_snapshot.person_detections && input_frame;
+        ImGui::BeginDisabled(!person_available);
+        if (ImGui::Button("Export person boxes on original", ImVec2(-1, 0))) save_person();
+        ImGui::EndDisabled();
+    }
+
+    // The original AVI export widgets and handlers, now hosted by Export.
+    // Cancel and progress remain accessible while a background export runs.
+    void draw_video_export_controls() {
+        const bool has_source = video_player.has_source();
+        ImGui::TextDisabled("Codec: MJPEG / AVI | Timing: constant FPS");
+        ImGui::InputText("AVI destination", video_export_path.data(), video_export_path.size());
+        ImGui::Checkbox("Discard source audio (silent AVI)", &video_export_audio_ack);
+        ImGui::Checkbox("Override nominal source FPS", &video_export_override_fps);
+        if (video_export_override_fps)
+            slider_float("Output FPS", &video_export_fps, 1.0F, 120.0F, 25.0F, "%.1f");
+        ImGui::TextDisabled("Source VFR timestamps are not retained in AVI.");
+        ImGui::BeginDisabled(!has_source || video_export_busy.load() || !video_export_audio_ack);
+        if (ImGui::Button("Export annotated AVI", ImVec2(-1, 0))) start_video_export();
+        ImGui::EndDisabled();
+        if (video_export_busy.load() &&
+            ImGui::Button("Cancel AVI export", ImVec2(-1, 0)))
+            video_export_worker.request_stop();
+        ImGui::Text("Frames encoded: %llu",
+            static_cast<unsigned long long>(video_export_count.load()));
+        {
+            std::lock_guard lock(video_export_status_mutex);
+            ImGui::TextWrapped("%s", video_export_status.c_str());
+            const auto show_stage = [](const char* label, const chromascope::VideoStageStatistics& stats) {
+                if (stats.measured()) ImGui::Text("%s: %.3f ms/frame, %.1f ms total (%llu samples)",
+                    label, stats.mean_ms(), stats.total_ms(),
+                    static_cast<unsigned long long>(stats.samples));
+                else ImGui::TextDisabled("%s: not measured", label);
+            };
+            show_stage("AVI decode", video_export_perf.decode);
+            show_stage("AVI inference", video_export_perf.inference);
+            show_stage("AVI overlay", video_export_perf.overlay);
+            show_stage("AVI encode", video_export_perf.encode);
+        }
+        ImGui::TextDisabled("CPU stage wall time; model loading, file closing/publishing and GPU time excluded.");
+    }
+
     void draw_video_ui() {
         const auto layout = panel_layout();
         ImGui::BeginChild("Video controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("RECORDED VIDEO");
+        ImGui::SetNextItemWidth(-1.0F);
         ImGui::InputText("##video_path", video_path.data(), video_path.size());
-        if (ImGui::Button("Open video", ImVec2(159.0F * ui_content_scale, 0.0F))) open_video(video_path.data());
+        const float video_file_button_width = control_button_width(2);
+        if (ImGui::Button("Open video", ImVec2(video_file_button_width, 0.0F)))
+            open_video(video_path.data());
+        ImGui::SetItemTooltip("Open the local recording at the path above. "
+                              "Video decoding runs on a bounded background worker.");
         ImGui::SameLine();
-        if (ImGui::Button("Browse video...", ImVec2(-1, 0))) open_file_picker(true);
-        ImGui::TextDisabled("Decoder runs on a bounded background worker.");
+        if (ImGui::Button("Browse video...", ImVec2(-1.0F, 0.0F)))
+            open_file_picker(true);
+        ImGui::SetItemTooltip("Browse for a local video file instead of typing "
+                              "or pasting its absolute path.");
         ImGui::Separator();
 
         const bool has_source = video_player.has_source();
         ImGui::BeginDisabled(!has_source);
-        if (ImGui::Button(video_player.playing() ? "Pause" : "Play", ImVec2(108.0F * ui_content_scale, 0.0F))) {
+        const float transport_button_width = control_button_width(3);
+        if (ImGui::Button(video_player.playing() ? "Pause" : "Play",
+                          ImVec2(transport_button_width, 0.0F))) {
             if (video_player.playing()) video_player.pause();
             else video_player.play();
         }
         ImGui::SameLine();
-        if (ImGui::Button("< Frame", ImVec2(99.0F * ui_content_scale, 0.0F))) {
+        if (ImGui::Button("< Frame", ImVec2(transport_button_width, 0.0F))) {
             try { video_player.step_backward(); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Frame >", ImVec2(99.0F * ui_content_scale, 0.0F))) {
+        if (ImGui::Button("Frame >", ImVec2(-1.0F, 0.0F))) {
             try { video_player.step_forward(); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
-        if (ImGui::Button("Beginning", ImVec2(159.0F * ui_content_scale, 0.0F))) {
+        const float seek_button_width = control_button_width(2);
+        if (ImGui::Button("Beginning", ImVec2(seek_button_width, 0.0F))) {
             try { video_player.seek(0); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
@@ -1535,6 +1847,11 @@ struct App {
             video_detection.cancel();
             video_opened_path.clear();
             video_player.close();
+            video_scrubbing = false;
+            last_scrub_seek_at.reset();
+            last_scrub_seek_index.reset();
+            video_use_source_fps = true;
+            video_manual_playback_fps = 30.0F;
             video_texture.reset();
             video_view.fit();
         }
@@ -1548,24 +1865,54 @@ struct App {
             const std::uint64_t first = 0;
             const std::uint64_t last = *metadata->reported_frame_count - 1;
             if (video_seek_target > last) video_seek_target = last;
+            ImGui::SetNextItemWidth(-1.0F);
             ImGui::SliderScalar("Timeline", ImGuiDataType_U64,
                                 &video_seek_target, &first, &last);
-            if (ImGui::IsItemActive()) {
+            const bool timeline_active = ImGui::IsItemActive();
+            const bool timeline_deactivated_after_edit = ImGui::IsItemDeactivatedAfterEdit();
+            const bool timeline_deactivated = ImGui::IsItemDeactivated();
+            const bool timeline_reset = slider_reset_menu();
+            if (timeline_reset) video_seek_target = first;
+            if (timeline_active) {
+                // VideoPlayer::seek() enqueues work on the bounded decoder thread.
+                // Throttle requests so dragging previews intermediate frames
+                // instead of repeatedly cancelling every in-flight decode.
                 video_scrubbing = true;
                 video_player.pause();
+                const auto now = chromascope::VideoPlayer::Clock::now();
+                constexpr auto scrub_interval = std::chrono::milliseconds(150);
+                if ((!last_scrub_seek_index || *last_scrub_seek_index != video_seek_target) &&
+                    (!last_scrub_seek_at || now - *last_scrub_seek_at >= scrub_interval)) {
+                    try {
+                        video_player.seek(video_seek_target);
+                        last_scrub_seek_index = video_seek_target;
+                        last_scrub_seek_at = now;
+                    } catch (const std::exception& e) { video_status = e.what(); }
+                }
             }
-            if (ImGui::IsItemDeactivatedAfterEdit()) {
+            if (timeline_deactivated_after_edit || timeline_reset) {
                 video_scrubbing = false;
-                try { video_player.seek(video_seek_target); }
-                catch (const std::exception& e) { video_status = e.what(); }
-            } else if (ImGui::IsItemDeactivated()) video_scrubbing = false;
+                video_player.pause();
+                // Always commit the final chosen frame, including an unissued
+                // target skipped by the throttled preview requests.
+                if (timeline_reset || !last_scrub_seek_index ||
+                    *last_scrub_seek_index != video_seek_target) {
+                    try { video_player.seek(video_seek_target); }
+                    catch (const std::exception& e) { video_status = e.what(); }
+                }
+                last_scrub_seek_at.reset();
+                last_scrub_seek_index.reset();
+            } else if (timeline_deactivated) {
+                video_scrubbing = false;
+                last_scrub_seek_at.reset();
+                last_scrub_seek_index.reset();
+            }
             ImGui::TextDisabled("Reported frames: %llu (decoder estimate)",
                 static_cast<unsigned long long>(*metadata->reported_frame_count));
         } else {
             ImGui::TextDisabled("Total frame count unavailable: use absolute seek.");
         }
-        if (ImGui::InputScalar("Seek index", ImGuiDataType_U64, &video_seek_target,
-                               nullptr, nullptr, nullptr, ImGuiInputTextFlags_EnterReturnsTrue)) {
+        if (responsive_seek_input("Seek index", &video_seek_target)) {
             try { video_player.seek(video_seek_target); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
@@ -1573,10 +1920,31 @@ struct App {
             try { video_player.seek(video_seek_target); }
             catch (const std::exception& e) { video_status = e.what(); }
         }
-        float playback_rate = static_cast<float>(video_player.playback_fps());
-        if (ImGui::SliderFloat("Playback FPS", &playback_rate, 1.0f, 120.0f, "%.1f"))
-            video_player.set_playback_fps(static_cast<double>(playback_rate));
-        ImGui::TextDisabled("Decoder timing when available; otherwise nominal/30 FPS.");
+        float default_playback_fps = 30.0F;
+        if (metadata && metadata->frames_per_second &&
+            std::isfinite(*metadata->frames_per_second) &&
+            *metadata->frames_per_second >= 1.0 && *metadata->frames_per_second <= 120.0)
+            default_playback_fps = static_cast<float>(*metadata->frames_per_second);
+        if (ImGui::Checkbox("Use Source FPS", &video_use_source_fps)) {
+            if (video_use_source_fps) {
+                video_player.clear_playback_fps_override();
+            } else {
+                // Start manual mode at the source's current effective FPS,
+                // with no unexpected speed jump on the first toggle.
+                video_manual_playback_fps = static_cast<float>(video_player.playback_fps());
+                video_player.set_playback_fps(video_manual_playback_fps);
+            }
+        }
+        float playback_rate = video_use_source_fps
+            ? static_cast<float>(video_player.playback_fps()) : video_manual_playback_fps;
+        ImGui::BeginDisabled(video_use_source_fps);
+        if (slider_float("Playback FPS", &playback_rate, 1.0f, 120.0f,
+                         default_playback_fps, "%.1f")) {
+            video_manual_playback_fps = playback_rate;
+            video_player.set_playback_fps(static_cast<double>(video_manual_playback_fps));
+        }
+        ImGui::EndDisabled();
+        ImGui::TextDisabled("Source mode follows media timestamps; manual FPS overrides playback pacing.");
         ImGui::TextDisabled("Audio ignored: no decoding, playback, or synchronization.");
         if (metadata) {
             if (metadata->rotation.clockwise_degrees)
@@ -1594,14 +1962,15 @@ struct App {
         ImGui::EndDisabled();
         ImGui::Separator();
         ImGui::TextUnformatted("RECORDED-VIDEO DETECTION / PEOPLE (M7.5)");
-        if (ImGui::Combo("Video detection profile", &video_detection_profile,
+        if (responsive_combo("Video detection profile", &video_detection_profile,
                 "COCO-80 objects\0Person only (COCO ID 0)\0")) {
             video_detection.cancel();
             video_export_worker.request_stop();
         }
         if (video_detection_profile == 1) {
-            if (ImGui::SliderFloat("Person display threshold", &video_person_display_threshold,
-                                   0.0F, 1.0F, "%.2f")) {
+            if (slider_float("Person display threshold", &video_person_display_threshold,
+                             0.0F, 1.0F,
+                             static_cast<float>(slider_ui_default("video_person_display_threshold", 0.50)), "%.2f")) {
                 video_detection.cancel();
                 video_export_worker.request_stop();
             }
@@ -1616,7 +1985,7 @@ struct App {
                 ImGui::Text("%02d  %s", id,
                     std::string(chromascope::nanodet_class_label(id)).c_str());
         }
-        ImGui::InputText("ONNX model", detector_model_path.data(),
+        responsive_input_text("ONNX model", detector_model_path.data(),
                          detector_model_path.size());
         if (ImGui::IsItemEdited()) {
             video_detection.cancel();
@@ -1626,22 +1995,25 @@ struct App {
             open_file_picker(false, true);
         float confidence = static_cast<float>(detector_options.confidence_threshold);
         bool video_policy_changed = false;
-        if (ImGui::SliderFloat("Video confidence", &confidence, 0.0f, 1.0f, "%.2f")) {
+        if (slider_float("Video confidence", &confidence, 0.0f, 1.0f,
+                         static_cast<float>(chromascope::DnnGuiOptions{}.confidence_threshold), "%.2f")) {
             detector_options.confidence_threshold = confidence;
             video_policy_changed = true;
         }
         float iou = static_cast<float>(detector_options.nms_iou_threshold);
-        if (ImGui::SliderFloat("Video NMS IoU", &iou, 0.0f, 1.0f, "%.2f")) {
+        if (slider_float("Video NMS IoU", &iou, 0.0f, 1.0f,
+                         static_cast<float>(chromascope::DnnGuiOptions{}.nms_iou_threshold), "%.2f")) {
             detector_options.nms_iou_threshold = iou;
             video_policy_changed = true;
         }
-        video_policy_changed |= ImGui::SliderInt("Video max boxes", &detector_options.max_detections, 1, 512);
-        video_policy_changed |= ImGui::SliderFloat("Video weak-candidate floor", &video_uncertainty_floor,
-                                                   0.0F, 1.0F, "%.2f");
+        video_policy_changed |= slider_int("Video max boxes", &detector_options.max_detections, 1, 512,
+                                             chromascope::DnnGuiOptions{}.max_detections);
+        video_policy_changed |= slider_float("Video weak-candidate floor", &video_uncertainty_floor,
+                                               0.0F, 1.0F, 0.35F, "%.2f");
         ImGui::TextDisabled("Diagnostic only: weak scores do not become boxes or an unknown class.");
         if (ImGui::CollapsingHeader("Video per-class confidence")) {
-            ImGui::SliderInt("Video class ID", &detector_selected_class, 0,
-                             chromascope::kNanoDetClassCount - 1);
+            slider_int("Video class ID", &detector_selected_class, 0,
+                       chromascope::kNanoDetClassCount - 1, 0);
             ImGui::Text("COCO: %s", std::string(chromascope::nanodet_class_label(
                 detector_selected_class)).c_str());
             auto& threshold = detector_class_overrides[
@@ -1654,7 +2026,7 @@ struct App {
             }
             if (threshold) {
                 float value = *threshold;
-                if (ImGui::SliderFloat("Video class confidence", &value, 0.0F, 1.0F, "%.2f")) {
+                if (slider_float("Video class confidence", &value, 0.0F, 1.0F, 0.75F, "%.2f")) {
                     threshold = value;
                     video_policy_changed = true;
                 }
@@ -1721,38 +2093,6 @@ struct App {
                 static_cast<unsigned long long>(video_overlay_draw_perf.samples));
         ImGui::TextDisabled("Decoder and NanoDet run off-thread; cached overlays only.");
         ImGui::TextDisabled("Frames not yet processed or evicted show no overlay.");
-        ImGui::Separator();
-        ImGui::TextUnformatted("ANNOTATED VIDEO EXPORT (M6.4)");
-        ImGui::TextDisabled("Codec: MJPEG / AVI | Timing: constant FPS");
-        ImGui::InputText("AVI destination", video_export_path.data(), video_export_path.size());
-        ImGui::Checkbox("Discard source audio (silent AVI)", &video_export_audio_ack);
-        ImGui::Checkbox("Override nominal source FPS", &video_export_override_fps);
-        if (video_export_override_fps)
-            ImGui::SliderFloat("Output FPS", &video_export_fps, 1.0F, 120.0F, "%.1f");
-        ImGui::TextDisabled("Source VFR timestamps are not retained in AVI.");
-        ImGui::BeginDisabled(!has_source || video_export_busy.load() || !video_export_audio_ack);
-        if (ImGui::Button("Export annotated AVI", ImVec2(-1, 0))) start_video_export();
-        ImGui::EndDisabled();
-        if (video_export_busy.load() &&
-            ImGui::Button("Cancel AVI export", ImVec2(-1, 0)))
-            video_export_worker.request_stop();
-        ImGui::Text("Frames encoded: %llu",
-            static_cast<unsigned long long>(video_export_count.load()));
-        {
-            std::lock_guard lock(video_export_status_mutex);
-            ImGui::TextWrapped("%s", video_export_status.c_str());
-            const auto show_stage = [](const char* label, const chromascope::VideoStageStatistics& stats) {
-                if (stats.measured()) ImGui::Text("%s: %.3f ms/frame, %.1f ms total (%llu samples)",
-                    label, stats.mean_ms(), stats.total_ms(),
-                    static_cast<unsigned long long>(stats.samples));
-                else ImGui::TextDisabled("%s: not measured", label);
-            };
-            show_stage("AVI decode", video_export_perf.decode);
-            show_stage("AVI inference", video_export_perf.inference);
-            show_stage("AVI overlay", video_export_perf.overlay);
-            show_stage("AVI encode", video_export_perf.encode);
-        }
-        ImGui::TextDisabled("CPU stage wall time; model loading, file closing/publishing and GPU time excluded.");
         ImGui::Separator();
         ImGui::TextWrapped("%s", video_player.status().c_str());
         if (!video_status.empty()) ImGui::TextWrapped("%s", video_status.c_str());
@@ -1853,7 +2193,7 @@ struct App {
                 camera_index = device.index;
         }
         ImGui::TextDisabled("Discovery is unverified. Windows: enter an index manually.");
-        ImGui::InputInt("Device index", &camera_index);
+        responsive_input_int("Device index", &camera_index);
         ImGui::TextDisabled("OpenCV device index, 0 to 255; indices are backend-specific.");
         ImGui::TextDisabled("Format: driver-selected (M8.2 strict format API retained).");
         const bool opening = current_state == chromascope::CameraCaptureState::Starting;
@@ -1870,20 +2210,22 @@ struct App {
         ImGui::TextWrapped("Only pinned local NanoDet COCO-80 inference. "
                            "Person mode detects class 0; optional temporary box tracking is NOT identification.");
         ImGui::BeginDisabled(live_inference_active);
-        ImGui::Combo("Live detection profile", &live_detection_profile,
+        responsive_combo("Live detection profile", &live_detection_profile,
             "COCO-80 objects\0Person only (COCO ID 0)\0");
-        ImGui::SliderFloat("Live confidence cutoff", &live_confidence_threshold,
-            0.01F, 1.0F, "%.2f");
+        slider_float("Live confidence cutoff", &live_confidence_threshold,
+            0.01F, 1.0F, static_cast<float>(slider_ui_default("live_confidence_threshold", 0.50)), "%.2f");
         if (live_detection_profile == 1)
-            ImGui::SliderFloat("Live person display cutoff", &live_person_display_threshold,
-                0.01F, 1.0F, "%.2f");
-        ImGui::Combo("Inference frame-drop policy", &live_drop_strategy,
+            slider_float("Live person display cutoff", &live_person_display_threshold,
+                0.01F, 1.0F, static_cast<float>(slider_ui_default("live_person_display_threshold", 0.50)), "%.2f");
+        responsive_combo("Inference frame-drop policy", &live_drop_strategy,
             "Keep newest (replace pending)\0Keep oldest (discard incoming)\0");
-        ImGui::SliderInt("Minimum capture spacing (ms)",
-            &live_min_capture_spacing_ms, 0, 1000);
-        ImGui::SliderInt("Max inference submission FPS (0=uncapped)",
-            &live_max_inference_fps, 0, 60);
-        ImGui::InputText("Local ONNX model", detector_model_path.data(), detector_model_path.size());
+        slider_int("Minimum capture spacing (ms)",
+            &live_min_capture_spacing_ms, 0, 1000,
+            static_cast<int>(slider_ui_default("live_min_capture_spacing_ms", 0)));
+        slider_int("Max inference submission FPS (0=uncapped)",
+            &live_max_inference_fps, 0, 60,
+            static_cast<int>(slider_ui_default("live_max_inference_fps", 0)));
+        responsive_input_text("Local ONNX model", detector_model_path.data(), detector_model_path.size());
         ImGui::Checkbox("Enable temporary track IDs", &live_enable_tracking);
         ImGui::EndDisabled();
         ImGui::BeginDisabled(live_inference_active || !capturing);
@@ -1899,8 +2241,9 @@ struct App {
         if (ImGui::Button(live_paused ? "Resume live inference" : "Pause live inference",
                           ImVec2(-1, 0))) toggle_live_pause();
         ImGui::EndDisabled();
-        ImGui::SliderFloat("Live overlay display confidence", &live_display_confidence_threshold,
-                           0.01F, 1.0F, "%.2f");
+        slider_float("Live overlay display confidence", &live_display_confidence_threshold,
+                         0.01F, 1.0F,
+                         static_cast<float>(slider_ui_default("live_display_confidence_threshold", 0.50)), "%.2f");
         ImGui::TextDisabled("Display-only threshold; lower values cannot recover model-filtered boxes.");
         ImGui::TextDisabled("FPS cap limits inference submissions, not physical camera FPS.");
         const auto live_state = live_inference.snapshot();
@@ -2021,31 +2364,82 @@ struct App {
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
+        // v1.0.1 UI polish: two compact action rows with menu-style
+        // Preferences and Export entries and dedicated modal dialogs.
+        // Narrow windows wrap controls as needed; behavior is unchanged.
+        const ImGuiStyle& toolbar_style = ImGui::GetStyle();
+        const float toolbar_right = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x -
+            toolbar_style.WindowPadding.x;
+        const auto text_width = [](const char* label) {
+            return ImGui::CalcTextSize(label).x;
+        };
+        const auto radio_width = [&](const char* label) {
+            return ImGui::GetFrameHeight() + toolbar_style.ItemInnerSpacing.x + text_width(label);
+        };
+        const auto small_button_width = [&](const char* label) {
+            // Conservative estimate also permits spacing at non-default DPI.
+            return text_width(label) + 2.0F * toolbar_style.FramePadding.x;
+        };
+        const auto same_line_if_fits = [&](float next_width) {
+            if (ImGui::GetItemRectMax().x + toolbar_style.ItemSpacing.x + next_width > toolbar_right)
+                return false;
+            ImGui::SameLine();
+            return true;
+        };
+        const auto toolbar_divider_if_fits = [&](float next_width) {
+            const float divider_width = text_width("|") +
+                2.0F * toolbar_style.ItemSpacing.x;
+            if (same_line_if_fits(divider_width + next_width)) {
+                ImGui::TextDisabled("|");
+                ImGui::SameLine();
+            }
+        };
+
         ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP");
-        if (viewport->WorkSize.x >= 960.0F * ui_content_scale) ImGui::SameLine();
-        ImGui::TextDisabled("v%s  |  Images, video & local camera  |  OpenCV 5.1.0 / ImGui 1.93.0", CHROMASCOPE_RELEASE_VERSION);
-        ImGui::Separator();
-        if (ImGui::RadioButton("Still images", workspace_mode == 0))
-            switch_workspace(0);
         ImGui::SameLine();
-        if (ImGui::RadioButton("Recorded video", workspace_mode == 1))
+        ImGui::TextDisabled("v%s", CHROMASCOPE_RELEASE_VERSION);
+        toolbar_divider_if_fits(small_button_width("Preferences"));
+        // A text-highlighted selectable looks like a traditional menu entry,
+        // but opens a modal rather than an additional dropdown/menu bar.
+        if (ImGui::Selectable("Preferences", false, ImGuiSelectableFlags_None,
+                              ImVec2(small_button_width("Preferences"), ImGui::GetFrameHeight())))
+            preferences_requested = true;
+        toolbar_divider_if_fits(small_button_width("Export"));
+        if (ImGui::Selectable("Export", false, ImGuiSelectableFlags_None,
+                              ImVec2(small_button_width("Export"), ImGui::GetFrameHeight())))
+            export_requested = true;
+        toolbar_divider_if_fits(radio_width("Still Images"));
+        if (ImGui::RadioButton("Still Images", workspace_mode == 0))
+            switch_workspace(0);
+        same_line_if_fits(radio_width("Recorded Video"));
+        if (ImGui::RadioButton("Recorded Video", workspace_mode == 1))
             switch_workspace(1);
-        if (viewport->WorkSize.x >= 660.0F * ui_content_scale) ImGui::SameLine();
-        if (ImGui::RadioButton("Live camera", workspace_mode == 2))
+        same_line_if_fits(radio_width("Live Camera"));
+        if (ImGui::RadioButton("Live Camera", workspace_mode == 2))
             switch_workspace(2); // no implicit device opening
-        if (viewport->WorkSize.x >= 850.0F * ui_content_scale) ImGui::SameLine();
         const auto camera_badge = chromascope::camera_preview_badge(camera_capture.state());
+        same_line_if_fits(text_width(camera_badge.label));
         ImGui::TextColored(camera_badge.may_be_active
             ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
             : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", camera_badge.label);
         ImGui::SetItemTooltip("The camera opens only after Start camera. Leaving Live Camera requests Stop.");
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Help (F1)")) help_requested = true;
-        draw_help();
-        ImGui::Separator();
-        // M7.5 person quick-entry actions select the existing, verified
-        // person-only policies; they never load weights or run inference.
-        if (ImGui::SmallButton("People in image")) {
+        same_line_if_fits(small_button_width("Help (F1)"));
+        if (ImGui::Button("Help (F1)")) help_requested = true;
+
+        // Second row: session clearing precedes both people-workflow shortcuts.
+        // It invokes the exact same explicit session-clearing action as before.
+        // The normal ImGui vertical layout starts the next row automatically;
+        // NewLine here created an unintended empty row above these actions.
+        if (ImGui::Button("Clear loaded media, model and results"))
+            clear_private_session();
+        ImGui::SetItemTooltip("Clearing cancels pending work and releases displayed\n"
+            "resources, but in-flight OpenCV work can finish.\n"
+            "Previously saved files, terminal output and OS caches remain.");
+
+        // M7.5: same person quick-entry actions and status, now on row two.
+        // These only select policies; no model or camera is loaded implicitly.
+        toolbar_divider_if_fits(small_button_width("People in image"));
+        if (ImGui::Button("People in image")) {
             switch_workspace(0);
             show_overlay = true;
             show_labels = true;
@@ -2054,8 +2448,8 @@ struct App {
                 detector_session.clear_results();
             }
         }
-        if (viewport->WorkSize.x >= 560.0F * ui_content_scale) ImGui::SameLine();
-        if (ImGui::SmallButton("People in video")) {
+        same_line_if_fits(small_button_width("People in video"));
+        if (ImGui::Button("People in video")) {
             switch_workspace(1);
             video_show_detections = true;
             if (video_detection_profile != 1) {
@@ -2064,49 +2458,26 @@ struct App {
                 video_detection_profile = 1;
             }
         }
-        ImGui::SameLine();
+        char person_status[128]{};
         if (workspace_mode == 1 && video_detection_profile == 1) {
-            ImGui::TextDisabled("PERSON ONLY | COCO 0 | cutoff >= %.2f",
+            std::snprintf(person_status, sizeof(person_status), "PERSON ONLY | COCO 0 | cutoff >= %.2f",
                 static_cast<double>(std::max({video_person_display_threshold,
                     static_cast<float>(detector_options.confidence_threshold),
                     detector_class_overrides[0].value_or(0.0F)})));
         } else if (workspace_mode == 0 && detector_profile != 0) {
-            ImGui::TextDisabled("STILL PEOPLE | COCO 0 | cutoff >= %.2f",
+            std::snprintf(person_status, sizeof(person_status), "STILL PEOPLE | COCO 0 | cutoff >= %.2f",
                 static_cast<double>(std::max({still_person_display_threshold,
                     static_cast<float>(detector_options.confidence_threshold),
                     detector_class_overrides[0].value_or(0.0F)})));
         } else {
-            ImGui::TextDisabled("Select a people workflow; no automatic model loading");
+            std::snprintf(person_status, sizeof(person_status),
+                "Select a people workflow; no automatic model loading");
         }
-        ImGui::Separator();
-        // M7.6: local-only and retention controls are visible in both workspaces.
-        if (ImGui::CollapsingHeader("Local privacy and session controls", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::TextWrapped("This app's first-party runtime has no upload, "
-                "telemetry, face recognition, or identity matching feature. "
-                "Person boxes are COCO class 0 predictions, not identities.");
-            ImGui::TextWrapped("Images, model weights, decoded frames, camera "
-                "preview pixels and caches stay local. Live inference requires "
-                "a separate Start action; no recording or uploads. "
-                "File exports are explicit; AVI exports discard audio.");
-            ImGui::TextDisabled("No automatic ImGui layout/log file is written.");
-            ImGui::TextWrapped("Schema v1 preferences: saved only on request. Profile and "
-                "non-sensitive display settings only; no file paths, model paths, "
-                "camera activation, images or tracking IDs are stored.");
-            if (ImGui::Button("Save preferences")) save_gui_preferences();
-            ImGui::SameLine();
-            ImGui::BeginDisabled(camera_capture.state() == chromascope::CameraCaptureState::Capturing ||
-                                 live_inference_active || video_export_busy.load());
-            if (ImGui::Button("Reload saved preferences")) load_gui_preferences();
-            ImGui::EndDisabled();
-            if (ImGui::Button("Delete saved preferences")) delete_saved_gui_preferences();
-            ImGui::TextWrapped("%s", preferences_status.c_str());
-            if (ImGui::Button("Clear loaded media, model and results"))
-                clear_private_session();
-            ImGui::TextWrapped("Clearing cancels pending work and releases displayed "
-                "resources, but in-flight OpenCV work can finish. "
-                "Previously saved files, terminal output and OS caches remain.");
-            ImGui::TextDisabled("Privacy details: docs/PRIVACY_GUIDE.md");
-        }
+        same_line_if_fits(text_width(person_status));
+        ImGui::TextDisabled("%s", person_status);
+        draw_help();
+        draw_preferences();
+        draw_export();
         ImGui::Separator();
         if (workspace_mode == 1) {
             draw_video_ui();
@@ -2122,19 +2493,29 @@ struct App {
         const auto layout = panel_layout();
         ImGui::BeginChild("Controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("INPUT IMAGE");
+        ImGui::SetNextItemWidth(-1.0F);
         ImGui::InputText("##path", path.data(), path.size());
-        if (ImGui::Button("Open image", ImVec2(159.0F * ui_content_scale, 0.0F))) load(path.data());
+        const float image_file_button_width = control_button_width(2);
+        if (ImGui::Button("Open image", ImVec2(image_file_button_width, 0.0F)))
+            load(path.data());
+        ImGui::SetItemTooltip("Open the local image at the absolute path entered above.");
         ImGui::SameLine();
-        if (ImGui::Button("Browse...", ImVec2(-1, 0))) open_file_picker();
-        ImGui::TextDisabled("Browse folders or paste an absolute image path.");
+        if (ImGui::Button("Browse...", ImVec2(-1.0F, 0.0F))) open_file_picker();
+        ImGui::SetItemTooltip("Browse folders to select a local image file "
+                              "instead of typing or pasting its absolute path.");
         ImGui::Spacing();
         ImGui::TextUnformatted("ORIGINAL SKITTLES SAMPLES");
         if (!legacy_sample_directory)
             ImGui::TextDisabled("Samples are not redistributed; browse for your own media.");
         ImGui::BeginDisabled(!legacy_sample_directory.has_value());
+        // Keep all four samples equally sized while the left splitter resizes.
+        // The final button consumes remaining width to avoid rounding gaps.
+        const float sample_spacing = ImGui::GetStyle().ItemSpacing.x;
+        const float sample_width = std::max(1.0F,
+            (ImGui::GetContentRegionAvail().x - 3.0F * sample_spacing) / 4.0F);
         for (int n = 1; n <= 4; ++n) {
             const std::string button = "s" + std::to_string(n) + ".jpg";
-            if (ImGui::Button(button.c_str(), ImVec2(75, 0))) {
+            if (ImGui::Button(button.c_str(), ImVec2(n == 4 ? -1.0F : sample_width, 0.0F))) {
                 load(*legacy_sample_directory / button);
             }
             if (n != 4) ImGui::SameLine();
@@ -2164,14 +2545,20 @@ struct App {
         if (selected_profile == "skittles") {
             ImGui::TextDisabled("Legacy colored-circle detector.");
             float accumulator = static_cast<float>(settings.accumulator_threshold);
-            if (ImGui::SliderFloat("Circle threshold", &accumulator, 18.0f, 55.0f, "%.0f"))
+            if (slider_float("Circle threshold", &accumulator, 18.0f, 55.0f,
+                             static_cast<float>(slider_profile_default("skittles", "accumulator_threshold",
+                                                                          chromascope::Settings{}.accumulator_threshold)), "%.0f"))
                 settings.accumulator_threshold = accumulator;
             ImGui::SetItemTooltip("Lower values: more candidates; more false positives.");
             float minimum_confidence = static_cast<float>(settings.minimum_confidence);
-            if (ImGui::SliderFloat("Color confidence", &minimum_confidence, 0.0f, 0.95f, "%.2f"))
+            if (slider_float("Color confidence", &minimum_confidence, 0.0f, 0.95f,
+                             static_cast<float>(slider_profile_default("skittles", "minimum_confidence",
+                                                                          chromascope::Settings{}.minimum_confidence)), "%.2f"))
                 settings.minimum_confidence = minimum_confidence;
             int max_size = settings.max_dimension;
-            if (ImGui::SliderInt("Analysis max size", &max_size, 512, 2000))
+            if (slider_int("Analysis max size", &max_size, 512, 2000,
+                           static_cast<int>(slider_profile_default("skittles", "max_dimension",
+                                                                           chromascope::Settings{}.max_dimension))))
                 settings.max_dimension = max_size;
         } else {
             for (const auto& descriptor : descriptors) {
@@ -2182,9 +2569,11 @@ struct App {
                     const std::string label = option.key;
                     if (option.integral) {
                         int current = static_cast<int>(options.at(option.key));
-                        if (ImGui::SliderInt(label.c_str(), &current,
-                                             static_cast<int>(option.minimum),
-                                             static_cast<int>(option.maximum))) {
+                        if (slider_int(label.c_str(), &current,
+                                       static_cast<int>(option.minimum),
+                                       static_cast<int>(option.maximum),
+                                       static_cast<int>(slider_profile_default(selected_profile,
+                                                                              option.key, option.default_value)))) {
                             if ((option.key == "kernel_size" || option.key == "morph_kernel" ||
                                  option.key == "blur_kernel") && current % 2 == 0)
                                 current = current < static_cast<int>(options.at(option.key))
@@ -2193,9 +2582,11 @@ struct App {
                         }
                     } else {
                         float current = static_cast<float>(options.at(option.key));
-                        if (ImGui::SliderFloat(label.c_str(), &current,
-                              static_cast<float>(option.minimum),
-                              static_cast<float>(option.maximum), "%.1f"))
+                        if (slider_float(label.c_str(), &current,
+                                       static_cast<float>(option.minimum),
+                                       static_cast<float>(option.maximum),
+                                       static_cast<float>(slider_profile_default(selected_profile,
+                                                                                option.key, option.default_value)), "%.1f"))
                             options.at(option.key) = current;
                     }
                 }
@@ -2225,8 +2616,8 @@ struct App {
         }
         ImGui::Separator();
 
-        ImGui::TextUnformatted("VIEW & EXPORT");
-        if (ImGui::Combo("Preview mode", &preview_mode,
+        ImGui::TextUnformatted("VIEW");
+        if (responsive_combo("Preview mode", &preview_mode,
                          "Result\0Original\0Side by side\0"))
             refresh_overlay();
         if (ImGui::Checkbox("Synchronize comparison navigation", &synchronize_comparison) &&
@@ -2276,17 +2667,6 @@ struct App {
             }
             if (changed) refresh_overlay();
         }
-        ImGui::Combo("Export image", &export_base_mode,
-                     "As configured\0Original pixels\0Processed pixels\0");
-        ImGui::InputText("##export", export_path.data(), export_path.size());
-        if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();
-        const auto still_person_snapshot = detector_session.snapshot();
-        const bool person_available = detector_profile != 0 &&
-            still_person_snapshot.stage == chromascope::DnnGuiStage::Completed &&
-            still_person_snapshot.person_detections && input_frame;
-        ImGui::BeginDisabled(!person_available);
-        if (ImGui::Button("Export person boxes on original", ImVec2(-1, 0))) save_person();
-        ImGui::EndDisabled();
         ImGui::Separator();
         ImGui::TextUnformatted("RESULTS");
         if (pending_ticket != 0) {

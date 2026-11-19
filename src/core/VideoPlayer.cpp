@@ -15,6 +15,7 @@ void VideoPlayer::open(const std::filesystem::path& path, VideoBackend backend) 
     backend_ = backend;
     generation_ = generation;
     requested_frame_ = 0;
+    fps_override_ = 0.0; // every recording starts with source-timestamp pacing
     info_.reset();
     held_event_.reset();
     displayed_at_.reset();
@@ -30,6 +31,7 @@ void VideoPlayer::close() noexcept {
     source_.clear();
     generation_ = decoder_.generation();
     requested_frame_ = 0;
+    fps_override_ = 0.0;
     displayed_.reset();
     held_event_.reset();
     displayed_at_.reset();
@@ -95,6 +97,10 @@ void VideoPlayer::set_playback_fps(double fps) {
     if (!std::isfinite(fps) || fps < 1.0 || fps > 120.0)
         throw std::invalid_argument("Playback FPS must be in [1, 120]");
     fps_override_ = fps;
+}
+
+void VideoPlayer::clear_playback_fps_override() noexcept {
+    fps_override_ = 0.0;
 }
 
 bool VideoPlayer::update(Clock::time_point now) {

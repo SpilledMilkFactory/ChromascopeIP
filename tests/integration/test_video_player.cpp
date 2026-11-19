@@ -4,6 +4,7 @@
 #include <opencv2/videoio.hpp>
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
@@ -56,6 +57,19 @@ int main(int argc, char** argv) {
         require(player.current_frame()->image.width() == 80 &&
                 player.current_frame()->image.height() == 60, "frame dimensions");
         require(player.stream_info().has_value(), "metadata published from worker");
+        require(player.using_source_playback_fps(), "source FPS is the default");
+        const auto reported_fps = player.stream_info()->frames_per_second;
+        const double expected_source_fps = reported_fps && std::isfinite(*reported_fps) &&
+            *reported_fps >= 1.0 && *reported_fps <= 120.0 ? *reported_fps : 30.0;
+        require(std::abs(player.playback_fps() - expected_source_fps) < 0.01,
+                "uses reported source FPS or documented 30 FPS fallback");
+        player.set_playback_fps(36.0);
+        require(!player.using_source_playback_fps() && player.playback_fps() == 36.0,
+                "manual override enabled");
+        player.clear_playback_fps_override();
+        require(player.using_source_playback_fps(), "source timing re-enabled");
+        require(std::abs(player.playback_fps() - expected_source_fps) < 0.01,
+                "source timing restored after manual override");
         for (int i = 0; i < 5; ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
             require(!player.update(), "paused player must not advance");

@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -174,10 +175,37 @@ void stress_bounded_queue() {
     worker.cancel();
 }
 
+// Exercise shutdown races at each of the two wait points. This uses an injected
+// detector and owned synthetic frames; no device, weights or network needed.
+// A stop-aware worker must wake and join even if destruction overlaps a wait.
+void shutdown_wait_regression() {
+    for (int i = 0; i < 64; ++i) {
+        auto worker = std::make_unique<AsyncLiveCameraInference>(
+            [](const std::filesystem::path&, const DnnPostprocessOptions&) {
+                return LiveFrameDetector(detect);
+            });
+        if ((i % 3) != 0) {
+            (void)worker->start(95, "synthetic.onnx");
+            if ((i % 3) == 2)
+                check(worker->submit(95, frame(1, 1ms)), "shutdown fixture rejected frame");
+        }
+        // In some iterations the thread is not yet scheduled; in others it
+        // has begun loading or is parked waiting for a new frame.
+        worker.reset();
+    }
+}
+
 void run() {
+    // Flush milestones so a Windows CTest timeout identifies the stalled phase.
+    std::cerr << "M9.2 checkpoint: KeepNewest\n";
     exercise(LiveInferenceDropStrategy::KeepNewest);
+    std::cerr << "M9.2 checkpoint: KeepOldest\n";
     exercise(LiveInferenceDropStrategy::KeepOldest);
+    std::cerr << "M9.2 checkpoint: bounded stress\n";
     stress_bounded_queue();
+    std::cerr << "M9.2 checkpoint: stop-aware shutdown\n";
+    shutdown_wait_regression();
+    std::cerr << "M9.2 checkpoint: complete\n";
 }
 }
 

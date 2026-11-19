@@ -42,6 +42,11 @@ public:
     [[nodiscard]] const std::string& status() const noexcept { return status_; }
     [[nodiscard]] double playback_fps() const noexcept;
     void set_playback_fps(double fps); // 1..120 or throws
+    // Restore timestamp-aware source pacing, with nominal/30 FPS fallback.
+    void clear_playback_fps_override() noexcept;
+    [[nodiscard]] bool using_source_playback_fps() const noexcept {
+        return fps_override_ <= 0.0;
+    }
 
 private:
     AsyncVideoDecoder decoder_;

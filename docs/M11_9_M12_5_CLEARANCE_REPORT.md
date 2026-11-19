@@ -1,5 +1,13 @@
 # M11.9 / M12.5 coordinated clearance report
 
+## 2026-11-18 — Subsequent final-review disposition (supersedes the historical status below)
+
+**M12.5 security: APPROVED**, explicitly authorized by the maintainer after native OpenCV and five-target release staging qualification. See [M12.5 sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md). Staging #4 (run `44425058385`, commit `aaed9bd63ce8886142a1cdf907e9323dd0987597`) passed five-platform package qualification, 151/151 Linux native tests per target, Windows 150 native tests, and Ubuntu 24.04 sanitizers. The tested parser/decoder mitigations and residual risks are documented in the updated sign-off. No OS FFmpeg security backport is claimed.
+
+**M11.9 review: evidence-backed dispositions prepared, one contingent Microsoft entitlement.** The 24 Linux topics plus four Windows topics have family-based evidence-backed release decisions; the Windows VC143 entitlement is conditional on the publisher genuinely holding an applicable redistribution license. See [final M11.9 clearance decisions](M11_9_FINAL_CLEARANCE_DECISIONS.md). These are not yet approvals bound to the future final package hashes; `scripts/prepare_m119_final_review.py` binds the review to the next exact-source staging and leaves VC143 blocked unless expressly confirmed. Public release still requires final package identity, license review validation and attestation verification.
+
+The section below is **historical pre-staging analysis** retained verbatim to preserve the audit trail. Its statements that security is blocked and all 29 decisions are pending describe that earlier review, not the current technical status.
+
 ## A. Executive summary
 
 **Review date: 2026-11-18. Status: TECHNICAL_REMEDIATION_PARTIAL / BLOCKED_SECURITY_REMEDIATION. Public release authorization remains pending.**

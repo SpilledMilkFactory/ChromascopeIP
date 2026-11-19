@@ -113,7 +113,8 @@ class ReleaseDocsM127Tests(unittest.TestCase):
 
     def test_rights_and_vulnerabilities_not_auto_approved(self):
         readiness = self.read('docs/M12_7_PUBLICATION_READINESS.md')
-        self.assertIn('29 PENDING', readiness)
+        self.assertIn('29 PENDING', readiness)  # retained historical staging note
+        self.assertIn('M11_9_FINAL_CLEARANCE_DECISIONS.md', readiness)
         self.assertIn('CVE-2026-8461', readiness)
         self.assertIn('bad95af60f08994d107e01a2114577bd3bd19d42', readiness)
         self.assertIn('44221573000', readiness)

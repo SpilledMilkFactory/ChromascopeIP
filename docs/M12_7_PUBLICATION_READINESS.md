@@ -1,5 +1,11 @@
 # M12.7 (#90) — release content and remaining M11.9/M12.5 clearance
 
+## Updated final-publication checkpoint — 2026-11-18
+
+M12.5 security is **APPROVED within its documented scope**, following the successful native FFmpeg/OpenCV mitigations and Staging #4 (run `44425058385`). [Security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md) records exact runtime findings and residual risks. [Final M11.9 redistribution decisions](M11_9_FINAL_CLEARANCE_DECISIONS.md) consolidate the 29 topics into evidence-backed family decisions (28 supported and one conditional VC143 entitlement). `scripts/prepare_m119_final_review.py` generates the final 29 review records against newly staged packages, leaving VC143 blocked without affirmative entitlement confirmation. The existing attestation verification and tag identity gates remain unchanged. The older staging and review procedures below are retained for audit history; this updated checkpoint supersedes their older blocked-security status.
+
+## Earlier M12.7 planning record
+
 **Engineering evidence:** hosted Release Staging CI #2 completed successfully
 at source `bad95af60f08994d107e01a2114577bd3bd19d42`, run `44221573000`.
 The supplied staged bundle contains five packages, five CycloneDX drafts,

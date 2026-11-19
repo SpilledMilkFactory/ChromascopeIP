@@ -1,6 +1,10 @@
 # M11.9 (#83) — Binary redistribution notices and artifact-derived SBOM review
 
-## Current remediation status — 2026-11-18
+## Final-review update — 2026-11-18
+
+Following Release Staging CI #4, engineering evidence has been reviewed by family: 28 of the 29 target/topic decisions have documented acceptable technical/redistribution boundaries. The remaining Windows VC143 DLL decision requires a true license-entitlement confirmation by the publisher; source/binary inspection cannot supply that fact. See [final clearance decisions](M11_9_FINAL_CLEARANCE_DECISIONS.md) and the stage-bound generator `scripts/prepare_m119_final_review.py`. Final approval JSON is produced only against final same-source staging artifacts; historical pending decisions below are retained as an earlier checkpoint. M12.5 is separately authorized in [its bounded security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md).
+
+## Earlier remediation status — 2026-11-18
 
 See the [coordinated clearance report](M11_9_M12_5_CLEARANCE_REPORT.md) for all
 29 per-package dispositions and actual historical artifact hashes. Pinned

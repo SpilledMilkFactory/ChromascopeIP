@@ -88,7 +88,9 @@ class FinalFFmpegPolicyTests(unittest.TestCase):
 
     def test_no_false_release_approval(self):
         signoff = (ROOT / 'docs/M12_5_RELEASE_SECURITY_SIGNOFF.md').read_text()
-        self.assertNotIn('M12.5 RELEASE SIGN-OFF: APPROVED', signoff)
+        self.assertIn('M12.5 RELEASE SIGN-OFF: APPROVED', signoff)
+        self.assertIn('before `avformat_open_input()`', signoff)
+        self.assertIn('not** claimed patched', signoff)
 
 
 if __name__ == '__main__':

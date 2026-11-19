@@ -214,7 +214,7 @@ class ReleaseStagingM126Tests(unittest.TestCase):
     def test_tag_blocked_by_current_m125_signoff_even_if_review_file_given(self):
         self.prepare()
         security = ROOT / 'docs/M12_5_RELEASE_SECURITY_SIGNOFF.md'
-        self.assertNotIn('M12.5 RELEASE SIGN-OFF: APPROVED', security.read_text())
+        self.assertIn('M12.5 RELEASE SIGN-OFF: APPROVED', security.read_text())
         def fake_git(*args):
             return {('rev-parse', '--show-toplevel'): str(self.root),
                     ('rev-parse', 'HEAD'): self.commit,

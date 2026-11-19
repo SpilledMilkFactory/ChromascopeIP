@@ -213,6 +213,7 @@ struct App {
     float ui_content_scale = 1.0F;
     float sidebar_width_logical = 345.0F;
     bool help_requested = false;
+    bool preferences_requested = false;
     std::string preferences_status = "Preferences are not saved automatically.";
     bool browser_show_hidden = false;
     std::filesystem::path browser_selected;
@@ -1121,6 +1122,46 @@ struct App {
         ImGui::EndPopup();
     }
 
+    void draw_preferences() {
+        if (preferences_requested) {
+            ImGui::OpenPopup("ChromascopeIP Preferences");
+            preferences_requested = false;
+        }
+        const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
+        ImGui::SetNextWindowSize(ImVec2(std::min(620.0F * ui_content_scale, work.x * 0.94F),
+                                        std::min(440.0F * ui_content_scale, work.y * 0.92F)),
+                                 ImGuiCond_Appearing);
+        if (!ImGui::BeginPopupModal("ChromascopeIP Preferences", nullptr,
+                                    ImGuiWindowFlags_NoSavedSettings)) return;
+        ImGui::TextUnformatted("Local privacy and session controls");
+        ImGui::Separator();
+        ImGui::TextWrapped("This app's first-party runtime has no upload, "
+            "telemetry, face recognition, or identity matching feature. "
+            "Person boxes are COCO class 0 predictions, not identities.");
+        ImGui::TextWrapped("Images, model weights, decoded frames, camera "
+            "preview pixels and caches stay local. Live inference requires "
+            "a separate Start action; no recording or uploads. "
+            "File exports are explicit; AVI exports discard audio.");
+        ImGui::TextDisabled("No automatic ImGui layout/log file is written.");
+        ImGui::Separator();
+        ImGui::TextWrapped("Schema v1 preferences: saved only on request. Profile and "
+            "non-sensitive display settings only; no file paths, model paths, "
+            "camera activation, images or tracking IDs are stored.");
+        if (ImGui::Button("Save preferences")) save_gui_preferences();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(camera_capture.state() == chromascope::CameraCaptureState::Capturing ||
+                             live_inference_active || video_export_busy.load());
+        if (ImGui::Button("Reload saved preferences")) load_gui_preferences();
+        ImGui::EndDisabled();
+        if (ImGui::Button("Delete saved preferences")) delete_saved_gui_preferences();
+        ImGui::TextWrapped("%s", preferences_status.c_str());
+        ImGui::Separator();
+        ImGui::TextDisabled("Privacy details: docs/PRIVACY_GUIDE.md");
+        ImGui::Separator();
+        if (ImGui::Button("Close preferences")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+
     void open_file_picker(bool for_video = false, bool for_model = false) {
         picker_video = for_video;
         picker_model = for_model;
@@ -2021,9 +2062,9 @@ struct App {
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
-        // v1.0.1 UI polish: a single compact header on the default 1440px
-        // window. Narrow windows wrap controls as needed instead of clipping
-        // them. Only presentation/spacing changes; all actions are unchanged.
+        // v1.0.1 UI polish: two compact action rows with a menu-style
+        // Preferences entry and a separate privacy/preferences modal.
+        // Narrow windows wrap controls as needed; behavior is unchanged.
         const ImGuiStyle& toolbar_style = ImGui::GetStyle();
         const float toolbar_right = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x -
             toolbar_style.WindowPadding.x;
@@ -2055,6 +2096,12 @@ struct App {
         ImGui::TextColored(ImVec4(0.44f, 0.79f, 0.96f, 1.0f), "ChromascopeIP");
         ImGui::SameLine();
         ImGui::TextDisabled("v%s", CHROMASCOPE_RELEASE_VERSION);
+        toolbar_divider_if_fits(small_button_width("Preferences"));
+        // A text-highlighted selectable looks like a traditional menu entry,
+        // but opens a modal rather than an additional dropdown/menu bar.
+        if (ImGui::Selectable("Preferences", false, ImGuiSelectableFlags_None,
+                              ImVec2(small_button_width("Preferences"), ImGui::GetFrameHeight())))
+            preferences_requested = true;
         toolbar_divider_if_fits(radio_width("Still images"));
         if (ImGui::RadioButton("Still images", workspace_mode == 0))
             switch_workspace(0);
@@ -2073,7 +2120,16 @@ struct App {
         same_line_if_fits(small_button_width("Help (F1)"));
         if (ImGui::SmallButton("Help (F1)")) help_requested = true;
 
-        // M7.5: same person quick-entry actions and status, now in the header.
+        // Second row: session clearing precedes both people-workflow shortcuts.
+        // It invokes the exact same explicit session-clearing action as before.
+        ImGui::NewLine();
+        if (ImGui::Button("Clear loaded media, model and results"))
+            clear_private_session();
+        ImGui::SetItemTooltip("Clearing cancels pending work and releases displayed\n"
+            "resources, but in-flight OpenCV work can finish.\n"
+            "Previously saved files, terminal output and OS caches remain.");
+
+        // M7.5: same person quick-entry actions and status, now on row two.
         // These only select policies; no model or camera is loaded implicitly.
         toolbar_divider_if_fits(small_button_width("People in image"));
         if (ImGui::SmallButton("People in image")) {
@@ -2113,35 +2169,7 @@ struct App {
         same_line_if_fits(text_width(person_status));
         ImGui::TextDisabled("%s", person_status);
         draw_help();
-        ImGui::Separator();
-        // M7.6: local-only and retention controls are visible in both workspaces.
-        if (ImGui::CollapsingHeader("Local privacy and session controls", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::TextWrapped("This app's first-party runtime has no upload, "
-                "telemetry, face recognition, or identity matching feature. "
-                "Person boxes are COCO class 0 predictions, not identities.");
-            ImGui::TextWrapped("Images, model weights, decoded frames, camera "
-                "preview pixels and caches stay local. Live inference requires "
-                "a separate Start action; no recording or uploads. "
-                "File exports are explicit; AVI exports discard audio.");
-            ImGui::TextDisabled("No automatic ImGui layout/log file is written.");
-            ImGui::TextWrapped("Schema v1 preferences: saved only on request. Profile and "
-                "non-sensitive display settings only; no file paths, model paths, "
-                "camera activation, images or tracking IDs are stored.");
-            if (ImGui::Button("Save preferences")) save_gui_preferences();
-            ImGui::SameLine();
-            ImGui::BeginDisabled(camera_capture.state() == chromascope::CameraCaptureState::Capturing ||
-                                 live_inference_active || video_export_busy.load());
-            if (ImGui::Button("Reload saved preferences")) load_gui_preferences();
-            ImGui::EndDisabled();
-            if (ImGui::Button("Delete saved preferences")) delete_saved_gui_preferences();
-            ImGui::TextWrapped("%s", preferences_status.c_str());
-            if (ImGui::Button("Clear loaded media, model and results"))
-                clear_private_session();
-            ImGui::TextWrapped("Clearing cancels pending work and releases displayed "
-                "resources, but in-flight OpenCV work can finish. "
-                "Previously saved files, terminal output and OS caches remain.");
-            ImGui::TextDisabled("Privacy details: docs/PRIVACY_GUIDE.md");
-        }
+        draw_preferences();
         ImGui::Separator();
         if (workspace_mode == 1) {
             draw_video_ui();

@@ -82,5 +82,68 @@ class TrialSafeguards(unittest.TestCase):
         self.assertIn('toc_count = 2 + num_lf_groups', context)
 
 
+    def test_configure_preflight_accepts_supported_options(self):
+        help_text = (
+            '  --disable-everything disable all components\n'
+            '  --disable-network disable network\n'
+            '  --disable-hwaccels disable all hardware acceleration\n'
+            '  --disable-autodetect disable detection\n'
+            '  --disable-parser=NAME disable a parser\n'
+            '  --disable-decoder=NAME disable a decoder\n'
+            '  --enable-parser=NAME enable a parser\n'
+            '  --prefix=PREFIX installation prefix\n'
+        )
+        options = sorted(mod.REQUIRED_FFMPEG_SWITCHES) + [
+            '--enable-parser=h264', '--prefix=/tmp/private-ffmpeg']
+        mod.verify_ffmpeg_configure_options(options, help_text)
+
+    def test_configure_preflight_rejects_removed_postproc_flag(self):
+        help_text = (
+            '  --disable-everything disable all components\n'
+            '  --disable-network disable network\n'
+            '  --disable-hwaccels disable hardware\n'
+            '  --disable-autodetect disable autodetection\n'
+            '  --disable-parser=NAME disable parser\n'
+            '  --disable-decoder=NAME disable decoder\n'
+        )
+        options = sorted(mod.REQUIRED_FFMPEG_SWITCHES) + ['--disable-postproc']
+        with self.assertRaisesRegex(ValueError, 'disable-postproc'):
+            mod.verify_ffmpeg_configure_options(options, help_text)
+
+    def test_configure_preflight_rejects_missing_jpegxl_policy(self):
+        help_text = (
+            '  --disable-everything disable all components\n'
+            '  --disable-network disable network\n'
+            '  --disable-hwaccels disable hardware\n'
+            '  --disable-autodetect disable autodetection\n'
+            '  --disable-parser=NAME disable parser\n'
+            '  --disable-decoder=NAME disable decoder\n'
+        )
+        opts = sorted(mod.REQUIRED_FFMPEG_SWITCHES - {'--disable-parser=jpegxl'})
+        with self.assertRaisesRegex(ValueError, 'Missing required private FFmpeg security'):
+            mod.verify_ffmpeg_configure_options(opts, help_text)
+
+    def test_ffmpeg_component_header_accepts_intended_inventory(self):
+        header = ''.join(
+            f'#define {name} {value}\n'
+            for name, value in mod.FFMPEG_REQUIRED_COMPONENTS.items())
+        self.assertEqual(mod.verify_ffmpeg_components(header),
+                         mod.FFMPEG_REQUIRED_COMPONENTS)
+
+    def test_ffmpeg_component_header_rejects_enabled_jpegxl_or_missing_parser(self):
+        header = ''.join(
+            f'#define {name} {value}\n'
+            for name, value in mod.FFMPEG_REQUIRED_COMPONENTS.items())
+        for bad in (
+            header.replace('#define CONFIG_JPEGXL_PARSER 0',
+                           '#define CONFIG_JPEGXL_PARSER 1'),
+            header.replace('#define CONFIG_H264_PARSER 1', ''),
+            header + '#define CONFIG_H264_PARSER 1\n',
+        ):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    mod.verify_ffmpeg_components(bad)
+
+
 if __name__ == '__main__':
     unittest.main()

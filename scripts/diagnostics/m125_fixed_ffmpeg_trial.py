@@ -137,6 +137,47 @@ def verify_ldd(text: str, prefix: Path, sonames: tuple[str, ...]) -> dict[str, s
     return found
 
 
+# FFmpeg 8.0.1 removed libpostproc. Verify every requested configure switch
+# against the pinned checkout's own --help BEFORE spending time compiling.
+# Keep the security-critical disable switches mandatory, without stripping
+# unrecognized options or silently falling back to a less restrictive build.
+REQUIRED_FFMPEG_SWITCHES = frozenset({
+    '--disable-everything', '--disable-network', '--disable-hwaccels',
+    '--disable-autodetect', '--disable-parser=jpegxl',
+    '--disable-decoder=jpegxl',
+})
+FFMPEG_REQUIRED_COMPONENTS = {
+    'CONFIG_H264_PARSER': 1,
+    'CONFIG_HEVC_PARSER': 1,
+    'CONFIG_MPEGTS_DEMUXER': 1,
+    'CONFIG_H264_DECODER': 1,
+    'CONFIG_JPEGXL_PARSER': 0,
+    'CONFIG_JPEGXL_DECODER': 0,
+}
+
+
+def verify_ffmpeg_configure_options(options: list[str], configure_help: str) -> None:
+    """Reject unsupported FFmpeg configure switches and missing safeguards."""
+    advertised = set(re.findall(r'(?m)^\s+(--[a-z0-9-]+)(?==|\s|$)', configure_help))
+    requested = {option.split('=', 1)[0] for option in options}
+    unsupported = sorted(requested - advertised)
+    if unsupported:
+        raise ValueError(f'Unsupported FFmpeg configure option(s): {unsupported!r}')
+    missing = sorted(REQUIRED_FFMPEG_SWITCHES - set(options))
+    if missing:
+        raise ValueError(f'Missing required private FFmpeg security options: {missing!r}')
+
+
+def verify_ffmpeg_components(header: str) -> dict[str, int]:
+    """Verify the generated FFmpeg 8 component header, including negative gates."""
+    for name, expected in FFMPEG_REQUIRED_COMPONENTS.items():
+        matches = re.findall(rf'(?m)^\s*#define\s+{name}\s+([01])\s*$', header)
+        if matches != [str(expected)]:
+            raise ValueError(f'Unexpected FFmpeg config_components.h: {name}={matches!r} '
+                             f'(expected {expected})')
+    return dict(FFMPEG_REQUIRED_COMPONENTS)
+
+
 def args_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--sample', type=Path, default=HOME / 'ChromascopeIP-M125-Parser-AB/private-media/sample.ts')
@@ -266,7 +307,7 @@ class Trial:
             f'--prefix={self.ffmpeg_prefix}', f'--libdir={self.ffmpeg_prefix / "lib"}',
             '--enable-shared', '--disable-static', '--enable-pic',
             '--disable-programs', '--disable-doc', '--disable-avdevice',
-            '--disable-avfilter', '--disable-swresample', '--disable-postproc',
+            '--disable-avfilter', '--disable-swresample',
             '--disable-autodetect', '--disable-everything',
             '--enable-decoder=h264,hevc,mjpeg,mpeg4,rawvideo,ffv1,png',
             '--enable-parser=h264,hevc,mjpeg,mpeg4video',
@@ -275,15 +316,18 @@ class Trial:
             '--disable-parser=jpegxl', '--disable-decoder=jpegxl',
             '--disable-hwaccels', '--disable-x86asm',
         ]
+        self.command([source / 'configure', '--help'], 'ffmpeg-configure-help.txt', cwd=ffbuild)
+        verify_ffmpeg_configure_options(
+            options, (self.report / 'ffmpeg-configure-help.txt').read_text(errors='replace'))
         self.command([source / 'configure', *options], 'ffmpeg-configure.log', cwd=ffbuild)
-        # Guard the generated effective configuration, not just argv.
-        header = (ffbuild / 'config.h').read_text(errors='replace')
-        for macro in ('CONFIG_H264_PARSER', 'CONFIG_HEVC_PARSER',
-                      'CONFIG_MPEGTS_DEMUXER', 'CONFIG_H264_DECODER'):
-            if f'#define {macro} 1' not in header:
-                raise RuntimeError(f'FFmpeg configure omitted mandatory component: {macro}')
-        if '#define CONFIG_JPEGXL_PARSER 1' in header or '#define CONFIG_JPEGXL_DECODER 1' in header:
-            raise RuntimeError('Private FFmpeg unexpectedly enables JPEG XL parser/decoder')
+        # FFmpeg n8.0.1 puts decoder/parser/demuxer macros in
+        # config_components.h (not config.h). Check the actual generated
+        # component inventory before permitting a private runtime build.
+        component_header = ffbuild / 'config_components.h'
+        effective = verify_ffmpeg_components(component_header.read_text(errors='replace'))
+        (self.report / 'ffmpeg-components-verified.json').write_text(
+            json.dumps(effective, indent=2, sort_keys=True) + '\n')
+        self.results['phases']['ffmpeg_component_policy'] = 'REQUIRED_COMPONENTS_VERIFIED'
         self.command(['make', '-j', str(self.o.jobs)], 'ffmpeg-build.log', cwd=ffbuild)
         self.command(['make', 'install'], 'ffmpeg-install.log', cwd=ffbuild)
         for name in ('libavcodec', 'libavformat', 'libavutil', 'libswscale'):

@@ -95,3 +95,25 @@ On failure, the report includes `ffmpeg-source-context.txt` for analysis.
 On success, it includes `ffmpeg-applied-diff.patch`, a clean git diff check,
 and the four-line footprint assertion. Previous incomplete results do **not**
 require cleanup; a fresh timestamped build directory is created on rerun.
+
+## M12.5 diagnostic correction — FFmpeg 8.0.1 configure compatibility
+
+After successful four-line JPEG XL backport application, the trial previously
+stopped before compilation because FFmpeg 8.0.1 no longer recognizes
+`--disable-postproc` (libpostproc was removed upstream). The argument is now
+omitted. No security-critical disable flag was removed.
+
+Before configure, the runner records `ffmpeg-configure-help.txt` from the
+**pinned checkout** and refuses any unsupported requested switch or missing
+mandatory security restriction. This validation never drops unsupported
+options automatically. Successful configure generates feature flags in
+`config_components.h` (not `config.h` in FFmpeg 8.0.1); the trial now checks
+H.264/HEVC parsers, MPEG-TS demuxer, H.264 decoder, and the explicit absence
+of the JPEG XL parser and decoder there, recording
+`ffmpeg-components-verified.json` in the diagnostic report.
+
+The offline safeguard test suite now contains 15 tests. These tests verify
+the configuration guards using fixtures; they do not constitute successful
+compilation, actual runtime security review, or distribution clearance.
+Run the same commands as above to perform a fresh isolated build. Previous
+incomplete results remain untouched.

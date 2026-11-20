@@ -1108,8 +1108,10 @@ struct App {
 
     std::string video_status;
 
-    static bool set_path_buffer(std::array<char, 4096>& target,
+    template <std::size_t N>
+    static bool set_path_buffer(std::array<char, N>& target,
                                 const std::filesystem::path& source) {
+        static_assert(N >= 2, "A path buffer must hold a character and terminator");
         const std::string string = source.string();
         if (string.empty() || string.size() >= target.size()) return false;
         std::snprintf(target.data(), target.size(), "%s", string.c_str());

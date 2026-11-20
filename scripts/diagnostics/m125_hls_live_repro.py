@@ -33,6 +33,56 @@ EXPECTED_SEGMENT_SHA256 = (
     '2a54cbe1589b6937ecd97df0a021b38342a87e9b8d5379f8fa6f1bc174a95e1d',
 )
 
+# Diagnostic-only FFmpeg AVDictionary profiles for custom IStreamReader probing.
+# These are fixed first-party literals: never accept arbitrary user-provided
+# capture options, URLs, protocols, decoder names or environment variables.
+# These options affect ONLY the isolated decoder probe subprocess.
+OPEN_PROBE_PROFILES = (
+    ('mpegts-format', 'input_format;mpegts'),
+    ('mpegts-64k-1s',
+     'input_format;mpegts|probesize;65536|analyzeduration;1000000|fpsprobesize;2'),
+    ('mpegts-16k-250ms',
+     'input_format;mpegts|probesize;16384|analyzeduration;250000|fpsprobesize;1'),
+)
+ALLOWED_CAPTURE_KEYS = {'input_format', 'probesize', 'analyzeduration', 'fpsprobesize'}
+
+
+def validate_probe_profiles(profiles: tuple[tuple[str, str], ...]) -> None:
+    """Fail closed if diagnostic capture profiles contain unknown FFmpeg options."""
+    if len(profiles) != 3 or len({name for name, _ in profiles}) != len(profiles):
+        raise ValueError('Expected three uniquely named, fixed diagnostic profiles')
+    for name, options in profiles:
+        if not re.fullmatch(r'[a-z0-9-]+', name):
+            raise ValueError('Invalid diagnostic profile label')
+        pairs = [entry.split(';') for entry in options.split('|')]
+        if any(len(pair) != 2 for pair in pairs):
+            raise ValueError('Malformed FFmpeg capture option')
+        values = dict(pairs)
+        if len(values) != len(pairs) or any(k not in ALLOWED_CAPTURE_KEYS for k in values):
+            raise ValueError('Unexpected FFmpeg capture option')
+        if values.get('input_format') != 'mpegts':
+            raise ValueError('Only the MPEG-TS demuxer may be forced')
+        for key in ('probesize', 'analyzeduration', 'fpsprobesize'):
+            if key not in values:
+                continue
+            if not values[key].isdecimal():
+                raise ValueError('FFmpeg probing option must be a decimal integer')
+            number = int(values[key])
+            lo, hi = {'probesize': (32, 65536), 'analyzeduration': (0, 1000000),
+                      'fpsprobesize': (0, 2)}[key]
+            if number < lo or number > hi:
+                raise ValueError('FFmpeg probing option exceeds diagnostic bounds')
+
+
+def qualified_profile(finite: dict, idle: dict) -> bool:
+    """A profile must both preserve all finite frames and open before live EOF."""
+    return (finite.get('exit_code') == 0 and not finite.get('timed_out')
+            and finite.get('frames') == 276
+            and idle.get('exit_code') == 0 and not idle.get('timed_out')
+            and idle.get('first_frame_seen') is True
+            and idle.get('capture_open_returned') is True
+            and idle.get('frames') == 1)
+
 
 def validate_sample(path: Path) -> dict:
     if not path.is_file() or path.is_symlink():
@@ -143,6 +193,8 @@ def parse_frames(log: str) -> int | None:
 def run(args: argparse.Namespace) -> Path:
     if sys.platform != 'linux' or not 1 <= args.jobs <= 16:
         raise ValueError('This diagnostic requires Linux and 1..16 build jobs')
+    if args.open_probe_matrix:
+        validate_probe_profiles(OPEN_PROBE_PROFILES)
     sample_info = validate_sample(args.sample.expanduser())
     summary = read_app_results(args.app_results.expanduser())
     opencv, ffmpeg = verified_prefixes(summary, args.work_root)
@@ -164,7 +216,9 @@ def run(args: argparse.Namespace) -> Path:
               'purpose': 'offline HLS continuous-AVIO vs finite-media reproduction',
               'inputs': sample_info, 'tests': {},
               'private_opencv_prefix': str(opencv), 'private_ffmpeg_prefix': str(ffmpeg)}
-    output_zip = root / 'ChromascopeIP-M125-HLS-LIVE-REPRO-RESULTS.zip'
+    output_zip = root / ('ChromascopeIP-M125-HLS-OPEN-MATRIX-RESULTS.zip'
+                         if args.open_probe_matrix else
+                         'ChromascopeIP-M125-HLS-LIVE-REPRO-RESULTS.zip')
     try:
         src = REPO / 'scripts/diagnostics/m125_hls_live_repro'
         cmd = ['cmake', '-S', str(src), '-B', str(build), '-G', 'Ninja',
@@ -195,6 +249,31 @@ def run(args: argparse.Namespace) -> Path:
             outcome['first_frame_seen'] = 'FIRST_FRAME width=' in content
             outcome['capture_open_returned'] = 'CAPTURE_OPEN_END opened=' in content
             result['tests'][mode] = outcome
+        if args.open_probe_matrix:
+            comparisons = []
+            for label, options in OPEN_PROBE_PROFILES:
+                # Use a fresh child for each variant: the native backend caches
+                # FFmpeg configuration and is not safe to retune in one process.
+                profile_env = env.copy()
+                profile_env['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = options
+                measurements = {}
+                for mode, seconds in (('finite', 30), ('live-idle', 15)):
+                    label_mode = f'{label}-{mode}'
+                    outcome = execute(
+                        label_mode,
+                        [str(executable), mode, str(args.sample.expanduser())],
+                        reports / f'{label_mode}.log', env=profile_env,
+                        timeout_seconds=seconds)
+                    content = (reports / f'{label_mode}.log').read_text(errors='replace')
+                    outcome['frames'] = parse_frames(content)
+                    outcome['first_frame_seen'] = 'FIRST_FRAME width=' in content
+                    outcome['capture_open_returned'] = 'CAPTURE_OPEN_END opened=' in content
+                    result['tests'][label_mode] = outcome
+                    measurements[mode] = outcome
+                comparisons.append({'profile': label, 'capture_options': options,
+                                    'qualified': qualified_profile(
+                                        measurements['finite'], measurements['live-idle'])})
+            result['probe_profiles'] = comparisons
         finite = result['tests']['finite']
         delayed = result['tests']['delayed-eof']
         idle = result['tests']['live-idle']
@@ -204,6 +283,13 @@ def run(args: argparse.Namespace) -> Path:
                             and idle['exit_code'] == 0 and not idle['timed_out']
                             and idle['frames'] == 1 else
                             'OFFLINE_CUSTOM_AVIO_PROBE_FOUND_FAILURE_NOT_RELEASE_APPROVAL')
+        if args.open_probe_matrix:
+            result['status'] = (
+                'OFFLINE_HLS_OPEN_PROFILE_FOUND_NOT_RELEASE_APPROVAL'
+                if (all(x['exit_code'] == 0 and not x['timed_out'] and x['frames'] == 276
+                        for x in (finite, delayed))
+                    and any(item['qualified'] for item in result['probe_profiles'])) else
+                'OFFLINE_HLS_OPEN_PROFILE_NOT_FOUND_NOT_RELEASE_APPROVAL')
     except Exception as error:
         result['error'] = str(error)
         print('DIAGNOSTIC FAILURE:', error, file=sys.stderr)
@@ -224,6 +310,8 @@ def main() -> None:
     parser.add_argument('--sample', type=Path, default=SAMPLE)
     parser.add_argument('--work-root', type=Path, default=WORK_ROOT)
     parser.add_argument('--app-results', type=Path, default=APP_RESULTS)
+    parser.add_argument('--open-probe-matrix', action='store_true',
+                        help='Compare fixed MPEG-TS probing profiles in isolated children')
     args = parser.parse_args()
     run(args)
 

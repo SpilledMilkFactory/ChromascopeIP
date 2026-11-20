@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.24)
+project(chromascope_v101_p2_pts_probe LANGUAGES CXX)
+find_package(OpenCV 5.1.0 EXACT CONFIG REQUIRED COMPONENTS core videoio)
+add_executable(chromascope_v101_p2_pts_probe pts_probe.cpp)
+target_compile_features(chromascope_v101_p2_pts_probe PRIVATE cxx_std_20)
+target_include_directories(chromascope_v101_p2_pts_probe SYSTEM PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(chromascope_v101_p2_pts_probe PRIVATE ${OpenCV_LIBS})

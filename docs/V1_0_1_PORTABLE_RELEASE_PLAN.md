@@ -65,3 +65,7 @@ It must return `STATIC_PREFLIGHT_ONLY_NOT_RELEASE_APPROVAL` to proceed toward ru
 ## Explicitly outstanding
 
 No production FFmpeg revision, CVE applicability analysis, Debian 12 binary, tarball contents, Windows v1.0.1 ZIP, or legal clearance is asserted by this document. FFmpeg's official LGPL checklist requires exact corresponding sources and review of every linked external library. Bundle notices, build options and required source materials with or alongside the release. Inference models/weights are separately licensed and should remain excluded unless their redistribution rights are established.
+
+## P2 candidate implementation (2026-11-20)
+
+P2 tooling and exact pins are documented in [`V1_0_1_P2_SECURE_RUNTIME.md`](V1_0_1_P2_SECURE_RUNTIME.md). This is a **candidate builder**, not completed security qualification or release approval. P3–P6 remain gated on actual Debian 12 build evidence, dependency closure, and target testing. The accepted streaming implementation remains feature-frozen.

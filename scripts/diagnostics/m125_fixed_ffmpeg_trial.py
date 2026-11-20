@@ -141,10 +141,14 @@ def verify_ldd(text: str, prefix: Path, sonames: tuple[str, ...]) -> dict[str, s
 # against the pinned checkout's own --help BEFORE spending time compiling.
 # Keep the security-critical disable switches mandatory, without stripping
 # unrecognized options or silently falling back to a less restrictive build.
+# FFmpeg 8.0.1 has a `jpegxl` *parser* but names the externally backed
+# JPEG XL decoders `libjxl` and `libjxl_anim`. A `jpegxl` decoder does not
+# exist, and configure warns rather than failing for an unmatched decoder
+# selector unless --fatal-warnings is set. Keep that switch mandatory.
 REQUIRED_FFMPEG_SWITCHES = frozenset({
     '--disable-everything', '--disable-network', '--disable-hwaccels',
     '--disable-autodetect', '--disable-parser=jpegxl',
-    '--disable-decoder=jpegxl',
+    '--disable-decoder=libjxl,libjxl_anim', '--fatal-warnings',
 })
 FFMPEG_REQUIRED_COMPONENTS = {
     'CONFIG_H264_PARSER': 1,
@@ -152,7 +156,8 @@ FFMPEG_REQUIRED_COMPONENTS = {
     'CONFIG_MPEGTS_DEMUXER': 1,
     'CONFIG_H264_DECODER': 1,
     'CONFIG_JPEGXL_PARSER': 0,
-    'CONFIG_JPEGXL_DECODER': 0,
+    'CONFIG_LIBJXL_DECODER': 0,
+    'CONFIG_LIBJXL_ANIM_DECODER': 0,
 }
 
 
@@ -169,13 +174,43 @@ def verify_ffmpeg_configure_options(options: list[str], configure_help: str) -> 
 
 
 def verify_ffmpeg_components(header: str) -> dict[str, int]:
-    """Verify the generated FFmpeg 8 component header, including negative gates."""
+    """Verify exact enabled and disabled components in FFmpeg 8.0.1."""
     for name, expected in FFMPEG_REQUIRED_COMPONENTS.items():
-        matches = re.findall(rf'(?m)^\s*#define\s+{name}\s+([01])\s*$', header)
+        # Require exactly one numeric definition; neither an undefined macro
+        # nor a repeated/conditional definition is acceptable for known
+        # components in this pinned FFmpeg source revision.
+        matches = re.findall(rf'(?m)^\s*#define\s+{name}\s+([^\s]+)\s*$', header)
         if matches != [str(expected)]:
             raise ValueError(f'Unexpected FFmpeg config_components.h: {name}={matches!r} '
                              f'(expected {expected})')
+    # Reject other JPEG XL component variants if an upstream change ever
+    # introduces one, rather than assuming our known names are exhaustive.
+    enabled_jxl = re.findall(
+        r'(?m)^\s*#define\s+(CONFIG_(?:JPEGXL|LIBJXL)(?:_[A-Z0-9]+)*_(?:PARSER|DECODER))\s+1\s*$',
+        header)
+    if enabled_jxl:
+        raise ValueError(f'Unexpected enabled JPEG XL components: {enabled_jxl!r}')
     return dict(FFMPEG_REQUIRED_COMPONENTS)
+
+
+def private_ffmpeg_configure_options(prefix: Path) -> list[str]:
+    """Pinned FFmpeg 8.0.1 private trial: no implicit configuration fallback."""
+    return [
+        f'--prefix={prefix}', f'--libdir={prefix / "lib"}',
+        '--enable-shared', '--disable-static', '--enable-pic',
+        '--disable-programs', '--disable-doc', '--disable-avdevice',
+        '--disable-avfilter', '--disable-swresample',
+        '--disable-autodetect', '--disable-everything',
+        # PNG requires an unavailable inflate_wrapper dependency in the
+        # previous --disable-everything run and is unnecessary for this
+        # MPEG-TS/H.264 decoder experiment. Avoid a configure warning.
+        '--enable-decoder=h264,hevc,mjpeg,mpeg4,rawvideo,ffv1',
+        '--enable-parser=h264,hevc,mjpeg,mpeg4video',
+        '--enable-demuxer=mpegts,mov,matroska,avi,flv,concat,image2,h264,hevc',
+        '--enable-protocol=file,pipe', '--disable-network',
+        '--disable-parser=jpegxl', '--disable-decoder=libjxl,libjxl_anim',
+        '--disable-hwaccels', '--disable-x86asm', '--fatal-warnings',
+    ]
 
 
 def args_parser() -> argparse.ArgumentParser:
@@ -303,19 +338,7 @@ class Trial:
     def build_ffmpeg(self, source: Path):
         ffbuild = self.build / 'ffmpeg-build'
         ffbuild.mkdir()
-        options = [
-            f'--prefix={self.ffmpeg_prefix}', f'--libdir={self.ffmpeg_prefix / "lib"}',
-            '--enable-shared', '--disable-static', '--enable-pic',
-            '--disable-programs', '--disable-doc', '--disable-avdevice',
-            '--disable-avfilter', '--disable-swresample',
-            '--disable-autodetect', '--disable-everything',
-            '--enable-decoder=h264,hevc,mjpeg,mpeg4,rawvideo,ffv1,png',
-            '--enable-parser=h264,hevc,mjpeg,mpeg4video',
-            '--enable-demuxer=mpegts,mov,matroska,avi,flv,concat,image2,h264,hevc',
-            '--enable-protocol=file,pipe', '--disable-network',
-            '--disable-parser=jpegxl', '--disable-decoder=jpegxl',
-            '--disable-hwaccels', '--disable-x86asm',
-        ]
+        options = private_ffmpeg_configure_options(self.ffmpeg_prefix)
         self.command([source / 'configure', '--help'], 'ffmpeg-configure-help.txt', cwd=ffbuild)
         verify_ffmpeg_configure_options(
             options, (self.report / 'ffmpeg-configure-help.txt').read_text(errors='replace'))
@@ -324,6 +347,10 @@ class Trial:
         # config_components.h (not config.h). Check the actual generated
         # component inventory before permitting a private runtime build.
         component_header = ffbuild / 'config_components.h'
+        # Keep the actual generated header in the results bundle for review
+        # even when the component gate rejects a future source/config change.
+        if component_header.is_file():
+            shutil.copyfile(component_header, self.report / 'ffmpeg-config-components.h')
         effective = verify_ffmpeg_components(component_header.read_text(errors='replace'))
         (self.report / 'ffmpeg-components-verified.json').write_text(
             json.dumps(effective, indent=2, sort_keys=True) + '\n')
@@ -347,8 +374,8 @@ class Trial:
                      'inventory-build.log', env=env)
         self.command([inventory], 'inventory.txt', env=env)
         lines = set((self.report / 'inventory.txt').read_text().splitlines())
-        required = {'jpegxl_parser_compiled=no', 'lcevc_external_decoder_enabled=no',
-                    'nvdec_named_decoders_present=no'}
+        required = {'jpegxl_parser_compiled=no', 'jpegxl_decoder_compiled=no',
+                    'lcevc_external_decoder_enabled=no', 'nvdec_named_decoders_present=no'}
         if not required.issubset(lines):
             raise RuntimeError(f'Unapproved private FFmpeg runtime inventory: {sorted(lines)}')
         self.command(['ldd', inventory], 'inventory-ldd.txt', env=env)

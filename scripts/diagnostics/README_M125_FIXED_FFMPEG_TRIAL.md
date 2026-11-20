@@ -117,3 +117,28 @@ the configuration guards using fixtures; they do not constitute successful
 compilation, actual runtime security review, or distribution clearance.
 Run the same commands as above to perform a fresh isolated build. Previous
 incomplete results remain untouched.
+
+## M12.5 diagnostic correction — actual FFmpeg 8.0.1 JPEG XL components
+
+The subsequent private FFmpeg configuration succeeded, but the trial refused
+`CONFIG_JPEGXL_DECODER=[] (expected 0)`. That macro is not a decoder in the
+pinned release. FFmpeg 8.0.1 names its JPEG XL decoders `libjxl` and
+`libjxl_anim`, whereas `jpegxl` is the parser. The previous configure output
+warned that `--disable-decoder=jpegxl` did not match a component, though it
+returned success. This was a diagnostic verification defect, **not** evidence
+that a JPEG XL decoder was actually enabled.
+
+The trial now requests `--disable-decoder=libjxl,libjxl_anim` and verifies
+`CONFIG_LIBJXL_DECODER=0`, `CONFIG_LIBJXL_ANIM_DECODER=0`, and
+`CONFIG_JPEGXL_PARSER=0` in `config_components.h`. Unexpected enabled JPEG XL
+component variants are rejected. `--fatal-warnings` is mandatory: future
+unmatched component selectors or disabled requested components must terminate
+configure instead of being ignored. The unused PNG decoder request was
+removed because the previous restricted build could not satisfy its
+`inflate_wrapper` dependency. This does not change the MPEG-TS/H.264 scope.
+
+The actual generated `config_components.h` is now preserved in the report
+as `ffmpeg-config-components.h` before validation. The compiled private
+runtime inventory additionally rejects **JPEG XL decoders** by codec ID, as
+well as the parser. No previously installed library or release policy is
+changed. The private build remains **NOT FOR DISTRIBUTION**.

@@ -30,6 +30,20 @@ static int jpegxl_parser_present(void) {
     return 0;
 }
 
+/* Check JPEG XL codecs by codec ID, not by the public decoder name.
+ * FFmpeg 8.0.1 uses libjxl and libjxl_anim for the two external decoders.
+ */
+static int jpegxl_decoder_present(void) {
+    void *opaque = NULL;
+    const AVCodec *codec;
+    while ((codec = av_codec_iterate(&opaque)) != NULL) {
+        if (av_codec_is_decoder(codec) &&
+            (codec->id == AV_CODEC_ID_JPEGXL || codec->id == AV_CODEC_ID_JPEGXL_ANIM))
+            return 1;
+    }
+    return 0;
+}
+
 int main(void) {
     const char *config = avcodec_configuration();
     const int lcevc = config && strstr(config, "--enable-liblcevc-dec") != NULL;
@@ -40,6 +54,7 @@ int main(void) {
            avformat_version() >> 16, (avformat_version() >> 8) & 255,
            avformat_version() & 255);
     printf("jpegxl_parser_compiled=%s\n", jpegxl_parser_present() ? "yes" : "no");
+    printf("jpegxl_decoder_compiled=%s\n", jpegxl_decoder_present() ? "yes" : "no");
     printf("lcevc_external_decoder_enabled=%s\n", lcevc ? "yes" : "no");
     printf("nvdec_named_decoders_present=%s\n", has_hardware_decoder() ? "yes" : "no");
     if (!config || lcevc) {

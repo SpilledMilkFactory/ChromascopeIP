@@ -90,6 +90,7 @@ class TrialSafeguards(unittest.TestCase):
             '  --disable-autodetect disable detection\n'
             '  --disable-parser=NAME disable a parser\n'
             '  --disable-decoder=NAME disable a decoder\n'
+            '  --fatal-warnings fail on warnings\n'
             '  --enable-parser=NAME enable a parser\n'
             '  --prefix=PREFIX installation prefix\n'
         )
@@ -105,6 +106,7 @@ class TrialSafeguards(unittest.TestCase):
             '  --disable-autodetect disable autodetection\n'
             '  --disable-parser=NAME disable parser\n'
             '  --disable-decoder=NAME disable decoder\n'
+            '  --fatal-warnings fail on warnings\n'
         )
         options = sorted(mod.REQUIRED_FFMPEG_SWITCHES) + ['--disable-postproc']
         with self.assertRaisesRegex(ValueError, 'disable-postproc'):
@@ -118,10 +120,35 @@ class TrialSafeguards(unittest.TestCase):
             '  --disable-autodetect disable autodetection\n'
             '  --disable-parser=NAME disable parser\n'
             '  --disable-decoder=NAME disable decoder\n'
+            '  --fatal-warnings fail on warnings\n'
         )
         opts = sorted(mod.REQUIRED_FFMPEG_SWITCHES - {'--disable-parser=jpegxl'})
         with self.assertRaisesRegex(ValueError, 'Missing required private FFmpeg security'):
             mod.verify_ffmpeg_configure_options(opts, help_text)
+
+    def test_private_ffmpeg_options_use_real_jxl_decoder_names(self):
+        options = mod.private_ffmpeg_configure_options(Path('/tmp/private-ffmpeg'))
+        self.assertIn('--disable-parser=jpegxl', options)
+        self.assertIn('--disable-decoder=libjxl,libjxl_anim', options)
+        self.assertIn('--fatal-warnings', options)
+        self.assertNotIn('--disable-decoder=jpegxl', options)
+        self.assertNotIn('--disable-postproc', options)
+        self.assertTrue(all('png' not in opt for opt in options))
+        self.assertTrue(mod.REQUIRED_FFMPEG_SWITCHES.issubset(set(options)))
+
+    def test_actual_ffmpeg_components_not_nonexistent_decoder_name(self):
+        self.assertNotIn('CONFIG_JPEGXL_DECODER', mod.FFMPEG_REQUIRED_COMPONENTS)
+        self.assertEqual(mod.FFMPEG_REQUIRED_COMPONENTS['CONFIG_JPEGXL_PARSER'], 0)
+        self.assertEqual(mod.FFMPEG_REQUIRED_COMPONENTS['CONFIG_LIBJXL_DECODER'], 0)
+        self.assertEqual(mod.FFMPEG_REQUIRED_COMPONENTS['CONFIG_LIBJXL_ANIM_DECODER'], 0)
+
+    def test_jpegxl_source_names_and_runtime_decoder_inventory(self):
+        source = (ROOT / 'tests/quality/ffmpeg_runtime_inventory.c').read_text()
+        self.assertIn('AV_CODEC_ID_JPEGXL_ANIM', source)
+        self.assertIn('AV_CODEC_ID_JPEGXL', source)
+        self.assertIn('jpegxl_decoder_compiled=%s', source)
+        self.assertIn('jpegxl_decoder_compiled=no',
+                      (ROOT / 'scripts/diagnostics/m125_fixed_ffmpeg_trial.py').read_text())
 
     def test_ffmpeg_component_header_accepts_intended_inventory(self):
         header = ''.join(
@@ -130,6 +157,23 @@ class TrialSafeguards(unittest.TestCase):
         self.assertEqual(mod.verify_ffmpeg_components(header),
                          mod.FFMPEG_REQUIRED_COMPONENTS)
 
+    def test_configure_preflight_requires_fatal_warnings_and_real_decoders(self):
+        help_text = (
+            '  --disable-everything disable all components\n'
+            '  --disable-network disable network\n'
+            '  --disable-hwaccels disable hardware\n'
+            '  --disable-autodetect disable autodetection\n'
+            '  --disable-parser=NAME disable parser\n'
+            '  --disable-decoder=NAME disable decoder\n'
+            '  --fatal-warnings fail on configuration warnings\n'
+        )
+        options = mod.private_ffmpeg_configure_options(Path('/tmp/private-ffmpeg'))
+        # Check the mandatory subset without needing to mirror every option.
+        mod.verify_ffmpeg_configure_options(sorted(mod.REQUIRED_FFMPEG_SWITCHES), help_text)
+        with self.assertRaisesRegex(ValueError, 'fatal-warnings'):
+            mod.verify_ffmpeg_configure_options(
+                sorted(mod.REQUIRED_FFMPEG_SWITCHES - {'--fatal-warnings'}), help_text)
+
     def test_ffmpeg_component_header_rejects_enabled_jpegxl_or_missing_parser(self):
         header = ''.join(
             f'#define {name} {value}\n'
@@ -137,6 +181,12 @@ class TrialSafeguards(unittest.TestCase):
         for bad in (
             header.replace('#define CONFIG_JPEGXL_PARSER 0',
                            '#define CONFIG_JPEGXL_PARSER 1'),
+            header.replace('#define CONFIG_LIBJXL_DECODER 0',
+                           '#define CONFIG_LIBJXL_DECODER 1'),
+            header.replace('#define CONFIG_LIBJXL_ANIM_DECODER 0',
+                           '#define CONFIG_LIBJXL_ANIM_DECODER 1'),
+            header + '#define CONFIG_JPEGXL_DECODER 1\n',
+            header.replace('#define CONFIG_LIBJXL_DECODER 0', ''),
             header.replace('#define CONFIG_H264_PARSER 1', ''),
             header + '#define CONFIG_H264_PARSER 1\n',
         ):

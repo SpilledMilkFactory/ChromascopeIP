@@ -67,6 +67,23 @@ COMPONENT_ALLOWLIST = {
     'INDEV': set(),
     'OUTDEV': set(),
 }
+# FFmpeg n8.1.3 selects the registered H.263 decoder as a dependency of
+# MPEG-4 Part 2 decoding. This is an additional enabled decoder, not merely a
+# private utility. Keep it separately reviewed instead of silently widening
+# the directly requested decoder list or bypassing component verification.
+MPEG4_H263_SELECT_RULE = 'mpeg4_decoder_select="h263_decoder qpeldsp"'
+TRANSITIVE_DECODERS = {'H263': 'MPEG4'}
+
+
+def verify_pinned_mpeg4_decoder_dependency(configure_source: str) -> dict[str, str]:
+    """Fail closed if the pinned FFmpeg configure selection rule changes."""
+    rules = re.findall(r'(?m)^mpeg4_decoder_select=.*$', configure_source)
+    require(rules == [MPEG4_H263_SELECT_RULE],
+            'Unexpected MPEG-4 dependency rule in pinned FFmpeg configure: ' + repr(rules))
+    return {'enabled_decoder': 'H263', 'required_by': 'MPEG4',
+            'configure_rule': MPEG4_H263_SELECT_RULE}
+
+
 INVENTORY_REQUIRE = {
     'jpegxl_parser_compiled=no',
     'jpegxl_decoder_compiled=no',
@@ -95,17 +112,26 @@ def check_debian12(os_release: str, libc_version: str, machine: str) -> None:
             'Unexpected Debian 12 glibc baseline (requires 2.36): ' + first)
 
 
-def check_enabled_components(header: str) -> dict[str, list[str]]:
-    # First use known FFmpeg 8.x configuration-marker checks.
+def check_enabled_components(header: str, configure_source: str) -> dict[str, list[str]]:
+    # Validate the actual pinned upstream dependency, not just a hard-coded
+    # exception. We never directly request H.263 in configure options.
+    verify_pinned_mpeg4_decoder_dependency(configure_source)
     verify_ffmpeg_components(header)
     for key, expected in EXPECTED_COMPONENTS.items():
         hits = re.findall(rf'(?m)^#define\s+{key}\s+(\d+)\s*$', header)
         require(hits == [str(expected)], f'Unexpected {key}: {hits!r}')
     enabled = {k for k, v in re.findall(r'(?m)^#define\s+CONFIG_([A-Z0-9_]+)\s+([01])\s*$', header) if v == '1'}
     result = {}
-    for suffix, allowed in COMPONENT_ALLOWLIST.items():
+    for suffix, directly_allowed in COMPONENT_ALLOWLIST.items():
         actual = {k[:-(len(suffix) + 1)] for k in enabled if k.endswith('_' + suffix)}
-        # All explicitly expected components must remain enabled.
+        allowed = set(directly_allowed)
+        if suffix == 'DECODER':
+            # MPEG-4 Part 2 requires H.263 decoder support in n8.1.3.
+            # It is exposed as a registered decoder and remains in scope for
+            # the final CVE review; it must never be confused with H.264.
+            require('MPEG4' in actual, 'Required MPEG4 decoder is missing')
+            allowed.update(TRANSITIVE_DECODERS)
+            require('H263' in actual, 'Expected MPEG4-selected H263 decoder is missing')
         require(allowed <= actual, f'Missing required {suffix} components: {sorted(allowed - actual)}')
         require(actual <= allowed, f'Unreviewed enabled {suffix} components: {sorted(actual - allowed)}')
         result[suffix.lower()] = sorted(actual)
@@ -264,8 +290,16 @@ class Builder:
         self.command('ffmpeg-configure', [source / 'configure', *opts], cwd=build)
         cfg = build / 'config_components.h'
         require(cfg.is_file(), 'Missing generated FFmpeg component inventory')
-        components = check_enabled_components(cfg.read_text())
+        # Preserve the generated configuration even if strict policy rejects it.
+        cfg_text = cfg.read_text()
+        (self.logs / 'ffmpeg-config-components.h').write_text(cfg_text)
+        configure_source = (source / 'configure').read_text()
+        dependency = verify_pinned_mpeg4_decoder_dependency(configure_source)
+        components = check_enabled_components(cfg_text, configure_source)
         (self.logs / 'ffmpeg-enabled-components.json').write_text(json.dumps(components, indent=2) + '\n')
+        (self.logs / 'ffmpeg-reviewed-transitive-decoders.json').write_text(
+            json.dumps([dependency], indent=2) + '\n')
+        self.result['ffmpeg_reviewed_transitive_decoders'] = [dependency]
         self.command('ffmpeg-build', ['make', '-j', str(self.a.jobs)], cwd=build)
         self.command('ffmpeg-install', ['make', 'install'], cwd=build)
         self.result['phases']['ffmpeg_built'] = 'RESTRICTED_COMPONENTS_COMPILED'

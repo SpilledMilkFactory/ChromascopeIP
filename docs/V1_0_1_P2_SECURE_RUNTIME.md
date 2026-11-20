@@ -51,6 +51,37 @@ Or customize the sample/output locations with `CHROMASCOPE_P2_SAMPLE` and `CHROM
 
 The builder makes a unique `p2-YYYYMMDD-...` directory beneath `~/ChromascopeIP-v101-P2`. Each run isolates `source/`, `build/`, `private/ffmpeg`, `private/opencv` and `reports/` from earlier runs.
 
+## FFmpeg 8.1.3 MPEG-4 → H.263 dependency (P2 CI correction)
+
+The first native GitHub Actions P2 build stopped **after successful FFmpeg configuration**
+with `Unreviewed enabled DECODER components: ['H263']`. This was a strict
+component-inventory gate, not a compiler failure or H.264 regression.
+
+At the exact pinned FFmpeg revision, `configure` specifies:
+
+```text
+mpeg4_decoder_select="h263_decoder qpeldsp"
+```
+
+Our restricted FFmpeg build explicitly requests the `mpeg4` (MPEG-4 Part 2)
+decoder for existing recorded-video compatibility; FFmpeg therefore selects
+`h263_decoder` as a build dependency. **H.263 is a separate registered decoder**
+and an additional surface requiring security review. The correction does *not*
+explicitly enable H.263 or weaken the JPEG XL, LCEVC, hardware, networking,
+parser, or other component restrictions.
+
+The generated component inventory must contain exactly the six directly
+requested decoders **plus H263**. P2 verifies that the actual pinned FFmpeg
+`configure` source still contains the exact MPEG-4 dependency rule, rejects
+missing or changed rules, rejects a missing expected H.263 decoder, and rejects
+all other unexpected decoder components. It saves the generated
+`config_components.h` and a reviewed transitive-dependency evidence record.
+
+This is a narrow build-policy correction, **not a claim of new security
+clearance**: P6 must assess H.263 and other reachable decoders against then-current
+advisories and the actual final binary. Do not drop MPEG-4 support or add
+unrelated decoders merely to get a green CI check.
+
 ## Required P2 evidence
 
 Successful status is `P2_PRIVATE_RUNTIME_FUNCTIONAL_PASS_NOT_RELEASE_APPROVAL`. The ZIP in the output root is `ChromascopeIP-v101-P2-RESULTS.zip` (latest run). It contains summary/provenance, compiler + package versions, the exact FFmpeg and OpenCV source diffs, configure options, enabled components, runtime decoder inventory, `ldd` proof of private linkage, and successful 276/276-frame tests for both file and memory inputs, plus a separate source-PTS span/variable-frame-interval probe.

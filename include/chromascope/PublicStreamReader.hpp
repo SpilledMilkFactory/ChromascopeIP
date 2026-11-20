@@ -19,6 +19,7 @@ enum class PublicStreamMediaKind { Auto, Snapshot, HlsMpegTs, Mp4 };
     std::string_view https_url, std::shared_ptr<std::atomic<bool>> cancel = {},
     PublicStreamMediaKind media_kind = PublicStreamMediaKind::Auto,
     std::string_view local_playlist_file = {},
-    PublicStreamRequestProfile request_profile = PublicStreamRequestProfile::Standard);
+    PublicStreamRequestProfile request_profile = PublicStreamRequestProfile::Standard,
+    HlsLatencyProfile latency = HlsLatencyProfile::LowDelay);
 
 } // namespace chromascope

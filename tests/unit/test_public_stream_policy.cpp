@@ -96,6 +96,37 @@ int main() {
                 public_stream_next_live_segment(buffered, 103) == 4 &&
                 !public_stream_next_live_segment(buffered, 104),
                 "Consume cached consecutive HLS segment references without skipping");
+        require(valid_hls_latency_profile(HlsLatencyProfile::LowDelay) &&
+                valid_hls_latency_profile(HlsLatencyProfile::Balanced) &&
+                valid_hls_latency_profile(HlsLatencyProfile::Smooth) &&
+                !valid_hls_latency_profile(static_cast<HlsLatencyProfile>(99)),
+                "Only three session-local HLS latency profiles are accepted");
+        require(hls_live_edge_lag_segments(HlsLatencyProfile::LowDelay) == 3 &&
+                hls_live_edge_lag_segments(HlsLatencyProfile::Balanced) == 4 &&
+                hls_live_edge_lag_segments(HlsLatencyProfile::Smooth) == 5 &&
+                hls_startup_reserve_segments(HlsLatencyProfile::LowDelay) == 3 &&
+                hls_startup_reserve_segments(HlsLatencyProfile::Balanced) == 4 &&
+                hls_startup_reserve_segments(HlsLatencyProfile::Smooth) == 4,
+                "HLS latency presets must remain bounded by existing queue limits");
+        require(public_stream_next_live_segment(buffered, std::nullopt,
+                    HlsLatencyProfile::Balanced) == 0 &&
+                public_stream_next_live_segment(buffered, std::nullopt,
+                    HlsLatencyProfile::Smooth) == 0 &&
+                public_stream_next_live_segment(buffered, 100,
+                    HlsLatencyProfile::Smooth) == 1,
+                "Preset startup may move back, but subsequent segments stay sequential");
+        const auto longer = parse_public_stream_playlist(feed,
+            "#EXTM3U\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:200\n"
+            "#EXTINF:3,\n200.ts\n#EXTINF:3,\n201.ts\n#EXTINF:3,\n202.ts\n"
+            "#EXTINF:3,\n203.ts\n#EXTINF:3,\n204.ts\n#EXTINF:3,\n205.ts\n"
+            "#EXTINF:3,\n206.ts\n");
+        require(public_stream_next_live_segment(longer, std::nullopt,
+                    HlsLatencyProfile::LowDelay) == 3 &&
+                public_stream_next_live_segment(longer, std::nullopt,
+                    HlsLatencyProfile::Balanced) == 2 &&
+                public_stream_next_live_segment(longer, std::nullopt,
+                    HlsLatencyProfile::Smooth) == 1,
+                "Larger playlists must expose distinct startup positions");
         require(public_stream_next_live_segment(buffered, std::nullopt) == 1 &&
                 public_stream_next_live_segment(buffered, 101) == 2 &&
                 public_stream_next_live_segment(buffered, 102) == 3 &&

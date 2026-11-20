@@ -94,6 +94,39 @@ int main() {
         require(first_read.wait_for(std::chrono::seconds(2)) == std::future_status::ready &&
                     first_read.get() == 1 && initial[0] == 1,
                 "A three-segment reserve must unblock the first decoder read");
+        // A Smooth/Balance reserve of four must not release playout at three.
+        std::atomic<unsigned> four_permits{0};
+        std::atomic<unsigned> four_supplied{0};
+        chromascope::HlsPrefetchBuffer smooth([&](const std::atomic<bool>& stop) {
+            while (!stop.load() && four_supplied.load() >= four_permits.load())
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (stop.load() || four_supplied.load() == 4) return std::vector<std::uint8_t>{};
+            const auto sequence = ++four_supplied;
+            return std::vector<std::uint8_t>(188, static_cast<std::uint8_t>(sequence));
+        }, 4);
+        auto smooth_first = std::async(std::launch::async, [&] {
+            return smooth.read(initial.data(), 1);
+        });
+        four_permits.store(3);
+        const auto four_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (four_supplied.load() < 3 && std::chrono::steady_clock::now() < four_deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(four_supplied.load() == 3 &&
+                smooth_first.wait_for(std::chrono::milliseconds(100)) == std::future_status::timeout,
+                "Four-segment reserve must hold playback after only three segments");
+        four_permits.store(4);
+        require(smooth_first.wait_for(std::chrono::seconds(2)) == std::future_status::ready &&
+                smooth_first.get() == 1 && initial[0] == 1,
+                "Four-segment reserve must start once fully prebuffered");
+        for (std::size_t invalid_reserve : {std::size_t{0}, std::size_t{5}}) {
+            bool rejected_reserve = false;
+            try {
+                chromascope::HlsPrefetchBuffer invalid([](const std::atomic<bool>&) {
+                    return std::vector<std::uint8_t>{};
+                }, invalid_reserve);
+            } catch (const std::invalid_argument&) { rejected_reserve = true; }
+            require(rejected_reserve, "Reserve outside the four-segment queue must be rejected");
+        }
         // An exhausted two-segment stream is allowed through immediately:
         // the startup reserve must not require a nonexistent third segment.
         chromascope::HlsPrefetchBuffer short_stream([remaining = 2](const std::atomic<bool>&) mutable {

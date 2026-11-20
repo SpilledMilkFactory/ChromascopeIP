@@ -22,13 +22,15 @@ class HlsPlayoutReserve(unittest.TestCase):
     def test_startup_reserve_is_real_and_bounded(self):
         self.assertIn("max_queued_segments = 4", PREFETCH_H)
         self.assertIn("startup_segments = 3", PREFETCH_H)
-        self.assertIn("ready_.size() >= startup_segments", PREFETCH)
+        self.assertIn("ready_.size() >= startup_reserve_", PREFETCH)
+        self.assertIn("startup_reserve_ > max_queued_segments", PREFETCH)
         self.assertIn("std::chrono::seconds(8)", PREFETCH)
         self.assertIn("producer_done_ || stop_.load()", PREFETCH)
         self.assertIn("Decoder began playout before three segments", TEST)
 
     def test_no_extra_origins_or_unbounded_reader(self):
-        self.assertIn("newest_index > 3 ? newest_index - 3 : 0", POLICY)
+        self.assertIn("newest_index > lag ? newest_index - lag : 0", POLICY)
+        self.assertIn("hls_live_edge_lag_segments(latency)", POLICY)
         self.assertIn("return 0;", POLICY)
         self.assertIn("CURLOPT_SSL_VERIFYPEER", READER)
         self.assertIn("WINHTTP_OPTION_RESOLUTION_HOSTNAME", READER)

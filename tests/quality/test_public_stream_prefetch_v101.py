@@ -29,7 +29,8 @@ class HlsPrefetchContract(unittest.TestCase):
         self.assertIn("hls_restart_required_.store(true)", READER)
         self.assertIn("hls_restart_required_.load()", READER)
         self.assertIn("hls_realign_after_decode_error_", READER)
-        self.assertIn("newest_index > 3 ? newest_index - 3 : 0", POLICY)
+        self.assertIn("newest_index > lag ? newest_index - lag : 0", POLICY)
+        self.assertIn("hls_live_edge_lag_segments(latency)", POLICY)
         self.assertIn("public_stream_fresh_recovery_segment", POLICY)
 
     def test_remote_security_remains_first_party_and_bounded(self):

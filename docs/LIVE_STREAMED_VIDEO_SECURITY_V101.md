@@ -139,6 +139,23 @@ from a feed provider; do not paste the surrounding HTML page URL.
   `AsyncCameraCapture` remain intact. Recording/inference use **the same frames**
   and require separate explicit user actions.
 
+### M12.5 session-only HLS playback-cushion trial
+
+The Live Streamed Video GUI now offers three **session-only startup** presets:
+**Low delay** (three advertised segments behind the live edge, three-segment
+prefetch reserve), **Balanced** (four behind, four-segment reserve, GUI default),
+and **Smoother** (five behind, four-segment reserve). The existing four-segment
+queue cap, four-segment seek window, verified HTTPS requests, 8-second maximum
+reserve wait, cancellation, sequence continuity and codec policy are unchanged.
+On feeds with fewer listed segments the selected position falls back to the
+oldest advertised segment; this is not a guarantee of a fixed number of seconds.
+Changing the preset requires stopping and restarting the stream. Selection is
+not saved to preferences or included in recordings. Frame rate remains that of
+the decoder; no time-stretching or skipping of reference pictures is performed.
+A larger cushion may reduce ordinary network jitter, but cannot correct a
+sustained download-rate deficit, irregular timestamps, or decoder crashes.
+The separate FFmpeg/OpenCV private runtime remains unqualified for distribution.
+
 ## Supported input scope
 
 | Feed supplied | Current behavior |

@@ -211,6 +211,7 @@ struct App {
     std::shared_ptr<std::atomic<bool>> public_stream_cancel;
     int public_stream_kind = 0; // Auto, image, unencrypted HLS, bounded MP4.
     int public_stream_request_profile = 0; // Session-only; no preference persistence.
+    int public_stream_latency_profile = 1; // Balanced HLS headroom by default; session-only.
     int detector_profile = 0; // 0 = disabled; 1 = verified NanoDet raw/person detection
     chromascope::DnnGuiSession detector_session;
     chromascope::DnnGuiOptions detector_options;
@@ -573,7 +574,8 @@ struct App {
                 public_stream_url.data(), public_stream_cancel,
                 static_cast<chromascope::PublicStreamMediaKind>(public_stream_kind),
                 public_stream_playlist_file.data(),
-                static_cast<chromascope::PublicStreamRequestProfile>(public_stream_request_profile));
+                static_cast<chromascope::PublicStreamRequestProfile>(public_stream_request_profile),
+                static_cast<chromascope::HlsLatencyProfile>(public_stream_latency_profile));
             camera_texture.reset();
             camera_view.fit();
             camera_frame_visible = false;
@@ -1007,6 +1009,7 @@ struct App {
     void clear_private_session() {
         public_stream_url.fill('\0');
         public_stream_playlist_file.fill('\0');
+        public_stream_latency_profile = 1;
         stop_camera();
         live_enable_tracking = false; // reset opt-in alongside in-memory track history
         live_max_inference_fps = 0;
@@ -2387,7 +2390,13 @@ struct App {
                                  current_state == chromascope::CameraCaptureState::Stopping);
             responsive_combo("HTTPS request identity", &public_stream_request_profile,
                 "Standard (ChromascopeIP)\0Firefox-compatible (User-Agent only)\0");
+            responsive_combo("HLS playback cushion", &public_stream_latency_profile,
+                "Low delay (3 segments)\0Balanced (4 segments)\0Smoother (5 segments)\0");
             ImGui::EndDisabled();
+            ImGui::TextWrapped("HLS cushion changes startup distance behind the live edge, not video speed."
+                " Balanced/Smoother prebuffer four segments (versus three for Low delay)."
+                " Available history and network conditions can limit the actual delay."
+                " Stop and restart to apply; this setting is session-only.");
             ImGui::TextWrapped("Optional request compatibility for sources permitting direct playback."
                 " Changes only the User-Agent on HTTPS media requests. No Firefox session,"
                 " cookies, Referer, scripts, or authorization are supplied.");

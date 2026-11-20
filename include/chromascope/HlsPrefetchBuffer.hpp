@@ -28,7 +28,9 @@ public:
     static constexpr std::size_t max_queued_segments = 4;
     static constexpr std::size_t startup_segments = 3;
 
-    explicit HlsPrefetchBuffer(Fetch fetch);
+    // The validated reserve must fit inside max_queued_segments; finite or
+    // completed sources can still start with fewer segments after producer EOF.
+    explicit HlsPrefetchBuffer(Fetch fetch, std::size_t startup_reserve = startup_segments);
     ~HlsPrefetchBuffer();
     HlsPrefetchBuffer(const HlsPrefetchBuffer&) = delete;
     HlsPrefetchBuffer& operator=(const HlsPrefetchBuffer&) = delete;
@@ -56,6 +58,7 @@ private:
     bool boundary_ = false;
     bool has_media_ = false;
     bool startup_ready_ = false;
+    const std::size_t startup_reserve_;
 };
 
 } // namespace chromascope

@@ -39,6 +39,14 @@ struct PublicStreamPlaylist {
     // No alternate variants, renditions, nested masters, or third-party origins.
     std::optional<PublicStreamUrl> variant_playlist;
 };
+// Session-only playback headroom. These are segment counts, not exact seconds:
+// the actual delay depends on EXTINF, network timing, and playlist depth.
+// Normal-speed decoder presentation is intentionally unchanged.
+enum class HlsLatencyProfile { LowDelay = 0, Balanced = 1, Smooth = 2 };
+[[nodiscard]] bool valid_hls_latency_profile(HlsLatencyProfile profile) noexcept;
+[[nodiscard]] std::size_t hls_live_edge_lag_segments(HlsLatencyProfile profile) noexcept;
+[[nodiscard]] std::size_t hls_startup_reserve_segments(HlsLatencyProfile profile) noexcept;
+
 // Pure live-playlist scheduling policy. It never fetches a resource.
 // On startup select an advertised segment several target durations behind
 // the live edge. Thereafter consume each still-advertised segment in order;
@@ -47,7 +55,8 @@ struct PublicStreamPlaylist {
 // segment, resetting the decoder for the sequence gap.
 [[nodiscard]] std::optional<std::size_t> public_stream_next_live_segment(
     const PublicStreamPlaylist& playlist,
-    std::optional<std::uint64_t> previous_sequence) noexcept;
+    std::optional<std::uint64_t> previous_sequence,
+    HlsLatencyProfile latency = HlsLatencyProfile::LowDelay) noexcept;
 // Unexpected decoder errors may recover only at a newly advertised live-edge
 // segment, never by replaying the last downloaded segment.
 [[nodiscard]] std::optional<std::size_t> public_stream_fresh_recovery_segment(

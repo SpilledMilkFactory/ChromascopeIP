@@ -9,8 +9,11 @@
 
 namespace chromascope {
 
-HlsPrefetchBuffer::HlsPrefetchBuffer(Fetch fetch) : fetch_(std::move(fetch)) {
+HlsPrefetchBuffer::HlsPrefetchBuffer(Fetch fetch, std::size_t startup_reserve)
+    : fetch_(std::move(fetch)), startup_reserve_(startup_reserve) {
     if (!fetch_) throw std::invalid_argument("HLS prefetch requires a validated segment source");
+    if (!startup_reserve_ || startup_reserve_ > max_queued_segments)
+        throw std::invalid_argument("HLS startup reserve must fit the bounded segment queue");
     producer_ = std::thread([this] { produce(); });
 }
 
@@ -88,7 +91,7 @@ long long HlsPrefetchBuffer::read(char* destination, long long requested) {
     if (!destination) throw std::invalid_argument("Null HLS decoder output buffer");
     if (boundary_) return 0;
     if (!startup_ready_) {
-        // Buffer three complete, independently validated segments before the
+        // Buffer the selected number of independently validated segments before the
         // first AVIO read. This is a deliberate playout offset, not just a
         // queue capacity: the decoder must not consume data immediately while
         // the producer is still waiting for the next playlist update.
@@ -96,7 +99,7 @@ long long HlsPrefetchBuffer::read(char* destination, long long requested) {
         // and propagate genuine network errors rather than hanging forever.
         std::unique_lock lock(mutex_);
         available_.wait_for(lock, std::chrono::seconds(8), [this] {
-            return ready_.size() >= startup_segments || producer_done_ || stop_.load();
+            return ready_.size() >= startup_reserve_ || producer_done_ || stop_.load();
         });
         startup_ready_ = true;
     }

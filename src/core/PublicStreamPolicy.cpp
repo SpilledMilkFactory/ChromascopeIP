@@ -135,18 +135,40 @@ bool public_stream_ipv6(const std::uint8_t* ip) noexcept {
     return true;
 }
 
+bool valid_hls_latency_profile(HlsLatencyProfile profile) noexcept {
+    return profile == HlsLatencyProfile::LowDelay ||
+        profile == HlsLatencyProfile::Balanced || profile == HlsLatencyProfile::Smooth;
+}
+
+std::size_t hls_live_edge_lag_segments(HlsLatencyProfile profile) noexcept {
+    switch (profile) {
+        case HlsLatencyProfile::LowDelay: return 3;
+        case HlsLatencyProfile::Balanced: return 4;
+        case HlsLatencyProfile::Smooth: return 5;
+    }
+    return 3; // Factory rejects invalid profiles before beginning network I/O.
+}
+
+std::size_t hls_startup_reserve_segments(HlsLatencyProfile profile) noexcept {
+    return profile == HlsLatencyProfile::LowDelay ? 3 : 4;
+}
+
 std::optional<std::size_t> public_stream_next_live_segment(
     const PublicStreamPlaylist& playlist,
-    std::optional<std::uint64_t> previous_sequence) noexcept {
+    std::optional<std::uint64_t> previous_sequence,
+    HlsLatencyProfile latency) noexcept {
     if (playlist.variant_playlist || playlist.segments.empty()) return std::nullopt;
     const auto newest_index = playlist.segments.size() - 1;
     if (playlist.media_sequence >
         std::numeric_limits<std::uint64_t>::max() - newest_index) return std::nullopt;
     const auto newest_sequence = playlist.media_sequence + newest_index;
-    // Start at least three listed segments behind the live edge when possible.
-    // A delayed presentation tolerates network jitter without chasing live.
-    // Never request media outside the server's advertised rolling window.
-    if (!previous_sequence) return newest_index > 3 ? newest_index - 3 : 0;
+    // Only initial selection changes with the UI profile. All subsequent
+    // segments remain sequential to preserve H.264 reference pictures.
+    // Never request outside the server's advertised rolling window.
+    if (!previous_sequence) {
+        const auto lag = hls_live_edge_lag_segments(latency);
+        return newest_index > lag ? newest_index - lag : 0;
+    }
     if (*previous_sequence >= newest_sequence) return std::nullopt;
     // A continuous H.264 decoder needs the intervening reference pictures.
     // Only skip to the live edge if they have expired from the playlist.

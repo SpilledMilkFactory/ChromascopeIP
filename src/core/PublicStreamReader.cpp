@@ -320,8 +320,8 @@ private:
 // seek backward only inside the small in-memory window for demuxer probing.
 class HlsSequentialReader final : public cv::IStreamReader {
 public:
-    explicit HlsSequentialReader(HlsPrefetchBuffer::Fetch next)
-        : prefetch_(std::move(next)) {}
+    explicit HlsSequentialReader(HlsPrefetchBuffer::Fetch next, std::size_t startup_reserve)
+        : prefetch_(std::move(next), startup_reserve) {}
     long long read(char* out, long long requested) override {
         if (failure_) return -1;
         try {
@@ -361,11 +361,14 @@ public:
                                 std::shared_ptr<std::atomic<bool>> cancel,
                                 PublicStreamMediaKind kind,
                                 std::string_view local_playlist_file,
-                                PublicStreamRequestProfile request_profile)
+                                PublicStreamRequestProfile request_profile,
+                                HlsLatencyProfile latency)
         : source_(std::move(source)), media_source_(source_),
           local_playlist_file_(local_playlist_file),
           start_(std::chrono::steady_clock::now()), cancel_(std::move(cancel)),
-          request_profile_(request_profile) {
+          request_profile_(request_profile), latency_(latency) {
+        if (!valid_hls_latency_profile(latency_))
+            throw std::invalid_argument("Unsupported HLS latency profile");
         if (!valid_public_stream_request_profile(request_profile_))
             throw std::invalid_argument("Unsupported HTTPS request profile");
         if (kind == PublicStreamMediaKind::HlsMpegTs ||
@@ -420,7 +423,7 @@ public:
                         hls_restart_required_.store(false);
                         hls_reader_ = cv::makePtr<HlsSequentialReader>([this](const std::atomic<bool>& stop) {
                             return this->next_hls_segment(stop);
-                        });
+                        }, hls_startup_reserve_segments(latency_));
                         reader = hls_reader_;
                     }
                     // The decoder only receives bounded in-memory media data.
@@ -544,7 +547,7 @@ private:
             if (current_hls_playlist_) {
                 next = hls_realign_after_decode_error_
                     ? public_stream_fresh_recovery_segment(*current_hls_playlist_, last_segment_)
-                    : public_stream_next_live_segment(*current_hls_playlist_, last_segment_);
+                    : public_stream_next_live_segment(*current_hls_playlist_, last_segment_, latency_);
             }
             if (!next) {
                 // Only *exhausted* manifests require a reload. RFC 8216's
@@ -576,7 +579,7 @@ private:
                 }
                 next = hls_realign_after_decode_error_
                     ? public_stream_fresh_recovery_segment(*playlist, last_segment_)
-                    : public_stream_next_live_segment(*playlist, last_segment_);
+                    : public_stream_next_live_segment(*playlist, last_segment_, latency_);
                 // Keep the validated manifest for further segments. Do not
                 // issue another playlist request or sleep after each segment.
                 next_playlist_at_ = request_started + public_stream_live_reload_delay(
@@ -636,17 +639,18 @@ private:
     std::optional<std::chrono::steady_clock::time_point> last_output_at_;
     std::shared_ptr<std::atomic<bool>> cancel_;
     const PublicStreamRequestProfile request_profile_;
+    const HlsLatencyProfile latency_;
 };
 } // namespace
 
 std::unique_ptr<CameraFrameReader> make_public_stream_reader(
     std::string_view url, std::shared_ptr<std::atomic<bool>> cancel,
     PublicStreamMediaKind media_kind, std::string_view local_playlist_file,
-    PublicStreamRequestProfile request_profile) {
+    PublicStreamRequestProfile request_profile, HlsLatencyProfile latency) {
     // Validation runs on the GUI thread. No DNS query, HTTP request or
     // remote content handling until explicit capture-worker read().
     return std::make_unique<PublicStreamReader>(parse_public_stream_url(url),
                                                 std::move(cancel), media_kind, local_playlist_file,
-                                                request_profile);
+                                                request_profile, latency);
 }
 } // namespace chromascope

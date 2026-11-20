@@ -188,7 +188,7 @@ jobs:
       # A package is an approved *development candidate* only after smoke passes.
       - name: Upload tested Debian 13 candidate package
         if: ${{ inputs.legacy_packages == true && matrix.version == '13' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ChromascopeIP-1.0.0-Debian13-amd64.deb
           path: build/packages/ChromascopeIP-1.0.0-Debian13-amd64.deb
@@ -199,7 +199,7 @@ jobs:
       # A failed build is never uploaded using the qualified artifact name.
       - name: Upload UNQUALIFIED Debian 13 package for failure diagnosis
         if: ${{ failure() && inputs.legacy_packages == true && matrix.version == '13' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UNQUALIFIED-M11.3-Debian13-amd64-diagnostics
           path: build/packages/ChromascopeIP-1.0.0-Debian13-amd64.deb
@@ -212,7 +212,7 @@ jobs:
       # This M11.2 candidate is for testing, NOT a signed v1.0 release.
       - name: Upload tested Debian 12 candidate package
         if: ${{ inputs.legacy_packages == true && matrix.version == '12' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ChromascopeIP-1.0.0-Debian12-amd64.deb
           path: build/packages/ChromascopeIP-1.0.0-Debian12-amd64.deb
@@ -225,7 +225,7 @@ jobs:
       # satisfy the successful-smoke upload gate above.
       - name: Upload UNQUALIFIED Debian 12 package for failure diagnosis
         if: ${{ failure() && inputs.legacy_packages == true && matrix.version == '12' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UNQUALIFIED-M11.2-Debian12-amd64-diagnostics
           path: build/packages/ChromascopeIP-1.0.0-Debian12-amd64.deb

@@ -2,6 +2,7 @@
 #include "chromascope/HlsByteWindow.hpp"
 #include "chromascope/HlsDecoderRecovery.hpp"
 #include "chromascope/HlsPrefetchBuffer.hpp"
+#include "chromascope/HlsPlayoutTiming.hpp"
 
 #include "CameraFrameCV.hpp"
 #include "chromascope/ImageHeader.hpp"
@@ -16,6 +17,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <functional>
@@ -413,6 +415,11 @@ public:
             bool decoded = false;
             for (unsigned attempt = 0; attempt < max_restarts_per_read; ++attempt) {
                 if (!capture_.isOpened()) {
+                    // A new demuxer may start at an unrelated MPEG-TS PTS.
+                    if (format_ == Format::Hls) {
+                        last_output_at_.reset();
+                        last_media_position_ms_.reset();
+                    }
                     cv::Ptr<cv::IStreamReader> reader;
                     if (format_ == Format::Mp4) {
                         auto bytes = fetch_https(source_, kMaxClipBytes, false,
@@ -521,12 +528,55 @@ private:
             throw std::runtime_error("Stream stop requested");
     }
     void pace_decoded_frame() {
-        auto fps = capture_.get(cv::CAP_PROP_FPS);
-        if (!std::isfinite(fps) || fps < 1.0 || fps > 60.0) fps = 25.0;
-        const auto interval = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-            std::chrono::duration<double>(1.0 / fps));
-        if (last_output_at_) sleep_until_or_stopped(*last_output_at_ + interval);
+        // Preserve existing MP4 behavior. Only HLS uses the source's variable
+        // presentation timestamps instead of a constant guessed frame rate.
+        const double fps = capture_.get(cv::CAP_PROP_FPS);
+        if (format_ != Format::Hls) {
+            const double nominal = std::isfinite(fps) && fps >= 1.0 && fps <= 60.0
+                ? fps : 25.0;
+            const auto interval = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                std::chrono::duration<double>(1.0 / nominal));
+            if (last_output_at_) sleep_until_or_stopped(*last_output_at_ + interval);
+            last_output_at_ = std::chrono::steady_clock::now();
+            return;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const double media_position_ms = capture_.get(cv::CAP_PROP_POS_MSEC);
+        std::optional<double> elapsed_ms;
+        if (last_output_at_)
+            elapsed_ms = std::chrono::duration<double, std::milli>(
+                now - *last_output_at_).count();
+        const auto plan = plan_hls_playout(
+            last_media_position_ms_, media_position_ms, fps, elapsed_ms);
+        if (plan.wait_ms > 0.0) {
+            const auto target = now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                std::chrono::duration<double, std::milli>(plan.wait_ms));
+            sleep_until_or_stopped(target);
+        }
+        // Reset the presentation anchor on missing PTS rather than treating
+        // a stale position as valid when the backend later resumes timestamps.
+        if (std::isfinite(media_position_ms) && media_position_ms >= 0.0)
+            last_media_position_ms_ = media_position_ms;
+        else
+            last_media_position_ms_.reset();
         last_output_at_ = std::chrono::steady_clock::now();
+
+        // Opt-in, bounded, URL-free evidence for comparing the real GUI stream.
+        // No encoded data, remote URL, credentials or per-frame payloads logged.
+        static const bool timing_trace = [] {
+            const char* enabled = std::getenv("CHROMASCOPE_HLS_PACING_TRACE");
+            return enabled && std::strcmp(enabled, "1") == 0;
+        }();
+        if (timing_trace && (++hls_paced_frames_ <= 8 || hls_paced_frames_ % 75 == 0)) {
+            const char* basis = plan.basis == HlsTimingBasis::PresentationTimestamp ? "pts" :
+                plan.basis == HlsTimingBasis::NominalFallback ? "fps-fallback" :
+                plan.basis == HlsTimingBasis::Discontinuity ? "discontinuity" : "first";
+            std::fprintf(stderr, "ChromascopeIP HLS pacing: frame=%llu basis=%s "
+                "backend_fps=%.3f pos_ms=%.3f media_step_ms=%.3f wait_ms=%.3f\n",
+                static_cast<unsigned long long>(hls_paced_frames_), basis, fps,
+                media_position_ms, plan.interval_ms, plan.wait_ms);
+        }
     }
     std::vector<std::uint8_t> next_hls_segment(const std::atomic<bool>& worker_stop) {
         if (pending_hls_segment_) {
@@ -637,6 +687,8 @@ private:
     std::optional<std::chrono::steady_clock::time_point> waiting_for_hls_advance_;
     std::uint64_t index_ = 0;
     std::optional<std::chrono::steady_clock::time_point> last_output_at_;
+    std::optional<double> last_media_position_ms_;
+    std::uint64_t hls_paced_frames_ = 0;
     std::shared_ptr<std::atomic<bool>> cancel_;
     const PublicStreamRequestProfile request_profile_;
     const HlsLatencyProfile latency_;

@@ -81,8 +81,18 @@ int main() {
         require(public_stream_live_stall_budget(3) >= std::chrono::seconds(90) &&
                 public_stream_live_stall_budget(60) <= std::chrono::seconds(300),
                 "Live HLS must tolerate transient stalls without polling forever");
-        require(public_stream_next_live_segment(playlist, std::nullopt) == 1,
-                "New live sessions should start from the newest listed segment");
+        require(public_stream_next_live_segment(playlist, std::nullopt) == 0,
+                "New live sessions retain a short validated segment buffer");
+        const auto buffered = parse_public_stream_playlist(feed,
+            "#EXTM3U\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:100\n"
+            "#EXTINF:3,\n100.ts\n#EXTINF:3,\n101.ts\n#EXTINF:3,\n102.ts\n"
+            "#EXTINF:3,\n103.ts\n#EXTINF:3,\n104.ts\n");
+        require(public_stream_next_live_segment(buffered, std::nullopt) == 2 &&
+                public_stream_next_live_segment(buffered, 102) == 3 &&
+                public_stream_next_live_segment(buffered, 103) == 4 &&
+                public_stream_fresh_recovery_segment(buffered, 102) == 4,
+                "Startup retains two advertised HLS segments of jitter margin;"
+                " normal frames stay sequential; recovery selects a fresh live segment");
         require(public_stream_next_live_segment(playlist, 42) == 1,
                 "One unseen HLS segment should be processed once");
         require(!public_stream_next_live_segment(playlist, 43),

@@ -64,6 +64,7 @@ add_library(chromascope_core STATIC
     src/core/PublicStreamPolicy.cpp
     src/core/PublicStreamReader.cpp
     src/core/HlsByteWindow.cpp
+    src/core/HlsPrefetchBuffer.cpp
     src/core/LiveCameraRecording.cpp
     src/core/AsyncLiveCameraInference.cpp
     src/core/AsyncVideoDecoder.cpp

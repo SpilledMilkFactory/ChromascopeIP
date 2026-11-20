@@ -77,6 +77,22 @@ from a feed provider; do not paste the surrounding HTML page URL.
   After prolonged non-advancement (at least 90 seconds, capped at five minutes
   depending on target duration) it reports a stalled feed rather than
   silently appearing live forever. Stop remains explicit and interruptible.
+- **Asynchronous HLS prefetch (v1.0.1):** a dedicated bounded worker now
+  retrieves validated media segments before the synchronous OpenCV/FFmpeg
+  demuxer needs them. Exactly two completed 16 MiB-or-smaller segments may
+  wait in the prefetch queue; the decoder separately retains at most four
+  segments in its seek window. An explicitly verified discontinuity may hold
+  one additional 16 MiB pending segment during the transition. These caps
+  bound first-party in-memory buffering without granting FFmpeg any URL,
+  cookies, credentials, redirects or additional network access. Prefetch is
+  session-only and its worker is joined before the reader or network state
+  is destroyed; an already-running HTTPS request may still take its configured
+  maximum timeout to finish during cancellation. The decoder now receives
+  contiguous AVIO reads across ordinary segment boundaries, avoiding a short
+  read solely because one `.ts` file ended. Normal playback initially begins
+  up to two listed segments behind the live edge to absorb jitter; decoder
+  recovery can still resynchronize at a newly advertised segment and may
+  briefly display damaged H.264 frames if that segment lacks a keyframe.
 - MPEG-TS payloads from successive HLS media sequences are passed to **one
   persistent OpenCV/FFmpeg demuxer**, instead of reopening a decoder for each
   short segment. This allows H.264 reference frames to survive ordinary

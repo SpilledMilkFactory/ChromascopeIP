@@ -1,6 +1,7 @@
 #include "chromascope/PublicStreamReader.hpp"
 #include "chromascope/HlsByteWindow.hpp"
 #include "chromascope/HlsDecoderRecovery.hpp"
+#include "chromascope/HlsPrefetchBuffer.hpp"
 
 #include "CameraFrameCV.hpp"
 #include "chromascope/ImageHeader.hpp"
@@ -319,39 +320,30 @@ private:
 // seek backward only inside the small in-memory window for demuxer probing.
 class HlsSequentialReader final : public cv::IStreamReader {
 public:
-    explicit HlsSequentialReader(std::function<std::vector<std::uint8_t>()> next)
-        : next_(std::move(next)) {}
+    explicit HlsSequentialReader(HlsPrefetchBuffer::Fetch next)
+        : prefetch_(std::move(next)) {}
     long long read(char* out, long long requested) override {
-        if (requested <= 0) return 0;
-        if (boundary_) return 0;
         if (failure_) return -1;
         try {
-            auto copied = bytes_.read(out, static_cast<std::size_t>(requested));
-            if (copied) return static_cast<long long>(copied);
-            auto segment = next_();
-            if (segment.empty()) { boundary_ = true; return 0; }
-            bytes_.append(std::move(segment));
-            copied = bytes_.read(out, static_cast<std::size_t>(requested));
-            return static_cast<long long>(copied);
+            return prefetch_.read(out, requested);
         } catch (...) {
-            // Never unwind a C++ exception across FFmpeg's C callbacks.
+            // Do not unwind C++ exceptions through OpenCV/FFmpeg's C callbacks.
             failure_ = std::current_exception();
             return -1;
         }
     }
     long long seek(long long offset, int origin) override {
-        return bytes_.seek(offset, origin);
+        return prefetch_.seek(offset, origin);
     }
-    [[nodiscard]] bool boundary() const noexcept { return boundary_; }
-    [[nodiscard]] bool has_media() const noexcept { return bytes_.retained_segments() != 0; }
+    [[nodiscard]] bool boundary() const noexcept { return prefetch_.boundary(); }
+    [[nodiscard]] bool has_media() const noexcept { return prefetch_.has_media(); }
     void rethrow_failure() const {
         if (failure_) std::rethrow_exception(failure_);
+        prefetch_.rethrow_failure();
     }
 private:
-    HlsByteWindow bytes_;
-    std::function<std::vector<std::uint8_t>()> next_;
+    HlsPrefetchBuffer prefetch_;
     std::exception_ptr failure_;
-    bool boundary_ = false;
 };
 
 [[nodiscard]] bool is_hls_url(const PublicStreamUrl& url) {
@@ -424,8 +416,10 @@ public:
                                                  cancel_.get(), request_profile_).body;
                         reader = cv::makePtr<BoundedMemoryReader>(std::move(bytes));
                     } else {
-                        hls_reader_ = cv::makePtr<HlsSequentialReader>([this] {
-                            return this->next_hls_segment();
+                        hls_decoder_segment_fetched_ = false;
+                        hls_restart_required_.store(false);
+                        hls_reader_ = cv::makePtr<HlsSequentialReader>([this](const std::atomic<bool>& stop) {
+                            return this->next_hls_segment(stop);
                         });
                         reader = hls_reader_;
                     }
@@ -458,7 +452,8 @@ public:
                 // an H.264 decode error can stop this decoder before the HLS
                 // reader reaches a declared discontinuity. Recover *only*
                 // after the callback has been checked for network/policy errors.
-                const bool declared_boundary = hls_restart_required_;
+                const bool declared_boundary = hls_reader_ &&
+                    hls_reader_->boundary() && hls_restart_required_.load();
                 if (hls_reader_ && hls_reader_->boundary() && !declared_boundary)
                     throw std::runtime_error("Live HLS reader ended without a validated segment boundary");
                 capture_.release();
@@ -466,7 +461,7 @@ public:
                 if (format_ != Format::Hls)
                     throw std::runtime_error("Remote MP4 stream ended; reconnect explicitly if needed");
                 if (declared_boundary) {
-                    hls_restart_required_ = false;
+                    hls_restart_required_.store(false);
                     // The verified next segment is already queued for the new reader.
                 } else {
                     // Limit consecutive recoveries without one good frame. No
@@ -489,7 +484,9 @@ private:
     enum class Format { Image, Mp4, Hls };
     void recover_hls_decoder() {
         capture_.release();
-        hls_reader_.reset();
+        hls_reader_.reset(); // joins prefetch worker before touching its state
+        pending_hls_segment_.reset();
+        hls_restart_required_.store(false);
         if (!hls_decoder_recovery_.on_failure())
             throw std::runtime_error(
                 "Live HLS decoder repeatedly failed without a valid frame");
@@ -504,18 +501,21 @@ private:
             throw std::runtime_error(std::string(stage) + ": " + error.what());
         }
     }
-    void sleep_until_or_stopped(std::chrono::steady_clock::time_point deadline) const {
+    void sleep_until_or_stopped(std::chrono::steady_clock::time_point deadline,
+                                const std::atomic<bool>* worker_stop = nullptr) const {
         // Short slices ensure a manual Stop or workspace change can interrupt
         // a stalled live playlist without waiting for the entire retry delay.
         while (std::chrono::steady_clock::now() < deadline) {
-            if (cancel_ && cancel_->load()) throw std::runtime_error("Stream stop requested");
+            if ((cancel_ && cancel_->load()) || (worker_stop && worker_stop->load()))
+                throw std::runtime_error("Stream stop requested");
             const auto remaining = deadline - std::chrono::steady_clock::now();
             if (remaining <= std::chrono::steady_clock::duration::zero()) break;
             std::this_thread::sleep_for(std::min(remaining,
                 std::chrono::duration_cast<std::chrono::steady_clock::duration>(
                     std::chrono::milliseconds(50))));
         }
-        if (cancel_ && cancel_->load()) throw std::runtime_error("Stream stop requested");
+        if ((cancel_ && cancel_->load()) || (worker_stop && worker_stop->load()))
+            throw std::runtime_error("Stream stop requested");
     }
     void pace_decoded_frame() {
         auto fps = capture_.get(cv::CAP_PROP_FPS);
@@ -525,17 +525,19 @@ private:
         if (last_output_at_) sleep_until_or_stopped(*last_output_at_ + interval);
         last_output_at_ = std::chrono::steady_clock::now();
     }
-    std::vector<std::uint8_t> next_hls_segment() {
+    std::vector<std::uint8_t> next_hls_segment(const std::atomic<bool>& worker_stop) {
         if (pending_hls_segment_) {
             auto pending = std::move(*pending_hls_segment_);
             pending_hls_segment_.reset();
+            hls_decoder_segment_fetched_ = true;
             return pending;
         }
         // Normal live HLS playlists often stay unchanged for several polls.
         // Do not treat five fast retries as a terminal stream failure.
         for (;;) {
-            if (cancel_ && cancel_->load()) throw std::runtime_error("Stream stop requested");
-            if (next_playlist_at_) sleep_until_or_stopped(*next_playlist_at_);
+            if ((cancel_ && cancel_->load()) || worker_stop.load())
+                throw std::runtime_error("Stream stop requested");
+            if (next_playlist_at_) sleep_until_or_stopped(*next_playlist_at_, &worker_stop);
             const auto request_started = std::chrono::steady_clock::now();
             std::optional<PublicStreamPlaylist> playlist;
             if (!resolved_hls_manifest_) {
@@ -595,11 +597,12 @@ private:
             // A newly created decoder must accept its first verified segment
             // even if the previous decoder failed several sequences earlier.
             hls_realign_after_decode_error_ = false;
-            if ((gap || discontinuity) && hls_reader_ && hls_reader_->has_media()) {
+            if ((gap || discontinuity) && hls_decoder_segment_fetched_) {
                 pending_hls_segment_ = std::move(segment);
-                hls_restart_required_ = true;
-                return {}; // in-memory EOF forces decoder reset at boundary
+                hls_restart_required_.store(true);
+                return {}; // buffered EOF after all prior validated TS segments
             }
+            hls_decoder_segment_fetched_ = true;
             return segment;
         }
     }
@@ -611,7 +614,9 @@ private:
     Format format_ = Format::Image;
     cv::VideoCapture capture_;
     cv::Ptr<HlsSequentialReader> hls_reader_;
-    bool hls_restart_required_ = false;
+    std::atomic<bool> hls_restart_required_{false};
+    // Written by the sole HLS prefetch worker, reset only after it is joined.
+    bool hls_decoder_segment_fetched_ = false;
     bool hls_realign_after_decode_error_ = false;
     HlsDecoderRecovery hls_decoder_recovery_;
     std::optional<std::vector<std::uint8_t>> pending_hls_segment_;

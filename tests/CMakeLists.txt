@@ -921,3 +921,7 @@ chromascope_add_cpp_test(chromascope_unit_public_stream_policy
 # No network, camera, remote files or FFmpeg initialization required.
 chromascope_add_cpp_test(chromascope_unit_hls_byte_window
     unit/test_hls_byte_window.cpp "unit;streaming;security;privacy;regression" 20)
+
+# v1.0.1: real producer/consumer HLS byte-prefetch contract; offline, no network.
+chromascope_add_cpp_test(chromascope_unit_hls_prefetch_buffer
+    unit/test_hls_prefetch_buffer.cpp "unit;streaming;concurrency;security;privacy;regression" 20)

@@ -27,6 +27,7 @@ EXPECTED_RPATH = {
 # Fresh-OS runtime tests must confirm these are available and ABI-compatible.
 HOST_INTERFACE_SONAMES = frozenset("""
     libc.so.6 libm.so.6 libdl.so.2 libpthread.so.0 librt.so.1
+    ld-linux-x86-64.so.2
     libX11.so.6 libXext.so.6 libXrender.so.1 libXrandr.so.2
     libXcursor.so.1 libXinerama.so.1 libXi.so.6 libXfixes.so.3
     libxcb.so.1 libXau.so.6 libXdmcp.so.6

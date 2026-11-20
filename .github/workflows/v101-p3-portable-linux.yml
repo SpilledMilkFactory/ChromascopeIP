@@ -1,0 +1,112 @@
+# v1.0.1 P3 engineering tarball only. Never publish as a GitHub Release.
+# The same Debian 12 runner builds P2 prefixes, then packages relocatable P3.
+name: v1.0.1 P3 — portable Linux x86-64 candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v101-p3-portable-linux-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  p3-debian12:
+    name: Debian 12 / portable Linux tarball / candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    container:
+      image: debian:bookworm@sha256:366a6da5efcceffbaa19c560a101b97b87a1a9664eeeac8bc3d24395ddbf14f3
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CHROMASCOPE_P3_JOBS: '2'
+
+    steps:
+      - name: Install Debian 12 P2 and P3 toolchain
+        run: |
+          set -Eeuo pipefail
+          source /etc/os-release
+          test "$ID" = debian && test "$VERSION_ID" = 12
+          test "$(dpkg --print-architecture)" = amd64
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git tar zstd python3 cmake ninja-build \
+            build-essential binutils pkg-config make ffmpeg patchelf \
+            libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
+            libopenexr-dev libv4l-dev zlib1g-dev \
+            libprotobuf-dev protobuf-compiler \
+            libcurl4-openssl-dev libglfw3-dev libgl1-mesa-dev \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+          ldd --version | head -n 1
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep -E '^[[:space:]]*V.*libx264[[:space:]]'
+
+      - name: Check out exact ChromascopeIP source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate P1, P2 and P3 safeguards
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s tests/quality -p test_v101_portable_linux_preflight.py -v
+          python3 -m unittest discover -s tests/quality -p test_v101_p2_private_runtime.py -v
+          python3 -m unittest discover -s tests/quality -p test_v101_p2_github_actions.py -v
+          python3 -m unittest discover -s tests/quality -p test_v101_p3_portable_linux.py -v
+
+      - name: Rebuild exact P2 private libraries on Debian 12
+        run: |
+          set -Eeuo pipefail
+          mkdir -p build/v101-p3-p2
+          python3 scripts/portable/v101_p2_build.py \
+            --out "$GITHUB_WORKSPACE/build/v101-p3-p2" \
+            --ci-synthetic-fixture \
+            --jobs "$CHROMASCOPE_P3_JOBS"
+
+      - name: Build application, close dependencies, relocate and audit P3
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/portable/v101_p3_package.py \
+            --p2-root "$GITHUB_WORKSPACE/build/v101-p3-p2" \
+            --out "$GITHUB_WORKSPACE/build/v101-p3-candidate" \
+            --jobs "$CHROMASCOPE_P3_JOBS"
+
+      - name: Upload P3 portable Linux engineering candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ChromascopeIP-v101-P3-Linux-x86_64-CANDIDATE
+          path: |
+            build/v101-p3-candidate/ChromascopeIP-1.0.1-Linux-x86_64.tar.gz
+            build/v101-p3-candidate/SHA256-MANIFEST.json
+            build/v101-p3-candidate/reports/*.json
+            build/v101-p3-candidate/reports/ldd-*.log
+            build/v101-p3-candidate/reports/cli-*.log
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload failure diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ChromascopeIP-v101-P3-Debian12-FAILURE-REPORT
+          path: |
+            build/v101-p3-candidate/reports/
+            build/v101-p3-p2/ChromascopeIP-v101-P2-RESULTS.zip
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Summarize candidate boundary
+        if: ${{ success() }}
+        run: |
+          {
+            echo '## P3 Linux portable engineering candidate'
+            echo '- Built from Debian 12 private P2 FFmpeg/OpenCV in this same job.'
+            echo '- Created relocatable tarball and passed P1 static preflight and CLI smoke.'
+            echo '- Download the P3 CANDIDATE artifact; test on an independent Debian 12 laptop.'
+            echo '- Cross-distribution runtime, security and license review remain open.'
+            echo '- **NOT a v1.0.1 release or distribution approval.**'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -10,6 +10,19 @@ endif()
 
 project(ChromascopeIP VERSION 1.0.0 LANGUAGES CXX)
 
+# P3 keeps the historical literal project(VERSION) contract for v1.0.0
+# packagers/tests, while explicit engineering-candidate builds emit v1.0.1
+# in the generated GUI and CLI version header.
+option(CHROMASCOPE_V101_P3_PORTABLE "Build v1.0.1 private-runtime portable candidate" OFF)
+if(CHROMASCOPE_V101_P3_PORTABLE)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message(FATAL_ERROR "P3 portable mode is Linux-only")
+    endif()
+    set(PROJECT_VERSION "1.0.1")
+    set(ChromascopeIP_VERSION "1.0.1")
+    set(CMAKE_PROJECT_VERSION "1.0.1")
+endif()
+
 # M12.1: one authoritative release-candidate version for every frontend/package.
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ReleaseVersion.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/chromascope/ReleaseVersion.hpp" @ONLY)

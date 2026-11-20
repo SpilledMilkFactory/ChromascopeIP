@@ -2,6 +2,14 @@
 # reviewed Linux security patches. Reconfiguring ChromascopeIP does NOT rebuild
 # the already-installed OpenCV shared libraries, even if CMake relinks targets.
 function(chromascope_require_linux_opencv_policy opencv_config_dir)
+    # v1.0.1 P3 is a separate, explicit engineering build with same-job P2
+    # provenance; it must never inherit historical NOPARSE release approval.
+    if(CHROMASCOPE_V101_P3_PORTABLE)
+        include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ChromascopeP3PortablePolicy.cmake")
+        chromascope_require_p3_private_runtime(
+            "${opencv_config_dir}" "${CHROMASCOPE_P3_P2_SUMMARY}")
+        return()
+    endif()
     get_filename_component(_opencv_prefix "${opencv_config_dir}/../../.." ABSOLUTE)
     set(_stamp "${_opencv_prefix}/.chromascope-opencv-videoio-build.txt")
     set(_revision_file "${_opencv_prefix}/.chromascope-opencv-source-revision")

@@ -92,3 +92,12 @@ GitHub branch-protection rules must name only the active required PR checks;
 remove obsolete Package Matrix / Release Candidate required contexts before
 expecting the new PR gates to complete. Never remove the native OS / Quality
 required contexts simply because v1.0.0 packaging is retired.
+
+## P3 candidate integration (initial GitHub Actions implementation)
+
+P2 completed a Debian 12 private runtime functional qualification. P3 builds
+the application against that runtime **in the same GitHub Actions job**, stages
+private ELF dependencies, rewrites DT_RPATHs to relative `$ORIGIN` locations,
+runs P1 static preflight and CLI smoke checks, and uploads one engineering
+candidate tarball with its SHA-256 and reports. P3 does not publish a release
+or assert licensing/security clearance. The accepted PTS playback code is frozen.

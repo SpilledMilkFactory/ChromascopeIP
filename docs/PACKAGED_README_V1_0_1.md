@@ -1,0 +1,12 @@
+# ChromascopeIP 1.0.1 — portable Linux candidate
+
+This is an extract-and-run, local-first image/video/camera/HTTPS-HLS processing
+application. The Linux candidate includes its private OpenCV and FFmpeg
+libraries and selected redistributable runtime dependencies.
+
+Read `PORTABLE_RELEASE_V1_0_1.md` before first use. For details see
+`docs/USER_GUIDE.md`, `docs/CLI_REFERENCE.md`, `docs/PRIVACY_GUIDE.md`,
+`docs/MEDIA_RIGHTS.md`, and `SECURITY.md`. Additional source and license
+obligations are tracked separately before public redistribution.
+
+Application source: https://github.com/SpilledMilkFactory/ChromascopeIP

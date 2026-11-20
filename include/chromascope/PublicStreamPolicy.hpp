@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -28,11 +29,29 @@ struct PublicStreamUrl {
 
 struct PublicStreamPlaylist {
     std::uint64_t media_sequence = 0;
+    // Advertised cadence for live media-playlist reloads (seconds).
+    // Bounded fallback for older/nonconforming manifests without this tag.
+    unsigned target_duration_seconds = 3;
     std::vector<PublicStreamUrl> segments;
     // A master playlist can select exactly one same-origin .m3u8 child.
     // No alternate variants, renditions, nested masters, or third-party origins.
     std::optional<PublicStreamUrl> variant_playlist;
 };
+// Pure live-playlist scheduling policy. It never fetches a resource.
+// On startup or after falling behind, prefer the newest listed segment;
+// otherwise advance exactly once. No replay of an already-seen sequence.
+[[nodiscard]] std::optional<std::size_t> public_stream_next_live_segment(
+    const PublicStreamPlaylist& playlist,
+    std::optional<std::uint64_t> previous_sequence) noexcept;
+// RFC 8216 live reload cadence: at least target duration after a changed
+// playlist, or half the target duration after an unchanged playlist.
+[[nodiscard]] std::chrono::milliseconds public_stream_live_reload_delay(
+    unsigned target_duration_seconds, bool changed) noexcept;
+// A genuinely stalled source should eventually report an actionable error,
+// but ordinary multi-second playlist stalls are not fatal.
+[[nodiscard]] std::chrono::seconds public_stream_live_stall_budget(
+    unsigned target_duration_seconds) noexcept;
+
 // Restricted unencrypted MPEG-TS media playlists or single-variant HLS masters.
 // Rejects cross-origin resources, keys, fMP4, iframe players and extra renditions.
 [[nodiscard]] PublicStreamPlaylist parse_public_stream_playlist(

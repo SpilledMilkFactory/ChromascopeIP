@@ -69,6 +69,21 @@ from a feed provider; do not paste the surrounding HTML page URL.
   File loading occurs only after the explicit Start stream action and does not
   upload the downloaded manifest. A downloaded media playlist alone cannot
   provide a continuously updated live feed.
+- Live MPEG-TS playback now uses the media playlist's bounded `EXT-X-TARGETDURATION`
+  to schedule reloads (target duration after changes, half after unchanged
+  replies), rather than treating five ordinary non-advancing polls as fatal.
+  The reader waits interruptibly and only retries the same validated HTTPS
+  media-playlist origin; it never retries unlisted segments or redirects.
+  After prolonged non-advancement (at least 90 seconds, capped at five minutes
+  depending on target duration) it reports a stalled feed rather than
+  silently appearing live forever. Stop remains explicit and interruptible.
+- When multiple HLS media sequences advance during a lag spike, playback
+  selects the newest listed segment instead of replaying stale segments in a
+  burst. The first decoded frame of each segment obeys the normal frame
+  cadence as well. This is a best-effort low-latency reader, not a full HLS
+  adaptive player: segment decoding can still show frame discontinuities,
+  and FFmpeg may report corrupt frames. Codec whitelist restrictions remain
+  unchanged and AAC audio is not decoded or recorded.
 - A bounded queue, cancellation generation and local GUI texture rules from
   `AsyncCameraCapture` remain intact. Recording/inference use **the same frames**
   and require separate explicit user actions.
@@ -132,8 +147,10 @@ unit tests does **not** establish live-feed compatibility.
    preview, Stop and no local camera permission prompt.
 3. Test an approved same-origin MPEG-TS HLS feed, including a single-variant
    master. Optionally select its downloaded `.m3u8` text file while keeping
-   the original URL as the HTTPS base. If unsupported by the native
-   backend, confirm clear failure and no secret/URL in error output.
+   the original URL as the HTTPS base. Observe at least 2 minutes of playback,
+   including normal non-advancing playlist reloads. Verify live-edge catch-up,
+   cancellation during a stalled playlist, and that no secret/URL enters errors.
+   If unsupported by the native backend, confirm clear failure.
 4. Reject an `http://`, private-IP, `.local`, credential URL, malformed URL,
    cross-origin HLS segment, redirect and iframe/webpage URL.
 5. Verify Stop/clear and switching modes terminate stream access; verify that

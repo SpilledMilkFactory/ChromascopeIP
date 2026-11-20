@@ -5,6 +5,7 @@
 #include <charconv>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -134,6 +135,34 @@ bool public_stream_ipv6(const std::uint8_t* ip) noexcept {
     return true;
 }
 
+std::optional<std::size_t> public_stream_next_live_segment(
+    const PublicStreamPlaylist& playlist,
+    std::optional<std::uint64_t> previous_sequence) noexcept {
+    if (playlist.variant_playlist || playlist.segments.empty()) return std::nullopt;
+    const auto newest_index = playlist.segments.size() - 1;
+    if (playlist.media_sequence >
+        std::numeric_limits<std::uint64_t>::max() - newest_index) return std::nullopt;
+    const auto newest_sequence = playlist.media_sequence + newest_index;
+    if (!previous_sequence) return newest_index;
+    if (*previous_sequence >= newest_sequence) return std::nullopt;
+    // An HLS player must not attempt to catch up by rapidly replaying stale
+    // segments. If more than one sequence is pending, resynchronize to live.
+    if (newest_sequence - *previous_sequence > 1) return newest_index;
+    return newest_index; // precisely the one unseen segment
+}
+
+std::chrono::milliseconds public_stream_live_reload_delay(
+    unsigned target_duration_seconds, bool changed) noexcept {
+    const auto bounded = std::clamp(target_duration_seconds, 1U, 60U);
+    return std::chrono::milliseconds(bounded * (changed ? 1000U : 500U));
+}
+
+std::chrono::seconds public_stream_live_stall_budget(
+    unsigned target_duration_seconds) noexcept {
+    const auto bounded = std::clamp(target_duration_seconds, 1U, 60U);
+    return std::chrono::seconds(std::clamp(bounded * 10U, 90U, 300U));
+}
+
 PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
                                                    std::string_view text) {
     if (text.size() > 256 * 1024 || !text.starts_with("#EXTM3U") ||
@@ -145,6 +174,7 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
     bool pending_variant = false;
     bool master = false;
     bool discontinuity_sequence_seen = false;
+    bool target_duration_seen = false;
     std::size_t cursor = 0;
     std::size_t count = 0;
     while (cursor < text.size()) {
@@ -212,6 +242,17 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
                 throw std::invalid_argument("Unsupported HLS master variant configuration");
             master = true;
             pending_variant = true;
+        } else if (line.starts_with("#EXT-X-TARGETDURATION:")) {
+            if (master || target_duration_seen || pending_segment)
+                throw std::invalid_argument("Invalid HLS target duration placement");
+            unsigned duration = 0;
+            const auto value = line.substr(sizeof("#EXT-X-TARGETDURATION:") - 1);
+            const auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), duration);
+            if (ec != std::errc{} || ptr != value.data() + value.size() ||
+                duration < 1 || duration > 60)
+                throw std::invalid_argument("Invalid or excessive HLS target duration");
+            result.target_duration_seconds = duration;
+            target_duration_seen = true;
         } else if (line.starts_with("#EXT-X-MEDIA-SEQUENCE:")) {
             if (master) throw std::invalid_argument("Mixed HLS master and media playlist");
             const auto v = line.substr(22);
@@ -248,6 +289,10 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
             throw std::invalid_argument("Unsupported HLS master directive");
         }
     }
+    if (!master && !result.segments.empty() &&
+        result.media_sequence > std::numeric_limits<std::uint64_t>::max() -
+                                    (result.segments.size() - 1))
+        throw std::invalid_argument("HLS media sequence exceeds safe range");
     if (pending_variant || pending_segment ||
         (master && (!result.variant_playlist || !result.segments.empty())) ||
         (!master && (!has_media || result.segments.empty())))

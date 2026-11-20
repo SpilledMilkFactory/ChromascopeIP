@@ -4,6 +4,8 @@
 
 #include <array>
 #include <cstdint>
+#include <chrono>
+#include <limits>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -70,6 +72,38 @@ int main() {
             "#EXT-X-MEDIA-SEQUENCE:42\n#EXTINF:3,\n42.ts\n#EXTINF:3,\n43.ts\n");
         require(playlist.media_sequence == 42 && playlist.segments.size() == 2,
                 "HLS media playlist parsing");
+        require(playlist.target_duration_seconds == 3,
+                "HLS target duration must be parsed for the reload scheduler");
+        require(public_stream_live_reload_delay(3, true) == std::chrono::milliseconds(3000) &&
+                public_stream_live_reload_delay(3, false) == std::chrono::milliseconds(1500) &&
+                public_stream_live_reload_delay(1, false) == std::chrono::milliseconds(500),
+                "RFC 8216 changed/unchanged media playlist polling cadence");
+        require(public_stream_live_stall_budget(3) >= std::chrono::seconds(90) &&
+                public_stream_live_stall_budget(60) <= std::chrono::seconds(300),
+                "Live HLS must tolerate transient stalls without polling forever");
+        require(public_stream_next_live_segment(playlist, std::nullopt) == 1,
+                "New live sessions should start from the newest listed segment");
+        require(public_stream_next_live_segment(playlist, 42) == 1,
+                "One unseen HLS segment should be processed once");
+        require(!public_stream_next_live_segment(playlist, 43),
+                "Unchanged HLS playlist must not replay old segments");
+        require(public_stream_next_live_segment(playlist, 40) == 1,
+                "A lagging player must skip stale segments rather than catch up in bursts");
+        const auto advanced = parse_public_stream_playlist(feed,
+            "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MEDIA-SEQUENCE:44\n"
+            "#EXTINF:4,\n44.ts\n#EXTINF:4,\n45.ts\n");
+        require(advanced.target_duration_seconds == 4 &&
+                public_stream_next_live_segment(advanced, 43) == 1 &&
+                !public_stream_next_live_segment(advanced, 45),
+                "Advancing live window must select its newest unseen segment once");
+        for (std::string_view invalid : {
+            "#EXTM3U\n#EXT-X-TARGETDURATION:0\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-TARGETDURATION:61\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-TARGETDURATION:garbage\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-TARGETDURATION:3\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:18446744073709551615\n#EXTINF:3,\n1.ts\n#EXTINF:3,\n2.ts\n"})
+            rejected([&] { (void)parse_public_stream_playlist(feed, invalid); },
+                     "Invalid live HLS metadata was accepted");
         const auto earthcam = parse_public_stream_url(
             "https://videos-3.earthcam.com/fecnetwork/32781.flv/playlist.m3u8");
         const std::string earthcam_master =

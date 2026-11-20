@@ -380,16 +380,9 @@ public:
                 throw std::runtime_error("Remote MP4 stream ended; reconnect explicitly if needed");
             }
             ++frames_in_segment_;
-            // Preserve a bounded, natural preview cadence; never exhaust a 3s
-            // HLS segment in milliseconds and overwhelm the network playlist.
-            auto fps = capture_.get(cv::CAP_PROP_FPS);
-            if (!std::isfinite(fps) || fps < 1.0 || fps > 60.0) fps = 25.0;
-            const auto interval = std::chrono::duration<double>(1.0 / fps);
-            const auto now = std::chrono::steady_clock::now();
-            if (last_output_at_ && now - *last_output_at_ < interval)
-                std::this_thread::sleep_until(*last_output_at_ +
-                    std::chrono::duration_cast<std::chrono::steady_clock::duration>(interval));
-            last_output_at_ = std::chrono::steady_clock::now();
+            // All video frames, including the first frame after a segment
+            // transition, use one pacing policy. Do not play a lag backlog.
+            pace_decoded_frame();
         }
         if (frame.type() != CV_8UC3 || frame.cols <= 0 || frame.rows <= 0 ||
             frame.cols > resources::max_side || frame.rows > resources::max_side ||
@@ -410,13 +403,36 @@ private:
             throw std::runtime_error(std::string(stage) + ": " + error.what());
         }
     }
-    std::vector<std::uint8_t> next_hls_segment() {
-        for (unsigned attempt = 0; attempt < 5; ++attempt) {
+    void sleep_until_or_stopped(std::chrono::steady_clock::time_point deadline) const {
+        // Short slices ensure a manual Stop or workspace change can interrupt
+        // a stalled live playlist without waiting for the entire retry delay.
+        while (std::chrono::steady_clock::now() < deadline) {
             if (cancel_ && cancel_->load()) throw std::runtime_error("Stream stop requested");
+            const auto remaining = deadline - std::chrono::steady_clock::now();
+            if (remaining <= std::chrono::steady_clock::duration::zero()) break;
+            std::this_thread::sleep_for(std::min(remaining,
+                std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                    std::chrono::milliseconds(50))));
+        }
+        if (cancel_ && cancel_->load()) throw std::runtime_error("Stream stop requested");
+    }
+    void pace_decoded_frame() {
+        auto fps = capture_.get(cv::CAP_PROP_FPS);
+        if (!std::isfinite(fps) || fps < 1.0 || fps > 60.0) fps = 25.0;
+        const auto interval = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::duration<double>(1.0 / fps));
+        if (last_output_at_) sleep_until_or_stopped(*last_output_at_ + interval);
+        last_output_at_ = std::chrono::steady_clock::now();
+    }
+    std::vector<std::uint8_t> next_hls_segment() {
+        // Normal live HLS playlists often stay unchanged for several polls.
+        // Do not treat five fast retries as a terminal stream failure.
+        for (;;) {
+            if (cancel_ && cancel_->load()) throw std::runtime_error("Stream stop requested");
+            if (next_playlist_at_) sleep_until_or_stopped(*next_playlist_at_);
+            const auto request_started = std::chrono::steady_clock::now();
             std::optional<PublicStreamPlaylist> playlist;
             if (!resolved_hls_manifest_) {
-                // Use the explicitly selected local manifest as text only.
-                // It never authorizes local segment access or network on its own.
                 const auto text = local_playlist_file_.empty() ? [&] {
                     const auto body = hls_resource(source_, kMaxPlaylistBytes, "HLS master playlist");
                     return std::string(body.begin(), body.end());
@@ -438,25 +454,28 @@ private:
                 if (playlist->variant_playlist)
                     throw std::runtime_error("Nested HLS master playlists are not permitted");
             }
-            // Start at the live edge on first read. Never request unlisted
-            // resources, and never re-fetch stale segments after a transition.
-            auto start = playlist->segments.size() - 1;
-            if (last_segment_) {
-                start = playlist->segments.size();
-                for (std::size_t i = 0; i < playlist->segments.size(); ++i) {
-                    if (playlist->media_sequence + i > *last_segment_) { start = i; break; }
-                }
-                if (start == playlist->segments.size()) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(750));
-                    continue;
-                }
+            const auto next = public_stream_next_live_segment(*playlist, last_segment_);
+            // Changed manifests are not refreshed before target duration;
+            // unchanged ones are retried at half target duration (RFC 8216).
+            next_playlist_at_ = request_started + public_stream_live_reload_delay(
+                playlist->target_duration_seconds, next.has_value());
+            if (!next) {
+                const auto now = std::chrono::steady_clock::now();
+                if (!waiting_for_hls_advance_) waiting_for_hls_advance_ = now;
+                if (now - *waiting_for_hls_advance_ >
+                    public_stream_live_stall_budget(playlist->target_duration_seconds))
+                    throw std::runtime_error("Live HLS playlist stalled beyond the bounded recovery window");
+                continue;
             }
-            // Do not advance position until HTTPS fetch succeeds.
-            auto segment = hls_resource(playlist->segments[start], kMaxSegmentBytes, "HLS segment");
-            last_segment_ = playlist->media_sequence + start;
+            // A fresh sequence has arrived. Skipping a backlog instead of
+            // replaying every old segment reduces speed-up after a lag spike.
+            // Never request anything not explicitly listed and validated.
+            const auto segment = hls_resource(playlist->segments[*next], kMaxSegmentBytes,
+                                              "HLS segment");
+            last_segment_ = playlist->media_sequence + *next;
+            waiting_for_hls_advance_.reset();
             return segment;
         }
-        throw std::runtime_error("Live HLS playlist has not advanced; reconnect explicitly");
     }
     CameraFramePacket read_next_hls() {
         auto bytes = next_hls_segment();
@@ -474,7 +493,7 @@ private:
             static_cast<std::uint64_t>(image.cols) * image.rows > resources::max_pixels)
             throw std::runtime_error("Invalid decoded HLS frame");
         frames_in_segment_ = 1;
-        last_output_at_ = std::chrono::steady_clock::now();
+        pace_decoded_frame();
         return detail::make_camera_frame(image, ++index_,
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::steady_clock::now() - start_));
@@ -488,6 +507,8 @@ private:
     cv::VideoCapture capture_;
     std::size_t frames_in_segment_ = 0;
     std::optional<std::uint64_t> last_segment_;
+    std::optional<std::chrono::steady_clock::time_point> next_playlist_at_;
+    std::optional<std::chrono::steady_clock::time_point> waiting_for_hls_advance_;
     std::uint64_t index_ = 0;
     std::optional<std::chrono::steady_clock::time_point> last_output_at_;
     std::shared_ptr<std::atomic<bool>> cancel_;

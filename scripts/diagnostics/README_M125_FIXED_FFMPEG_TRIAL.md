@@ -14,8 +14,13 @@ but does **not** qualify the experimental build for distribution.
   existing protected M12.5 OpenCV provenance markers.
 - Fetches FFmpeg **n8.0.1** and verifies the peeled commit
   `894da5ca7d742e4429ffb2af534fcda0103ef593`.
-- Applies the separately reviewed four-line JPEG XL TOC bound-check backport
-  from upstream `bc896c613ec0d4ad0108d62fbdda0196f69e7121`.
+- Inserts the separately reviewed **exact four-line** JPEG XL TOC bound-check
+  backport from upstream `bc896c613ec0d4ad0108d62fbdda0196f69e7121`.
+  The tool first verifies the original backport SHA-256 and the pinned FFmpeg
+  checkout revision, then matches the TOC calculation and adjacent parser
+  operation exactly. It tolerates only 0–2 intervening blank lines. Any other
+  source difference fails closed. `git diff --check`, a **4-added/0-removed**
+  check, and the saved `ffmpeg-applied-diff.patch` establish the footprint.
 - Builds a **private** FFmpeg using explicit decoder, demuxer and parser
   allowlists, with the JPEG XL decoder and parser **disabled** and network
   protocols disabled. The JPEG XL backport is defense-in-depth here, not a
@@ -75,3 +80,18 @@ packaged/runtime dependency closure on **all** supported Linux platforms,
 provenance, SBOM/licensing, security negative tests, CI, and sustained HLS
 playback. An FFmpeg built from the historical n8.0.1 tag with one backport is
 **not** equivalent to an up-to-date security-maintained distribution FFmpeg.
+
+## M12.5 diagnostic correction — November 20, 2026
+
+A previous run stopped at `git apply --check` for the FFmpeg backport before
+private FFmpeg compilation began. The original backport bytes have **not**
+been changed. The runner now inserts those same four reviewed lines only if
+its pinned source commit, exact TOC statement, and immediately following
+parser operation pass strict checks. A SHA-pinned patch comparison ensures the
+inserted lines match upstream. This avoids patch-hunk context sensitivity,
+without using `patch --fuzz`, `git apply --3way`, or `--reject`.
+
+On failure, the report includes `ffmpeg-source-context.txt` for analysis.
+On success, it includes `ffmpeg-applied-diff.patch`, a clean git diff check,
+and the four-line footprint assertion. Previous incomplete results do **not**
+require cleanup; a fresh timestamped build directory is created on rerun.

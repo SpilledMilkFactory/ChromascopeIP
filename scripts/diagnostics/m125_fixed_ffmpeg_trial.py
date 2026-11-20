@@ -46,6 +46,61 @@ FLAG_CHECK = (
     '    }\n'
 )
 
+# Same four lines as upstream FFmpeg bc896c6, pinned by FFMPEG_PATCH_SHA.
+# Apply against a verified n8.0.1 checkout with an exact, fail-closed anchor.
+# This avoids relying on git apply's diff context while preserving the exact
+# four-line backport and an independently inspectable git diff.
+JPEGXL_BACKPORT_LINES = (
+    '    /* each TOC entry takes at least 12 bits */\n'
+    '    if ((int64_t)toc_count * 12 > get_bits_left(gb))\n'
+    '        return AVERROR_BUFFER_TOO_SMALL;\n'
+    '\n'
+)
+JPEGXL_ANCHOR = (
+    '    if (num_groups == 1 && num_passes == 1)\n'
+    '        toc_count = 1;\n'
+    '    else\n'
+    '        toc_count = 2 + num_lf_groups + num_groups * num_passes;\n'
+)
+JPEGXL_NEXT = '    // permuted toc\n    if (get_bits1(gb)) {\n'
+
+
+def apply_reviewed_jpegxl_backport(original: str, reviewed_patch: str) -> str:
+    """Insert ONLY the four reviewed upstream lines, rejecting unexpected source.
+
+    The FFmpeg git commit is verified before this helper is called. An anchor
+    match is necessary but not sufficient: the following TOC parser statement
+    and the original upstream patch's additions must also be identical.
+    """
+    expected_additions = ''.join('+' + line for line in JPEGXL_BACKPORT_LINES.splitlines(keepends=True))
+    if expected_additions not in reviewed_patch or reviewed_patch.count(expected_additions) != 1:
+        raise ValueError('Reviewed upstream JPEG XL patch does not contain the exact four-line fix')
+    if original.count(JPEGXL_ANCHOR) != 1:
+        raise ValueError('Pinned FFmpeg JPEG XL TOC calculation is missing or ambiguous')
+    if JPEGXL_BACKPORT_LINES.strip() in original:
+        raise ValueError('Pinned FFmpeg already contains the JPEG XL correction')
+    location = original.index(JPEGXL_ANCHOR) + len(JPEGXL_ANCHOR)
+    suffix = original[location:]
+    # The tag may have zero, one, or two blank lines between this statement
+    # and the next parser operation. Never skip comments or other statements.
+    match = re.match(r'(?:[ \t]*\n){0,2}', suffix)
+    assert match is not None
+    if not suffix[match.end():].startswith(JPEGXL_NEXT):
+        raise ValueError('Unexpected FFmpeg JPEG XL parser code after TOC calculation')
+    # Preserve every source byte except the four additions.
+    return original[:location] + JPEGXL_BACKPORT_LINES + original[location:]
+
+
+def jpegxl_source_context(original: str) -> str:
+    """Record a small source excerpt to diagnose refused backports."""
+    lines = original.splitlines()
+    candidates = [i for i, line in enumerate(lines) if 'toc_count = 2 +' in line]
+    if len(candidates) != 1:
+        return 'Expected exactly one TOC calculation; found ' + str(len(candidates)) + '\n'
+    index = candidates[0]
+    return ''.join(f'{i+1}: {lines[i]}\n'
+                   for i in range(max(0, index - 6), min(len(lines), index + 9)))
+
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -186,14 +241,22 @@ class Trial:
         if rev != FFMPEG_REV:
             raise RuntimeError(f'FFmpeg upstream tag moved: {rev} != {FFMPEG_REV}')
         patch = TOOL / 'ffmpeg-jpegxl-toc-bounds-bc896c6.patch'
-        self.command(['git', '-C', source, 'apply', '--check', patch], 'ffmpeg-fix-check.log')
-        self.command(['git', '-C', source, 'apply', patch], 'ffmpeg-fix-apply.log')
+        target = source / 'libavcodec/jpegxl_parser.c'
+        original = target.read_text(encoding='utf-8')
+        (self.report / 'ffmpeg-source-context.txt').write_text(jpegxl_source_context(original))
+        reviewed = patch.read_text(encoding='utf-8')
+        changed = apply_reviewed_jpegxl_backport(original, reviewed)
+        target.write_text(changed, encoding='utf-8')
+        self.command(['git', '-C', source, 'diff', '--check'], 'ffmpeg-fix-check.log')
         diff = self.capture(['git', '-C', source, 'diff', '--numstat', '--', 'libavcodec/jpegxl_parser.c'])
         if diff != '4\t0\tlibavcodec/jpegxl_parser.c':
             raise RuntimeError(f'Unexpected upstream backport footprint: {diff!r}')
         self.command(['git', '-C', source, 'diff', '--', 'libavcodec/jpegxl_parser.c'],
                      'ffmpeg-applied-diff.patch')
-        self.results['phases']['upstream_backport'] = 'APPLIED_TO_PINNED_FFMPEG_8.0.1'
+        self.results['phases']['upstream_backport'] = 'EXACT_FOUR_LINE_BACKPORT_ON_PINNED_FFMPEG_8.0.1'
+        self.results['backport'] = {'upstream_commit': 'bc896c613ec0d4ad0108d62fbdda0196f69e7121',
+                                    'reviewed_patch_sha256': FFMPEG_PATCH_SHA,
+                                    'exact_lines_added': 4, 'other_changes': 0}
         return source
 
     def build_ffmpeg(self, source: Path):

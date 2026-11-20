@@ -1,4 +1,5 @@
 #include "chromascope/PublicStreamPolicy.hpp"
+#include "chromascope/PublicStreamDiagnostics.hpp"
 
 #include <array>
 #include <cstdint>
@@ -20,6 +21,18 @@ template<class F> void rejected(F function, const char* message) {
 int main() {
     try {
         using namespace chromascope;
+        // Diagnostic strings are constructed from bounded numeric HTTP status
+        // only, never the remote URL or potentially sensitive response body.
+        require(public_stream_http_failure(403).find("403 Forbidden") != std::string::npos,
+                "HTTP 403 must not look like a size limit or timeout");
+        require(public_stream_http_failure(302).find("redirect refused") != std::string::npos,
+                "Redirect must be reported as blocked");
+        require(public_stream_http_failure(429).find("rate-limiting") != std::string::npos,
+                "Rate limit must be distinguishable");
+        require(public_stream_http_failure(503).find("remote server error") != std::string::npos,
+                "Server error must be distinguishable");
+        require(public_stream_http_failure(0).find("did not provide") != std::string::npos,
+                "Missing HTTP status must be distinguishable");
         const auto feed = parse_public_stream_url("https://camera.example.org/live/index.m3u8?token=opaque");
         require(feed.host == "camera.example.org", "Hostname parser");
         require(feed.path_and_query == "/live/index.m3u8?token=opaque", "Opaque query kept in memory");

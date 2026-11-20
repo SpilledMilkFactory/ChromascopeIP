@@ -82,6 +82,23 @@ The downloaded file is optional and does not contain the video frames. Our polic
 streams rather than silently weakening consent, origin restrictions or network
 privacy.
 
+### Direct-feed access errors
+
+The reader reports HTTP access denial, redirect refusal, rate limiting,
+request timeout, byte-budget exhaustion and TLS failures separately. These
+messages are generated locally from trusted status codes only; remote URLs,
+query tokens, response bodies and headers are **never** included. The UI only
+shows `STREAM LIVE` after a decoded frame arrives; connecting, buffering and
+failed requests have distinct states. CTests are offline, so green tests do
+not imply any third-party service grants direct access.
+
+An `HTTP 403 Forbidden` response means that the remote server denied this
+request. A saved master `.m3u8` may bypass re-fetching that initial *text*,
+but it cannot authorize the child playlist or video segments. ChromascopeIP
+does not attempt to circumvent a provider's access rules using forged
+`Referer`, browser cookies, site scripts or user-agent masquerading. Choose a
+feed explicitly authorized for direct unauthenticated HTTPS access instead.
+
 ### Cross-platform qualification
 
 Linux builds require the system `libcurl4-openssl-dev` development package; the

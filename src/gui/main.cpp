@@ -64,6 +64,17 @@ namespace {
 // rather than adding a global GL_* macro or changing the graphics backend.
 constexpr GLint kTextureClampToEdge = 0x812F;
 
+[[nodiscard]] ImVec4 stream_badge_color(chromascope::StreamBadgeTone tone) {
+    switch (tone) {
+        case chromascope::StreamBadgeTone::Off: return {0.52F, 0.78F, 0.62F, 1.0F};
+        case chromascope::StreamBadgeTone::Pending: return {0.98F, 0.75F, 0.30F, 1.0F};
+        case chromascope::StreamBadgeTone::Live: return {1.0F, 0.40F, 0.36F, 1.0F};
+        case chromascope::StreamBadgeTone::Error: return {1.0F, 0.40F, 0.36F, 1.0F};
+    }
+    return {1.0F, 0.40F, 0.36F, 1.0F};
+}
+
+
 struct Texture {
     GLuint id = 0;
     int width = 0;
@@ -464,7 +475,9 @@ struct App {
         camera_frame_index = 0;
         camera_frame_time = std::chrono::nanoseconds{0};
         camera_active_format = {};
-        camera_status = "Stop requested; device release may still be in progress.";
+        camera_status = workspace_mode == 3 ?
+            "Stream stop requested; the pending HTTPS operation may finish before closure." :
+            "Stop requested; device release may still be in progress.";
     }
 
     void switch_workspace(int next_mode) {
@@ -621,7 +634,9 @@ struct App {
             switch (event->kind) {
                 case chromascope::CameraCaptureEventKind::Opened:
                     if (event->format) camera_active_format = *event->format;
-                    camera_status = "Camera opened. Live preview is active.";
+                    camera_status = workspace_mode == 3 ?
+                        "Secure stream reader initialized; waiting for the first decoded frame." :
+                        "Camera opened. Live preview is active.";
                     break;
                 case chromascope::CameraCaptureEventKind::Frame:
                     if (chromascope::camera_preview_can_publish(
@@ -639,14 +654,16 @@ struct App {
                 case chromascope::CameraCaptureEventKind::Stopped:
                     live_recorder.stop();
                     cancel_live_inference();
-                    camera_status = "Camera closed. No capture active.";
+                    camera_status = workspace_mode == 3 ?
+                        "Stream stopped. No live network media active." :
+                        "Camera closed. No capture active.";
                     camera_texture.reset();
                     camera_frame_visible = false;
                     break;
                 case chromascope::CameraCaptureEventKind::Error:
                     live_recorder.stop();
                     cancel_live_inference();
-                    camera_status = "Camera error (" + std::string(
+                    camera_status = (workspace_mode == 3 ? "Stream error (" : "Camera error (") + std::string(
                         chromascope::camera_error_name(event->error_code.value_or(
                             chromascope::CameraErrorCode::ReadFailed))) + "): " + event->message;
                     camera_texture.reset();
@@ -2337,10 +2354,11 @@ struct App {
         ImGui::Separator();
         const auto current_state = camera_capture.state();
         const auto badge = chromascope::camera_preview_badge(current_state);
-        const ImVec4 color = badge.may_be_active
-            ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
-            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F);
-        ImGui::TextColored(color, "%s", remote ? (badge.may_be_active ? "STREAM ACTIVE" : "STREAM OFF") : badge.label);
+        const auto stream_badge = chromascope::stream_preview_badge(current_state, camera_frame_visible);
+        const ImVec4 color = remote ? stream_badge_color(stream_badge.tone) :
+            (badge.may_be_active ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F) :
+                                   ImVec4(0.52F, 0.78F, 0.62F, 1.0F));
+        ImGui::TextColored(color, "%s", remote ? stream_badge.label : badge.label);
         if (remote && camera_status == "Camera is OFF. Select a device and press Start camera.")
             ImGui::TextWrapped("Stream is OFF. Paste a direct public HTTPS media URL and press Start stream.");
         else ImGui::TextWrapped("%s", camera_status.c_str());
@@ -2534,10 +2552,11 @@ struct App {
         ImGui::TextUnformatted(remote ? "LIVE STREAM PREVIEW" : "LIVE PREVIEW");
         ImGui::SameLine();
         const auto preview_badge = chromascope::camera_preview_badge(camera_capture.state());
-        ImGui::TextColored(preview_badge.may_be_active
-            ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
-            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", remote ?
-                (preview_badge.may_be_active ? "STREAM ACTIVE" : "STREAM OFF") : preview_badge.label);
+        const auto stream_badge = chromascope::stream_preview_badge(camera_capture.state(), camera_frame_visible);
+        ImGui::TextColored(remote ? stream_badge_color(stream_badge.tone) :
+            (preview_badge.may_be_active ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F) :
+                                           ImVec4(0.52F, 0.78F, 0.62F, 1.0F)),
+            "%s", remote ? stream_badge.label : preview_badge.label);
         ImGui::SameLine();
         if (ImGui::SmallButton(remote ? "Fit stream" : "Fit camera")) camera_view.fit();
         ImGui::Separator();
@@ -2587,9 +2606,12 @@ struct App {
                 synchronized_boxes, live_show_confidence_labels, true, synchronized_track_ids,
                 static_cast<double>(live_display_confidence_threshold));
         else
-            ImGui::TextWrapped(remote ? "No decoded stream frame. Paste a public HTTPS media URL and press Start stream."
-                                      : "No live camera frame. Choose a camera and press Start camera. "
-                                        "An OS permission prompt may appear.");
+            ImGui::TextWrapped(remote ?
+                (camera_capture.state() == chromascope::CameraCaptureState::Failed ?
+                    "Stream failed before a usable frame was decoded. See the stream error in the sidebar." :
+                    "No decoded stream frame. Paste a public HTTPS media URL and press Start stream.") :
+                "No live camera frame. Choose a camera and press Start camera. "
+                "An OS permission prompt may appear.");
         ImGui::EndChild();
         if (remote) {
             if (browse_requested) {
@@ -2666,11 +2688,14 @@ struct App {
         if (ImGui::RadioButton("Live Streamed Video", workspace_mode == 3))
             switch_workspace(3); // NO implicit DNS query or network access
         const auto camera_badge = chromascope::camera_preview_badge(camera_capture.state());
-        same_line_if_fits(text_width(camera_badge.label));
-        ImGui::TextColored(camera_badge.may_be_active
-            ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
-            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s",
-            workspace_mode == 3 ? (camera_badge.may_be_active ? "STREAM ACTIVE" : "STREAM OFF") : camera_badge.label);
+        const auto stream_badge = chromascope::stream_preview_badge(camera_capture.state(), camera_frame_visible);
+        const bool remote_toolbar = workspace_mode == 3;
+        const char* capture_label = remote_toolbar ? stream_badge.label : camera_badge.label;
+        same_line_if_fits(text_width(capture_label));
+        ImGui::TextColored(remote_toolbar ? stream_badge_color(stream_badge.tone) :
+            (camera_badge.may_be_active ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F) :
+                                          ImVec4(0.52F, 0.78F, 0.62F, 1.0F)),
+            "%s", capture_label);
         ImGui::SetItemTooltip("The selected live source opens only after an explicit Start action. Leaving a live workspace requests Stop.");
         const auto record_state = live_recorder.status().stage;
         const bool recording_now = record_state == chromascope::LiveRecordingStage::Starting ||

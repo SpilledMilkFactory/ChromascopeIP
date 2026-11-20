@@ -3,6 +3,7 @@
 #include "CameraFrameCV.hpp"
 #include "chromascope/ImageHeader.hpp"
 #include "chromascope/ResourceBudget.hpp"
+#include "chromascope/PublicStreamDiagnostics.hpp"
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
@@ -194,9 +195,24 @@ int curl_progress(void* pointer, curl_off_t, curl_off_t, curl_off_t, curl_off_t)
     const auto result = curl_easy_perform(curl.get());
     long status = 0;
     curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &status);
-    if (status != 200 || sink.exceeded ||
-        (result != CURLE_OK && !(result == CURLE_WRITE_ERROR && sink.result.jpeg_complete)))
-        throw std::runtime_error("Stream HTTPS request rejected, exceeded budget or timed out");
+    // Examine the server's status without printing URLs or response bodies.
+    // Distinguish access controls from size, TLS, and network failures.
+    if (status != 0 && status != 200)
+        throw std::runtime_error(public_stream_http_failure(static_cast<unsigned long>(status)));
+    if (sink.exceeded || result == CURLE_FILESIZE_EXCEEDED)
+        throw std::runtime_error("HTTPS media response exceeds the configured byte budget");
+    if (cancel && cancel->load())
+        throw std::runtime_error("Stream stop requested");
+    if (result == CURLE_OPERATION_TIMEDOUT)
+        throw std::runtime_error("HTTPS request timed out");
+    if (result == CURLE_PEER_FAILED_VERIFICATION || result == CURLE_SSL_CONNECT_ERROR)
+        throw std::runtime_error("HTTPS TLS verification or handshake failed");
+    if (result == CURLE_COULDNT_CONNECT)
+        throw std::runtime_error("HTTPS connection could not be established");
+    if (result != CURLE_OK && !(result == CURLE_WRITE_ERROR && sink.result.jpeg_complete))
+        throw std::runtime_error("HTTPS transfer failed (network or server error)");
+    if (status != 200)
+        throw std::runtime_error(public_stream_http_failure(static_cast<unsigned long>(status)));
     return std::move(sink.result);
 }
 #elif defined(_WIN32)
@@ -238,8 +254,10 @@ using HttpHandle = std::unique_ptr<void, HttpCloser>;
     DWORD status = 0, length = sizeof(status);
     if (!WinHttpQueryHeaders(request.get(), WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
                              WINHTTP_HEADER_NAME_BY_INDEX, &status, &length,
-                             WINHTTP_NO_HEADER_INDEX) || status != 200)
-        throw std::runtime_error("HTTPS response was not successful");
+                             WINHTTP_NO_HEADER_INDEX))
+        throw std::runtime_error("HTTPS response status unavailable");
+    if (status != 200)
+        throw std::runtime_error(public_stream_http_failure(status));
     Response result;
     while (true) {
         if (cancel && cancel->load()) throw std::runtime_error("Stream stop requested");
@@ -377,6 +395,15 @@ public:
     }
 private:
     enum class Format { Image, Mp4, Hls };
+    [[nodiscard]] std::vector<std::uint8_t> hls_resource(
+        const PublicStreamUrl& url, std::size_t limit, const char* stage) const {
+        try {
+            return fetch_https(url, limit, false, cancel_.get()).body;
+        } catch (const std::exception& error) {
+            // stage is always a first-party literal, never a URL or response value.
+            throw std::runtime_error(std::string(stage) + ": " + error.what());
+        }
+    }
     std::vector<std::uint8_t> next_hls_segment() {
         for (unsigned attempt = 0; attempt < 5; ++attempt) {
             if (cancel_ && cancel_->load()) throw std::runtime_error("Stream stop requested");
@@ -385,8 +412,8 @@ private:
                 // Use the explicitly selected local manifest as text only.
                 // It never authorizes local segment access or network on its own.
                 const auto text = local_playlist_file_.empty() ? [&] {
-                    const auto response = fetch_https(source_, kMaxPlaylistBytes, false, cancel_.get());
-                    return std::string(response.body.begin(), response.body.end());
+                    const auto body = hls_resource(source_, kMaxPlaylistBytes, "HLS master playlist");
+                    return std::string(body.begin(), body.end());
                 }() : read_public_stream_local_playlist(local_playlist_file_);
                 auto initial = parse_public_stream_playlist(source_, text);
                 if (initial.variant_playlist) {
@@ -399,8 +426,8 @@ private:
                 resolved_hls_manifest_ = true;
             }
             if (!playlist) {
-                const auto manifest = fetch_https(media_source_, kMaxPlaylistBytes, false, cancel_.get());
-                const std::string text(manifest.body.begin(), manifest.body.end());
+                const auto body = hls_resource(media_source_, kMaxPlaylistBytes, "HLS media playlist");
+                const std::string text(body.begin(), body.end());
                 playlist = parse_public_stream_playlist(media_source_, text);
                 if (playlist->variant_playlist)
                     throw std::runtime_error("Nested HLS master playlists are not permitted");
@@ -419,9 +446,9 @@ private:
                 }
             }
             // Do not advance position until HTTPS fetch succeeds.
-            auto segment = fetch_https(playlist->segments[start], kMaxSegmentBytes, false, cancel_.get());
+            auto segment = hls_resource(playlist->segments[start], kMaxSegmentBytes, "HLS segment");
             last_segment_ = playlist->media_sequence + start;
-            return std::move(segment.body);
+            return segment;
         }
         throw std::runtime_error("Live HLS playlist has not advanced; reconnect explicitly");
     }

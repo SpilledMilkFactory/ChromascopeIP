@@ -30,6 +30,19 @@ class StreamDiagnosticsTests(unittest.TestCase):
             self.assertIn(label, READER)
         self.assertIn('hls_resource(', READER)
 
+    def test_preview_and_sidebar_badges_do_not_redeclare_in_same_scope(self):
+        # Both badges are drawn in draw_camera_ui(), so the two independent
+        # status snapshots must have distinct local names. GCC rejects a
+        # second const-auto declaration in the same scope.
+        body = GUI.split('void draw_camera_ui(bool remote = false) {', 1)[1]
+        body = body.split('\n    void draw_ui() {', 1)[0]
+        self.assertEqual(body.count('const auto stream_badge ='), 1)
+        self.assertEqual(body.count('const auto preview_stream_badge ='), 1)
+        self.assertIn('stream_badge_color(stream_badge.tone)', body)
+        self.assertIn('remote ? stream_badge.label : badge.label', body)
+        self.assertIn('stream_badge_color(preview_stream_badge.tone)', body)
+        self.assertIn('remote ? preview_stream_badge.label : preview_badge.label', body)
+
     def test_stream_is_only_live_after_decoded_frame(self):
         for state in ('STREAM OFF', 'STREAM CONNECTING', 'STREAM BUFFERING',
                       'STREAM LIVE', 'STREAM STOPPING', 'STREAM ERROR'):

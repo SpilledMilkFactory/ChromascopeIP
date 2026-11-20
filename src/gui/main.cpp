@@ -2552,11 +2552,11 @@ struct App {
         ImGui::TextUnformatted(remote ? "LIVE STREAM PREVIEW" : "LIVE PREVIEW");
         ImGui::SameLine();
         const auto preview_badge = chromascope::camera_preview_badge(camera_capture.state());
-        const auto stream_badge = chromascope::stream_preview_badge(camera_capture.state(), camera_frame_visible);
-        ImGui::TextColored(remote ? stream_badge_color(stream_badge.tone) :
+        const auto preview_stream_badge = chromascope::stream_preview_badge(camera_capture.state(), camera_frame_visible);
+        ImGui::TextColored(remote ? stream_badge_color(preview_stream_badge.tone) :
             (preview_badge.may_be_active ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F) :
                                            ImVec4(0.52F, 0.78F, 0.62F, 1.0F)),
-            "%s", remote ? stream_badge.label : preview_badge.label);
+            "%s", remote ? preview_stream_badge.label : preview_badge.label);
         ImGui::SameLine();
         if (ImGui::SmallButton(remote ? "Fit stream" : "Fit camera")) camera_view.fit();
         ImGui::Separator();

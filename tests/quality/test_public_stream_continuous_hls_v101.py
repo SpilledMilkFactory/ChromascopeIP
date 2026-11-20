@@ -23,7 +23,7 @@ class ContinuousHlsRegression(unittest.TestCase):
         self.assertIn("hls_restart_required_.store(true)", READER)
         self.assertIn("pending_hls_segment_", READER)
         self.assertIn("if (boundary_) return 0;", (ROOT / "src/core/HlsPrefetchBuffer.cpp").read_text())
-        self.assertIn("const bool discontinuity = playlist->discontinuity_before[*next];", READER)
+        self.assertIn("const bool discontinuity = playlist.discontinuity_before[*next];", READER)
         self.assertIn("result.discontinuity_before.push_back(next_segment_discontinuity)", POLICY)
         self.assertIn("return static_cast<std::size_t>(*previous_sequence - playlist.media_sequence + 1)", POLICY)
 
@@ -48,7 +48,7 @@ class ContinuousHlsRegression(unittest.TestCase):
         self.assertIn('if (!capture_.open(reader, api, {}))', READER)
         self.assertIn('recover_hls_decoder();', READER)
         self.assertIn('hls_realign_after_decode_error_ = true;', READER)
-        self.assertIn('public_stream_fresh_recovery_segment(*playlist, last_segment_)', READER)
+        self.assertIn('public_stream_fresh_recovery_segment(*current_hls_playlist_, last_segment_)', READER)
         self.assertIn('public_stream_fresh_recovery_segment', POLICY)
         self.assertIn('hls_decoder_segment_fetched_', READER)
         self.assertIn('A successfully decoded frame resets the recovery budget', NATIVE)

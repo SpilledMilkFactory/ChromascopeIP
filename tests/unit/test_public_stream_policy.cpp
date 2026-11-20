@@ -87,11 +87,21 @@ int main() {
             "#EXTM3U\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:100\n"
             "#EXTINF:3,\n100.ts\n#EXTINF:3,\n101.ts\n#EXTINF:3,\n102.ts\n"
             "#EXTINF:3,\n103.ts\n#EXTINF:3,\n104.ts\n");
-        require(public_stream_next_live_segment(buffered, std::nullopt) == 2 &&
+        // Download every already-advertised segment before any playlist reload.
+        // A live playlist's target duration limits manifest refresh frequency,
+        // NOT how quickly its previously validated segments may be fetched.
+        require(public_stream_next_live_segment(buffered, 100) == 1 &&
+                public_stream_next_live_segment(buffered, 101) == 2 &&
+                public_stream_next_live_segment(buffered, 102) == 3 &&
+                public_stream_next_live_segment(buffered, 103) == 4 &&
+                !public_stream_next_live_segment(buffered, 104),
+                "Consume cached consecutive HLS segment references without skipping");
+        require(public_stream_next_live_segment(buffered, std::nullopt) == 1 &&
+                public_stream_next_live_segment(buffered, 101) == 2 &&
                 public_stream_next_live_segment(buffered, 102) == 3 &&
                 public_stream_next_live_segment(buffered, 103) == 4 &&
                 public_stream_fresh_recovery_segment(buffered, 102) == 4,
-                "Startup retains two advertised HLS segments of jitter margin;"
+                "Startup retains three advertised HLS segments of jitter margin;"
                 " normal frames stay sequential; recovery selects a fresh live segment");
         require(public_stream_next_live_segment(playlist, 42) == 1,
                 "One unseen HLS segment should be processed once");
@@ -99,8 +109,8 @@ int main() {
                 "Unchanged HLS playlist must not replay old segments");
         require(public_stream_next_live_segment(playlist, 41) == 0,
                 "Adjacent segments must be decoded in sequence");
-        require(public_stream_next_live_segment(playlist, 40) == 1,
-                "An expired preceding sequence forces a live-edge decoder reset");
+        require(public_stream_next_live_segment(playlist, 40) == 0,
+                "An expired preceding sequence resumes at the earliest available frame");
         require(!public_stream_fresh_recovery_segment(playlist, 43),
                 "Unexpected decoder failure must never replay a consumed segment");
         require(public_stream_fresh_recovery_segment(playlist, 42) == 1,

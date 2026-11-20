@@ -25,7 +25,8 @@ namespace chromascope {
 class HlsPrefetchBuffer {
 public:
     using Fetch = std::function<std::vector<std::uint8_t>(const std::atomic<bool>&)>;
-    static constexpr std::size_t max_queued_segments = 2;
+    static constexpr std::size_t max_queued_segments = 4;
+    static constexpr std::size_t startup_segments = 3;
 
     explicit HlsPrefetchBuffer(Fetch fetch);
     ~HlsPrefetchBuffer();
@@ -54,6 +55,7 @@ private:
     bool producer_done_ = false;
     bool boundary_ = false;
     bool has_media_ = false;
+    bool startup_ready_ = false;
 };
 
 } // namespace chromascope

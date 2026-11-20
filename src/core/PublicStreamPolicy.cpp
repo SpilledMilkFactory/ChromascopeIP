@@ -143,14 +143,15 @@ std::optional<std::size_t> public_stream_next_live_segment(
     if (playlist.media_sequence >
         std::numeric_limits<std::uint64_t>::max() - newest_index) return std::nullopt;
     const auto newest_sequence = playlist.media_sequence + newest_index;
-    // Start a little behind live edge to allow a small jitter buffer to form.
+    // Start at least three listed segments behind the live edge when possible.
+    // A delayed presentation tolerates network jitter without chasing live.
     // Never request media outside the server's advertised rolling window.
-    if (!previous_sequence) return newest_index > 2 ? newest_index - 2 : 0;
+    if (!previous_sequence) return newest_index > 3 ? newest_index - 3 : 0;
     if (*previous_sequence >= newest_sequence) return std::nullopt;
     // A continuous H.264 decoder needs the intervening reference pictures.
     // Only skip to the live edge if they have expired from the playlist.
     if (*previous_sequence < playlist.media_sequence) {
-        if (playlist.media_sequence - *previous_sequence > 1) return newest_index;
+        if (playlist.media_sequence - *previous_sequence > 1) return 0;
         return 0;
     }
     return static_cast<std::size_t>(*previous_sequence - playlist.media_sequence + 1);

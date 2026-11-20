@@ -40,9 +40,11 @@ struct PublicStreamPlaylist {
     std::optional<PublicStreamUrl> variant_playlist;
 };
 // Pure live-playlist scheduling policy. It never fetches a resource.
-// On startup choose the newest listed segment; afterward fetch the next
-// available sequence in order to preserve decoder reference frames. If the
-// next sequence has expired, resync to the live edge in a new decoder.
+// On startup select an advertised segment several target durations behind
+// the live edge. Thereafter consume each still-advertised segment in order;
+// a manifest-reload deadline is NOT a deadline between segment downloads.
+// If the next segment has expired, resume from the oldest still-available
+// segment, resetting the decoder for the sequence gap.
 [[nodiscard]] std::optional<std::size_t> public_stream_next_live_segment(
     const PublicStreamPlaylist& playlist,
     std::optional<std::uint64_t> previous_sequence) noexcept;

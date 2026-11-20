@@ -79,9 +79,12 @@ from a feed provider; do not paste the surrounding HTML page URL.
   silently appearing live forever. Stop remains explicit and interruptible.
 - **Asynchronous HLS prefetch (v1.0.1):** a dedicated bounded worker now
   retrieves validated media segments before the synchronous OpenCV/FFmpeg
-  demuxer needs them. Exactly two completed 16 MiB-or-smaller segments may
-  wait in the prefetch queue; the decoder separately retains at most four
-  segments in its seek window. An explicitly verified discontinuity may hold
+  demuxer needs them. A bounded cache retains the currently validated media
+  playlist so that *all* advertised sequential segments are downloaded
+  promptly; the target duration applies only to playlist reloads, never as a
+  delay between already-advertised media files. At most four completed
+  16 MiB-or-smaller segments may wait in the prefetch queue; the decoder
+  separately retains at most four segments in its seek window. An explicitly verified discontinuity may hold
   one additional 16 MiB pending segment during the transition. These caps
   bound first-party in-memory buffering without granting FFmpeg any URL,
   cookies, credentials, redirects or additional network access. Prefetch is
@@ -90,8 +93,15 @@ from a feed provider; do not paste the surrounding HTML page URL.
   maximum timeout to finish during cancellation. The decoder now receives
   contiguous AVIO reads across ordinary segment boundaries, avoiding a short
   read solely because one `.ts` file ended. Normal playback initially begins
-  up to two listed segments behind the live edge to absorb jitter; decoder
-  recovery can still resynchronize at a newly advertised segment and may
+  up to three listed segments behind the live edge (or the oldest advertised
+  segment if fewer are available). FFmpeg's first AVIO read waits for a
+  three-segment reserve, but no longer than eight seconds and not past a
+  verified producer EOF; this adds intentional latency to absorb jitter.
+  These limits can cost up to 64 MiB in completed-segment prefetch storage,
+  plus the four-segment in-decoder seek window and one pending discontinuity
+  segment. A source that advertises too few segments or delivers more slowly
+  than realtime may still stall. Decoder recovery can still resynchronize
+  at a newly advertised segment and may
   briefly display damaged H.264 frames if that segment lacks a keyframe.
 - MPEG-TS payloads from successive HLS media sequences are passed to **one
   persistent OpenCV/FFmpeg demuxer**, instead of reopening a decoder for each

@@ -1,6 +1,7 @@
 #include "chromascope/HlsPrefetchBuffer.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
@@ -86,6 +87,19 @@ long long HlsPrefetchBuffer::read(char* destination, long long requested) {
         throw std::runtime_error("Excessive HLS decoder read request");
     if (!destination) throw std::invalid_argument("Null HLS decoder output buffer");
     if (boundary_) return 0;
+    if (!startup_ready_) {
+        // Buffer three complete, independently validated segments before the
+        // first AVIO read. This is a deliberate playout offset, not just a
+        // queue capacity: the decoder must not consume data immediately while
+        // the producer is still waiting for the next playlist update.
+        // A finite wait and producer_done_ fallback permit small/ended feeds
+        // and propagate genuine network errors rather than hanging forever.
+        std::unique_lock lock(mutex_);
+        available_.wait_for(lock, std::chrono::seconds(8), [this] {
+            return ready_.size() >= startup_segments || producer_done_ || stop_.load();
+        });
+        startup_ready_ = true;
+    }
     // Fill the requested AVIO buffer across .ts boundaries instead of exposing
     // a short read to FFmpeg at every segment edge. Only real discontinuities
     // and verified terminal conditions produce EOF.

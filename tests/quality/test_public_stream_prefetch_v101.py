@@ -12,7 +12,7 @@ POLICY = (ROOT / "src/core/PublicStreamPolicy.cpp").read_text()
 class HlsPrefetchContract(unittest.TestCase):
     def test_network_runs_on_a_bounded_producer(self):
         self.assertIn("producer_ = std::thread", PREFETCH)
-        self.assertIn("max_queued_segments = 2", HEADER)
+        self.assertIn("max_queued_segments = 4", HEADER)
         self.assertIn("space_.wait", PREFETCH)
         self.assertIn("available_.wait", PREFETCH)
         self.assertIn("producer_.join()", PREFETCH)
@@ -29,7 +29,7 @@ class HlsPrefetchContract(unittest.TestCase):
         self.assertIn("hls_restart_required_.store(true)", READER)
         self.assertIn("hls_restart_required_.load()", READER)
         self.assertIn("hls_realign_after_decode_error_", READER)
-        self.assertIn("newest_index > 2 ? newest_index - 2 : 0", POLICY)
+        self.assertIn("newest_index > 3 ? newest_index - 3 : 0", POLICY)
         self.assertIn("public_stream_fresh_recovery_segment", POLICY)
 
     def test_remote_security_remains_first_party_and_bounded(self):

@@ -532,75 +532,83 @@ private:
             hls_decoder_segment_fetched_ = true;
             return pending;
         }
-        // Normal live HLS playlists often stay unchanged for several polls.
-        // Do not treat five fast retries as a terminal stream failure.
+        // The last validated playlist is a bounded list of media URLs, not a
+        // request to fetch only one segment. Consume *all* advertised unseen
+        // segments before waiting for another playlist reload. Otherwise a
+        // target-duration sleep is injected between already available .ts
+        // files and the decoder starves after every segment.
         for (;;) {
             if ((cancel_ && cancel_->load()) || worker_stop.load())
                 throw std::runtime_error("Stream stop requested");
-            if (next_playlist_at_) sleep_until_or_stopped(*next_playlist_at_, &worker_stop);
-            const auto request_started = std::chrono::steady_clock::now();
-            std::optional<PublicStreamPlaylist> playlist;
-            if (!resolved_hls_manifest_) {
-                const auto text = local_playlist_file_.empty() ? [&] {
-                    const auto body = hls_resource(source_, kMaxPlaylistBytes, "HLS master playlist");
-                    return std::string(body.begin(), body.end());
-                }() : read_public_stream_local_playlist(local_playlist_file_);
-                auto initial = parse_public_stream_playlist(source_, text);
-                if (initial.variant_playlist) {
-                    media_source_ = *initial.variant_playlist;
-                } else {
-                    if (!local_playlist_file_.empty())
-                        throw std::runtime_error("Downloaded HLS playlist must be a single-variant master");
-                    playlist = std::move(initial);
-                }
-                resolved_hls_manifest_ = true;
+            std::optional<std::size_t> next;
+            if (current_hls_playlist_) {
+                next = hls_realign_after_decode_error_
+                    ? public_stream_fresh_recovery_segment(*current_hls_playlist_, last_segment_)
+                    : public_stream_next_live_segment(*current_hls_playlist_, last_segment_);
             }
-            if (!playlist) {
-                const auto body = hls_resource(media_source_, kMaxPlaylistBytes, "HLS media playlist");
-                const std::string text(body.begin(), body.end());
-                playlist = parse_public_stream_playlist(media_source_, text);
-                if (playlist->variant_playlist)
-                    throw std::runtime_error("Nested HLS master playlists are not permitted");
-            }
-            // On a decoder failure (not an HLS discontinuity), restart at
-            // the newest *fresh* listed segment. Replaying the failed segment
-            // or feeding an old GOP into a new decoder only prolongs corruption.
-            const auto next = hls_realign_after_decode_error_
-                ? public_stream_fresh_recovery_segment(*playlist, last_segment_)
-                : public_stream_next_live_segment(*playlist, last_segment_);
-            // Changed manifests are not refreshed before target duration;
-            // unchanged ones are retried at half target duration (RFC 8216).
-            next_playlist_at_ = request_started + public_stream_live_reload_delay(
-                playlist->target_duration_seconds, next.has_value());
             if (!next) {
-                const auto now = std::chrono::steady_clock::now();
-                if (!waiting_for_hls_advance_) waiting_for_hls_advance_ = now;
-                if (now - *waiting_for_hls_advance_ >
-                    public_stream_live_stall_budget(playlist->target_duration_seconds))
-                    throw std::runtime_error("Live HLS playlist stalled beyond the bounded recovery window");
-                continue;
+                // Only *exhausted* manifests require a reload. RFC 8216's
+                // reload deadline is independent of segment download timing.
+                if (next_playlist_at_) sleep_until_or_stopped(*next_playlist_at_, &worker_stop);
+                const auto request_started = std::chrono::steady_clock::now();
+                std::optional<PublicStreamPlaylist> playlist;
+                if (!resolved_hls_manifest_) {
+                    const auto text = local_playlist_file_.empty() ? [&] {
+                        const auto body = hls_resource(source_, kMaxPlaylistBytes, "HLS master playlist");
+                        return std::string(body.begin(), body.end());
+                    }() : read_public_stream_local_playlist(local_playlist_file_);
+                    auto initial = parse_public_stream_playlist(source_, text);
+                    if (initial.variant_playlist) {
+                        media_source_ = *initial.variant_playlist;
+                    } else {
+                        if (!local_playlist_file_.empty())
+                            throw std::runtime_error("Downloaded HLS playlist must be a single-variant master");
+                        playlist = std::move(initial);
+                    }
+                    resolved_hls_manifest_ = true;
+                }
+                if (!playlist) {
+                    const auto body = hls_resource(media_source_, kMaxPlaylistBytes, "HLS media playlist");
+                    const std::string text(body.begin(), body.end());
+                    playlist = parse_public_stream_playlist(media_source_, text);
+                    if (playlist->variant_playlist)
+                        throw std::runtime_error("Nested HLS master playlists are not permitted");
+                }
+                next = hls_realign_after_decode_error_
+                    ? public_stream_fresh_recovery_segment(*playlist, last_segment_)
+                    : public_stream_next_live_segment(*playlist, last_segment_);
+                // Keep the validated manifest for further segments. Do not
+                // issue another playlist request or sleep after each segment.
+                next_playlist_at_ = request_started + public_stream_live_reload_delay(
+                    playlist->target_duration_seconds, next.has_value());
+                current_hls_playlist_ = std::move(playlist);
+                if (!next) {
+                    const auto now = std::chrono::steady_clock::now();
+                    if (!waiting_for_hls_advance_) waiting_for_hls_advance_ = now;
+                    if (now - *waiting_for_hls_advance_ >
+                        public_stream_live_stall_budget(current_hls_playlist_->target_duration_seconds))
+                        throw std::runtime_error("Live HLS playlist stalled beyond the bounded recovery window");
+                    continue;
+                }
             }
-            // Download only the next validated media resource. Preserve
-            // reference frames when the preceding segment remains available.
-            // If an expired sequence forces a gap, or the playlist explicitly
-            // marks a discontinuity, reset FFmpeg *before* decoding the next TS.
-            const auto next_sequence = playlist->media_sequence + *next;
+            // Download only the next validated media resource, preserving
+            // sequence order and H.264 reference pictures. A genuine gap or
+            // declared discontinuity still resets the demuxer at the boundary.
+            const auto& playlist = *current_hls_playlist_;
+            const auto next_sequence = playlist.media_sequence + *next;
             const bool gap = last_segment_ &&
                 (next_sequence <= *last_segment_ ||
                  next_sequence - *last_segment_ != 1);
-            const bool discontinuity = playlist->discontinuity_before[*next];
-            auto segment = hls_resource(playlist->segments[*next], kMaxSegmentBytes,
-                                         "HLS segment");
+            const bool discontinuity = playlist.discontinuity_before[*next];
+            auto segment = hls_resource(playlist.segments[*next], kMaxSegmentBytes,
+                                        "HLS segment");
             last_segment_ = next_sequence;
             waiting_for_hls_advance_.reset();
-            // Only a decoder *already fed media* can cross a discontinuity.
-            // A newly created decoder must accept its first verified segment
-            // even if the previous decoder failed several sequences earlier.
             hls_realign_after_decode_error_ = false;
             if ((gap || discontinuity) && hls_decoder_segment_fetched_) {
                 pending_hls_segment_ = std::move(segment);
                 hls_restart_required_.store(true);
-                return {}; // buffered EOF after all prior validated TS segments
+                return {}; // EOF after already buffered, validated TS bytes
             }
             hls_decoder_segment_fetched_ = true;
             return segment;
@@ -610,6 +618,7 @@ private:
     PublicStreamUrl media_source_;
     std::string local_playlist_file_;
     bool resolved_hls_manifest_ = false;
+    std::optional<PublicStreamPlaylist> current_hls_playlist_;
     std::chrono::steady_clock::time_point start_;
     Format format_ = Format::Image;
     cv::VideoCapture capture_;

@@ -21,7 +21,10 @@ from a feed provider; do not paste the surrounding HTML page URL.
   ChromascopeIP cannot guarantee anonymity or hide a direct connection.
 - No JavaScript, webviews, cookies, authentication, embedded frames, ad code,
   analytics libraries, automatic preflight URLs, background feed discovery,
-  browser Referer, or follow-redirect mode is involved.
+  browser Referer, or follow-redirect mode is involved. An optional, explicit
+  **Firefox-compatible (User-Agent only)** request identity can be selected
+  before Start, for providers permitting independent-client playback. This is
+  not a Firefox session and does not supply a Referer or access rights.
 - User-controlled local ONNX inference remains local; live recording is still
   separately opt-in and saves to local disk only when started. Its existing
   user-visible overlay burn-in applies to streamed frames as well.
@@ -38,6 +41,12 @@ from a feed provider; do not paste the surrounding HTML page URL.
 - HTTPS peer and hostname checks remain **enabled**; redirects are denied.
   Proxies and ambient cookies are disabled. Individual requests have size and
   time budgets; DNS validation runs on the capture worker.
+- The default HTTP User-Agent remains `ChromascopeIP/1.0 (+private-media-viewer)`.
+  The session-only optional identity sends the Firefox 158 Linux User-Agent
+  used by a successful one-header compatibility test. It is applied to every
+  source, playlist and segment request in the selected stream and is not saved
+  in preferences. A 200 for a master playlist does not establish that the
+  operator permits use, or that media playlists and segments will succeed.
 - Remote bytes are not handed to FFmpeg as URLs: only bounded **in-memory**
   content is decoded by the existing OpenCV build. A still-image dimension
   preflight rejects oversized geometry prior to image decode. This does not
@@ -92,12 +101,14 @@ shows `STREAM LIVE` after a decoded frame arrives; connecting, buffering and
 failed requests have distinct states. CTests are offline, so green tests do
 not imply any third-party service grants direct access.
 
-An `HTTP 403 Forbidden` response means that the remote server denied this
+An `HTTP 403 Forbidden` response means that the remote server denied that
 request. A saved master `.m3u8` may bypass re-fetching that initial *text*,
-but it cannot authorize the child playlist or video segments. ChromascopeIP
-does not attempt to circumvent a provider's access rules using forged
-`Referer`, browser cookies, site scripts or user-agent masquerading. Choose a
-feed explicitly authorized for direct unauthenticated HTTPS access instead.
+but it cannot authorize the child playlist or video segments. For an explicitly
+permitted direct-client source, an opt-in Firefox-compatible User-Agent may
+improve request compatibility, as demonstrated by a one-header comparison.
+It does **not** bypass authentication, add a Referer, create a browser session,
+or grant playback/recording rights. Do not use this mode to evade a provider's
+access restrictions; obtain supported integration details when required.
 
 ### Cross-platform qualification
 

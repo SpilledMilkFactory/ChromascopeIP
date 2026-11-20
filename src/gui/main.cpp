@@ -210,6 +210,7 @@ struct App {
     std::array<char, 4097> public_stream_playlist_file{}; // Optional local master; never persisted.
     std::shared_ptr<std::atomic<bool>> public_stream_cancel;
     int public_stream_kind = 0; // Auto, image, unencrypted HLS, bounded MP4.
+    int public_stream_request_profile = 0; // Session-only; no preference persistence.
     int detector_profile = 0; // 0 = disabled; 1 = verified NanoDet raw/person detection
     chromascope::DnnGuiSession detector_session;
     chromascope::DnnGuiOptions detector_options;
@@ -571,7 +572,8 @@ struct App {
             auto reader = chromascope::make_public_stream_reader(
                 public_stream_url.data(), public_stream_cancel,
                 static_cast<chromascope::PublicStreamMediaKind>(public_stream_kind),
-                public_stream_playlist_file.data());
+                public_stream_playlist_file.data(),
+                static_cast<chromascope::PublicStreamRequestProfile>(public_stream_request_profile));
             camera_texture.reset();
             camera_view.fit();
             camera_frame_visible = false;
@@ -2378,6 +2380,17 @@ struct App {
             responsive_combo("Direct media type", &public_stream_kind,
                 "Automatic (by URL extension)\0JPEG/PNG/MJPEG snapshot\0"
                 "HLS MPEG-TS (.m3u8)\0Bounded MP4\0");
+            // A running connection keeps the identity selected at Start; do
+            // not suggest changes to this control affect an active request.
+            ImGui::BeginDisabled(current_state == chromascope::CameraCaptureState::Starting ||
+                                 current_state == chromascope::CameraCaptureState::Capturing ||
+                                 current_state == chromascope::CameraCaptureState::Stopping);
+            responsive_combo("HTTPS request identity", &public_stream_request_profile,
+                "Standard (ChromascopeIP)\0Firefox-compatible (User-Agent only)\0");
+            ImGui::EndDisabled();
+            ImGui::TextWrapped("Optional request compatibility for sources permitting direct playback."
+                " Changes only the User-Agent on HTTPS media requests. No Firefox session,"
+                " cookies, Referer, scripts, or authorization are supplied.");
             ImGui::TextUnformatted("DOWNLOADED HLS MASTER (OPTIONAL)");
             ImGui::SetNextItemWidth(-1.0F);
             ImGui::InputTextWithHint("##public_stream_playlist_file", "Absolute path to playlist.m3u8",

@@ -153,7 +153,8 @@ int curl_progress(void* pointer, curl_off_t, curl_off_t, curl_off_t, curl_off_t)
 }
 [[nodiscard]] Response fetch_https(const PublicStreamUrl& address,
                                    std::size_t limit, bool image,
-                                   const std::atomic<bool>* cancel) {
+                                   const std::atomic<bool>* cancel,
+                                   PublicStreamRequestProfile request_profile) {
     if (cancel && cancel->load()) throw std::runtime_error("Stream stop requested");
     const auto ip = checked_public_ip(address.host);
     static const bool curl_ready = [] { return curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK; }();
@@ -184,7 +185,7 @@ int curl_progress(void* pointer, curl_off_t, curl_off_t, curl_off_t, curl_off_t)
     curl_easy_setopt(curl.get(), CURLOPT_CONNECTTIMEOUT_MS, 2500L);
     curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT_MS, 9000L);
     curl_easy_setopt(curl.get(), CURLOPT_MAXFILESIZE_LARGE, static_cast<curl_off_t>(limit));
-    curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, "ChromascopeIP/1.0 (+private-media-viewer)");
+    curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, public_stream_user_agent(request_profile));
     curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, &curl_bytes);
     curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &sink);
     curl_easy_setopt(curl.get(), CURLOPT_NOSIGNAL, 1L);
@@ -220,13 +221,14 @@ struct HttpCloser { void operator()(void* handle) const noexcept { if (handle) W
 using HttpHandle = std::unique_ptr<void, HttpCloser>;
 [[nodiscard]] Response fetch_https(const PublicStreamUrl& address,
                                    std::size_t limit, bool image,
-                                   const std::atomic<bool>* cancel) {
+                                   const std::atomic<bool>* cancel,
+                                   PublicStreamRequestProfile request_profile) {
     if (cancel && cancel->load()) throw std::runtime_error("Stream stop requested");
     const auto ip = checked_public_ip(address.host);
     const std::wstring host(address.host.begin(), address.host.end());
     const std::wstring path(address.path_and_query.begin(), address.path_and_query.end());
     const std::wstring pinned(ip.begin(), ip.end());
-    HttpHandle session(WinHttpOpen(L"ChromascopeIP/1.0 (private-media-viewer)",
+    HttpHandle session(WinHttpOpen(public_stream_user_agent_wide(request_profile),
         WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME,
         WINHTTP_NO_PROXY_BYPASS, 0));
     if (!session) throw std::runtime_error("HTTPS transport unavailable");
@@ -278,7 +280,7 @@ using HttpHandle = std::unique_ptr<void, HttpCloser>;
 }
 #else
 [[nodiscard]] Response fetch_https(const PublicStreamUrl&, std::size_t, bool,
-                                   const std::atomic<bool>*) {
+                                   const std::atomic<bool>*, PublicStreamRequestProfile) {
     throw std::runtime_error("Secure HTTPS support was not compiled into this build");
 }
 #endif
@@ -322,10 +324,14 @@ public:
     explicit PublicStreamReader(PublicStreamUrl source,
                                 std::shared_ptr<std::atomic<bool>> cancel,
                                 PublicStreamMediaKind kind,
-                                std::string_view local_playlist_file)
+                                std::string_view local_playlist_file,
+                                PublicStreamRequestProfile request_profile)
         : source_(std::move(source)), media_source_(source_),
           local_playlist_file_(local_playlist_file),
-          start_(std::chrono::steady_clock::now()), cancel_(std::move(cancel)) {
+          start_(std::chrono::steady_clock::now()), cancel_(std::move(cancel)),
+          request_profile_(request_profile) {
+        if (!valid_public_stream_request_profile(request_profile_))
+            throw std::invalid_argument("Unsupported HTTPS request profile");
         if (kind == PublicStreamMediaKind::HlsMpegTs ||
             (kind == PublicStreamMediaKind::Auto && is_hls_url(source_)))
             format_ = Format::Hls;
@@ -340,7 +346,7 @@ public:
         cv::Mat frame;
         if (format_ == Format::Image) {
             // A bounded, fresh HTTPS GET, not an embedded webpage or FFmpeg URL.
-            const auto response = fetch_https(source_, kMaxImageBytes, true, cancel_.get());
+            const auto response = fetch_https(source_, kMaxImageBytes, true, cancel_.get(), request_profile_);
             const auto header = inspect_image_header(response.body);
             if (header.width <= 0 || header.height <= 0 ||
                 header.width > resources::max_side || header.height > resources::max_side ||
@@ -357,7 +363,7 @@ public:
                 capture_.release();
                 frames_in_segment_ = 0;
                 const auto source_bytes = format_ == Format::Mp4 ?
-                    fetch_https(source_, kMaxClipBytes, false, cancel_.get()).body : next_hls_segment();
+                    fetch_https(source_, kMaxClipBytes, false, cancel_.get(), request_profile_).body : next_hls_segment();
                 const auto reader = cv::makePtr<BoundedMemoryReader>(source_bytes);
                 // Decoder sees a bounded in-memory byte stream only, never a URL.
 #if defined(_WIN32)
@@ -398,7 +404,7 @@ private:
     [[nodiscard]] std::vector<std::uint8_t> hls_resource(
         const PublicStreamUrl& url, std::size_t limit, const char* stage) const {
         try {
-            return fetch_https(url, limit, false, cancel_.get()).body;
+            return fetch_https(url, limit, false, cancel_.get(), request_profile_).body;
         } catch (const std::exception& error) {
             // stage is always a first-party literal, never a URL or response value.
             throw std::runtime_error(std::string(stage) + ": " + error.what());
@@ -485,15 +491,18 @@ private:
     std::uint64_t index_ = 0;
     std::optional<std::chrono::steady_clock::time_point> last_output_at_;
     std::shared_ptr<std::atomic<bool>> cancel_;
+    const PublicStreamRequestProfile request_profile_;
 };
 } // namespace
 
 std::unique_ptr<CameraFrameReader> make_public_stream_reader(
     std::string_view url, std::shared_ptr<std::atomic<bool>> cancel,
-    PublicStreamMediaKind media_kind, std::string_view local_playlist_file) {
+    PublicStreamMediaKind media_kind, std::string_view local_playlist_file,
+    PublicStreamRequestProfile request_profile) {
     // Validation runs on the GUI thread. No DNS query, HTTP request or
     // remote content handling until explicit capture-worker read().
     return std::make_unique<PublicStreamReader>(parse_public_stream_url(url),
-                                                std::move(cancel), media_kind, local_playlist_file);
+                                                std::move(cancel), media_kind, local_playlist_file,
+                                                request_profile);
 }
 } // namespace chromascope

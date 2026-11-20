@@ -2,6 +2,7 @@
 
 #include "chromascope/AsyncCameraCapture.hpp"
 #include "chromascope/PublicStreamPolicy.hpp"
+#include "chromascope/PublicStreamRequestProfile.hpp"
 
 #include <memory>
 #include <atomic>
@@ -17,6 +18,7 @@ enum class PublicStreamMediaKind { Auto, Snapshot, HlsMpegTs, Mp4 };
 [[nodiscard]] std::unique_ptr<CameraFrameReader> make_public_stream_reader(
     std::string_view https_url, std::shared_ptr<std::atomic<bool>> cancel = {},
     PublicStreamMediaKind media_kind = PublicStreamMediaKind::Auto,
-    std::string_view local_playlist_file = {});
+    std::string_view local_playlist_file = {},
+    PublicStreamRequestProfile request_profile = PublicStreamRequestProfile::Standard);
 
 } // namespace chromascope

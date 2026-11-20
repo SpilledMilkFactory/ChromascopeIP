@@ -1,5 +1,6 @@
 #include "chromascope/PublicStreamPolicy.hpp"
 #include "chromascope/PublicStreamDiagnostics.hpp"
+#include "chromascope/PublicStreamRequestProfile.hpp"
 
 #include <array>
 #include <cstdint>
@@ -21,6 +22,19 @@ template<class F> void rejected(F function, const char* message) {
 int main() {
     try {
         using namespace chromascope;
+        constexpr auto standard = PublicStreamRequestProfile::Standard;
+        constexpr auto firefox = PublicStreamRequestProfile::FirefoxCompatible;
+        static_assert(valid_public_stream_request_profile(standard));
+        static_assert(valid_public_stream_request_profile(firefox));
+        static_assert(!valid_public_stream_request_profile(static_cast<PublicStreamRequestProfile>(2)));
+        require(std::string_view(public_stream_user_agent(standard)).starts_with("ChromascopeIP/"),
+                "Default stream identity should remain ChromascopeIP");
+        require(std::string_view(public_stream_user_agent(firefox)) ==
+                "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+                "Firefox-compatible identity must match the isolated curl test");
+        require(std::wstring_view(public_stream_user_agent_wide(firefox)) ==
+                L"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+                "Windows and Linux must send the same selected identity");
         // Diagnostic strings are constructed from bounded numeric HTTP status
         // only, never the remote URL or potentially sensitive response body.
         require(public_stream_http_failure(403).find("403 Forbidden") != std::string::npos,

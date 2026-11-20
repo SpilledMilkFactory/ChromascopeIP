@@ -245,7 +245,8 @@ class ReleaseStagingM126Tests(unittest.TestCase):
     def test_reusable_release_candidate_workflow(self):
         rc_workflow = (ROOT / '.github/workflows/release-candidate.yml').read_text()
         self.assertRegex(rc_workflow, r'(?m)^  workflow_call:$')
-        self.assertRegex(rc_workflow, r'(?m)^  pull_request:$')
+        self.assertNotRegex(rc_workflow, r'(?m)^  pull_request:$')
+        self.assertIn('workflow_call:', rc_workflow)
         self.assertRegex(rc_workflow, r'(?m)^  workflow_dispatch:$')
         self.assertFalse(policy.check_workflow(ROOT / '.github/workflows/release-candidate.yml'))
 

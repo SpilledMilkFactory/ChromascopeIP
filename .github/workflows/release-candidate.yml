@@ -1,10 +1,10 @@
+# Historical v1.0.0 artifact qualification is opt-in during v1.0.1 development.
 # M12.2: final v1.0.0 release-CANDIDATE regression, not release publication.
 # Reuses accepted same-commit Quality and five-platform package matrix gates;
 # artifacts and SBOM drafts are retrieved only from THIS workflow run.
 name: Release Candidate CI
 
 on:
-  pull_request:
   workflow_dispatch:
   workflow_call:
 
@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: release-candidate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   quality:

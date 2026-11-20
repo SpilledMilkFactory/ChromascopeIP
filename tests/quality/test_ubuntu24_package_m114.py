@@ -180,14 +180,14 @@ class Ubuntu24PackagePolicyTests(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/ci-ubuntu.yml').read_text()
         for key in ('Build Ubuntu 24.04 AMD64 candidate package',
                     'Smoke-test clean Ubuntu 24.04 installation',
-                    "if: matrix.os == 'ubuntu-24.04'",
+                    "if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}",
                     'CMAKE_INSTALL_PREFIX=/usr',
                     'CMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu',
                     'scripts/package_ubuntu24.py --inspect',
                     'scripts/smoke_ubuntu24_chroot.sh',
                     'name: ChromascopeIP-1.0.0-Ubuntu24.04-amd64',
                     'UNQUALIFIED-M11.4-Ubuntu24.04-amd64-diagnostics',
-                    "if: failure() && matrix.os == 'ubuntu-24.04'",
+                    "if: ${{ failure() && inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}",
                     'retention-days: 2', 'archive: false',
                     'dpkg-dev patchelf binutils debootstrap',
                     'sudo bash scripts/smoke_ubuntu24_chroot.sh'):

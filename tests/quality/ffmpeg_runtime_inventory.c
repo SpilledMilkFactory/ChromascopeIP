@@ -30,15 +30,20 @@ static int jpegxl_parser_present(void) {
     return 0;
 }
 
-/* Check JPEG XL codecs by codec ID, not by the public decoder name.
- * FFmpeg 8.0.1 uses libjxl and libjxl_anim for the two external decoders.
+/* Newer FFmpeg releases distinguish animated JPEG XL with a separate
+ * AV_CODEC_ID_JPEGXL_ANIM; older distribution headers do not define it.
+ * Keep the stable still-image codec ID test and also reject the registered
+ * animated decoder by name so one source builds across supported versions.
  */
 static int jpegxl_decoder_present(void) {
     void *opaque = NULL;
     const AVCodec *codec;
     while ((codec = av_codec_iterate(&opaque)) != NULL) {
         if (av_codec_is_decoder(codec) &&
-            (codec->id == AV_CODEC_ID_JPEGXL || codec->id == AV_CODEC_ID_JPEGXL_ANIM))
+            (codec->id == AV_CODEC_ID_JPEGXL ||
+             (codec->name &&
+              (strcmp(codec->name, "libjxl_anim") == 0 ||
+               strcmp(codec->name, "jpegxl_anim") == 0))))
             return 1;
     }
     return 0;

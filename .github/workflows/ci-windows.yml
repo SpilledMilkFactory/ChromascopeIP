@@ -7,7 +7,19 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      legacy_packages:
+        description: 'Also build and smoke-test the historical v1.0.0 packages'
+        required: false
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      legacy_packages:
+        description: 'Run historical v1.0.0 packaging steps for legacy matrix callers'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -190,6 +202,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows GUI-enabled CTests failed.' }
 
       - name: Locate authenticated Microsoft VC143 x64 redistribution files
+        if: ${{ inputs.legacy_packages == true }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -225,6 +238,7 @@ jobs:
           "CHROMASCOPE_VC_REDIST_DIR=$crt" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Build and inspect portable Windows x64 ZIP candidate
+        if: ${{ inputs.legacy_packages == true }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -241,6 +255,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP inspection failed.' }
 
       - name: Smoke-test relocated portable Windows CLI without developer PATH
+        if: ${{ inputs.legacy_packages == true }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -289,6 +304,7 @@ jobs:
           # The interactive GUI needs later Windows 10/11 manual sign-off (M11.8).
 
       - name: Upload smoke-qualified Windows x64 ZIP candidate
+        if: ${{ inputs.legacy_packages == true }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ChromascopeIP-1.0.0-Windows-x64.zip
@@ -298,7 +314,7 @@ jobs:
           retention-days: 7
 
       - name: Upload UNQUALIFIED Windows candidate for failure diagnosis
-        if: failure()
+        if: ${{ failure() && inputs.legacy_packages == true }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: UNQUALIFIED-M11.6-Windows-x64-diagnostics
@@ -328,6 +344,11 @@ jobs:
             '- OpenCV: 5.1.0, pinned source, static modules using dynamic MSVC CRT',
             '- C++ core, CLI, and test executables: built in Release configuration',
             '- CTest: all registered tests passed, including original JPEG fixtures and CLI export',
-            '- Windows GUI compiled; ZIP includes CLI and GUI, app-local CRT DLLs, explicit PE dependency inventory',
-            '- Relocated CLI startup smoke passed; interactive GUI and Windows 10/11 client compatibility remain unqualified'
+            '- Windows GUI compiled; historical v1.0.0 ZIP packaging is opt-in (legacy_packages)',
+            '- Interactive GUI and Windows 10/11 client compatibility remain unqualified'
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          if ('${{ inputs.legacy_packages }}' -eq 'true') {
+            '- Historical v1.0.0 ZIP packaging and relocated CLI smoke PASSED' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          } else {
+            '- Historical v1.0.0 ZIP packaging skipped for portable v1.0.1 PR' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }

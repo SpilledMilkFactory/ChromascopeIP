@@ -80,7 +80,7 @@ class Debian12PackagePolicyTests(unittest.TestCase):
         for token in ('debootstrap', 'chroot', 'apt-get install', '--list-profiles',
                       'grayscale', 'env -i', 'smoke.bmp'):
             self.assertIn(token, script)
-        self.assertIn("if: matrix.version == '12'", workflow)
+        self.assertIn("if: ${{ inputs.legacy_packages == true && matrix.version == '12' }}", workflow)
         self.assertIn('Build Debian 12 AMD64 candidate package', workflow)
         self.assertIn('Smoke-test clean Debian 12 installation', workflow)
         self.assertIn('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a', workflow)
@@ -454,11 +454,11 @@ class DebianCleanInstallDiagnosticsTests(unittest.TestCase):
     def test_unqualified_failure_artifact_cannot_replace_success_gate(self):
         workflow = (ROOT / '.github/workflows/ci-debian.yml').read_text()
         self.assertIn('UNQUALIFIED-M11.2-Debian12-amd64-diagnostics', workflow)
-        self.assertIn("if: failure() && matrix.version == '12'", workflow)
+        self.assertIn("if: ${{ failure() && inputs.legacy_packages == true && matrix.version == '12' }}", workflow)
         self.assertIn('retention-days: 2', workflow)
         self.assertIn('if-no-files-found: ignore', workflow)
         self.assertIn('Upload tested Debian 12 candidate package', workflow)
-        self.assertIn("if: matrix.version == '12'", workflow)
+        self.assertIn("if: ${{ inputs.legacy_packages == true && matrix.version == '12' }}", workflow)
 
 
 class DebianProcfsOriginRegressionTests(unittest.TestCase):

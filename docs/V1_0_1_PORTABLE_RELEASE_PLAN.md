@@ -69,3 +69,26 @@ No production FFmpeg revision, CVE applicability analysis, Debian 12 binary, tar
 ## P2 candidate implementation (2026-11-20)
 
 P2 tooling and exact pins are documented in [`V1_0_1_P2_SECURE_RUNTIME.md`](V1_0_1_P2_SECURE_RUNTIME.md). This is a **candidate builder**, not completed security qualification or release approval. P3–P6 remain gated on actual Debian 12 build evidence, dependency closure, and target testing. The accepted streaming implementation remains feature-frozen.
+
+
+## Pull-request CI during portable-release development
+
+Normal v1.0.1 pull requests run native Release/CTest checks on Debian 12/13,
+Ubuntu 24.04/26.04, and Windows x64, plus the Quality sanitizer/static-analysis
+suite. Legacy v1.0.0 package building and clean-install smokes are disabled
+by default on those jobs; this preserves cross-platform regression coverage
+without spending CI time on four discontinued Linux .deb artifacts.
+
+The historical **Package Matrix CI** and **Release Candidate CI** have
+`workflow_dispatch` and `workflow_call` but are not pull-request triggers.
+Their downstream native jobs opt in with `legacy_packages: true` so
+requested v1.0.0 evidence can still be reconstructed. They do **not**
+qualify the forthcoming v1.0.1 portable Linux tarball and Windows ZIP.
+The new P2 dependency workflow remains manually dispatched; P3–P6 will
+introduce dedicated portable artifact-build and validation gates before
+release.
+
+GitHub branch-protection rules must name only the active required PR checks;
+remove obsolete Package Matrix / Release Candidate required contexts before
+expecting the new PR gates to complete. Never remove the native OS / Quality
+required contexts simply because v1.0.0 packaging is retired.

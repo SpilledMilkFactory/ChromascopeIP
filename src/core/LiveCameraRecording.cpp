@@ -1,3 +1,10 @@
+// Windows SDK min/max macros must not change C++ standard-library calls.
+#ifdef _WIN32
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#endif
+
 #include "chromascope/LiveCameraRecording.hpp"
 #include "chromascope/ImageFrameCV.hpp"
 #include "chromascope/AnnotationBridge.hpp"
@@ -184,8 +191,8 @@ cv::Mat render_live_recording_pixels(const CameraFramePacket& capture,
         const double y1 = std::clamp(box->y + box->height, 0.0, static_cast<double>(image.height()));
         if (!(x1 > x0 && y1 > y0)) continue;
         const cv::Point first(static_cast<int>(std::floor(x0)), static_cast<int>(std::floor(y0)));
-        const cv::Point last(std::max(first.x, static_cast<int>(std::ceil(x1)) - 1),
-                             std::max(first.y, static_cast<int>(std::ceil(y1)) - 1));
+        const cv::Point last((std::max)(first.x, static_cast<int>(std::ceil(x1)) - 1),
+                             (std::max)(first.y, static_cast<int>(std::ceil(y1)) - 1));
         cv::rectangle(pixels, first, last, outline, 2, cv::LINE_AA);
         if (!presentation.show_labels) continue;
         auto caption = object_confidence_label(detection);
@@ -196,15 +203,15 @@ cv::Mat render_live_recording_pixels(const CameraFramePacket& capture,
         constexpr int thickness = 1;
         int baseline = 0;
         const cv::Size label_size = cv::getTextSize(caption, font, scale, thickness, &baseline);
-        const int width = std::min(image.width(), label_size.width + 8);
-        const int height = std::min(image.height(), label_size.height + baseline + 5);
+        const int width = (std::min)(image.width(), label_size.width + 8);
+        const int height = (std::min)(image.height(), label_size.height + baseline + 5);
         if (width <= 0 || height <= 0) continue;
         const int label_x = std::clamp(first.x, 0, image.width() - width);
         const int preferred_y = first.y >= height + 3 ? first.y - height - 3 : first.y + 3;
         const int label_y = std::clamp(preferred_y, 0, image.height() - height);
         cv::rectangle(pixels, cv::Rect(label_x, label_y, width, height), label_background, cv::FILLED);
         cv::putText(pixels, caption, cv::Point(label_x + 4,
-                    label_y + std::min(height - 2, label_size.height + 1)),
+                    label_y + (std::min)(height - 2, label_size.height + 1)),
                     font, scale, label_text, thickness, cv::LINE_AA);
     }
     return pixels;
@@ -355,7 +362,7 @@ void LiveCameraRecorder::run(fs::path destination, LiveRecordingFormat format, d
             if (stamp->value < *first_time) continue;
             const long double seconds = static_cast<long double>((stamp->value - *first_time).count()) / 1.0e9L;
             const long double position = seconds * static_cast<long double>(fps);
-            if (!std::isfinite(position) || position > static_cast<long double>(std::numeric_limits<std::uint64_t>::max() / 2))
+            if (!std::isfinite(position) || position > static_cast<long double>((std::numeric_limits<std::uint64_t>::max)() / 2))
                 throw std::runtime_error("Recording timestamp exceeded supported range");
             const auto slot = static_cast<std::uint64_t>(position);
             if (slot < written) continue; // Too early for the next output frame.

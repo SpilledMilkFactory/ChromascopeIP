@@ -144,7 +144,9 @@ class TrialSafeguards(unittest.TestCase):
 
     def test_jpegxl_source_names_and_runtime_decoder_inventory(self):
         source = (ROOT / 'tests/quality/ffmpeg_runtime_inventory.c').read_text()
-        self.assertIn('AV_CODEC_ID_JPEGXL_ANIM', source)
+        self.assertNotIn('codec->id == AV_CODEC_ID_JPEGXL_ANIM', source)
+        self.assertIn('codec->id == AV_CODEC_ID_JPEGXL', source)
+        self.assertIn('strcmp(codec->name, "libjxl_anim")', source)
         self.assertIn('AV_CODEC_ID_JPEGXL', source)
         self.assertIn('jpegxl_decoder_compiled=%s', source)
         self.assertIn('jpegxl_decoder_compiled=no',

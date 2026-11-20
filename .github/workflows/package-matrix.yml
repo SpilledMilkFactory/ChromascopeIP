@@ -1,10 +1,10 @@
+# Historical v1.0.0 artifact qualification is opt-in during v1.0.1 development.
 # M11.7: all five packages must be built/tested from this SAME workflow run.
 # Each job calls an existing native CI workflow at the same commit; no artifact
 # is imported from an unrelated push, PR or earlier run.
 name: Package Matrix CI
 
 on:
-  pull_request:
   workflow_dispatch:
   workflow_call:
 
@@ -13,24 +13,30 @@ permissions:
 
 concurrency:
   group: package-matrix-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   debian:
     name: Debian 12 + 13 native package qualification
     uses: ./.github/workflows/ci-debian.yml
+    with:
+      legacy_packages: true
     permissions:
       contents: read
 
   ubuntu:
     name: Ubuntu 24.04 + 26.04 native package qualification
     uses: ./.github/workflows/ci-ubuntu.yml
+    with:
+      legacy_packages: true
     permissions:
       contents: read
 
   windows:
     name: Windows x64 native package qualification
     uses: ./.github/workflows/ci-windows.yml
+    with:
+      legacy_packages: true
     permissions:
       contents: read
 

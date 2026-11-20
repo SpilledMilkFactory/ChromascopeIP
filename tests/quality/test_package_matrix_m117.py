@@ -270,7 +270,7 @@ class PackageMatrixM117Tests(unittest.TestCase):
                     self.assertEqual(self._input(step, 'archive'), 'true')
                     self.assertEqual(self._input(step, 'if-no-files-found'), 'ignore')
                     self.assertEqual(self._input(step, 'retention-days'), '2')
-                    self.assertIn('if: failure()', step)
+                    self.assertIn('failure() && inputs.legacy_packages == true', step)
 
     def test_qualified_report_upload_honors_its_name(self):
         source = (ROOT / '.github/workflows/package-matrix.yml').read_text()

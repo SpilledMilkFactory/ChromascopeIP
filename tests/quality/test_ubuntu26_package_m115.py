@@ -180,14 +180,14 @@ class Ubuntu26PackagePolicyTests(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/ci-ubuntu.yml').read_text()
         for key in ('Build Ubuntu 26.04 AMD64 candidate package',
                     'Smoke-test clean Ubuntu 26.04 installation',
-                    "if: matrix.os == 'ubuntu-26.04'",
+                    "if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}",
                     'CMAKE_INSTALL_PREFIX=/usr',
                     'CMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu',
                     'scripts/package_ubuntu26.py --inspect',
                     'scripts/smoke_ubuntu26_chroot.sh',
                     'name: ChromascopeIP-1.0.0-Ubuntu26.04-amd64',
                     'UNQUALIFIED-M11.5-Ubuntu26.04-amd64-diagnostics',
-                    "if: failure() && matrix.os == 'ubuntu-26.04'",
+                    "if: ${{ failure() && inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}",
                     'retention-days: 2', 'archive: false',
                     'dpkg-dev patchelf binutils debootstrap',
                     'sudo bash scripts/smoke_ubuntu26_chroot.sh'):

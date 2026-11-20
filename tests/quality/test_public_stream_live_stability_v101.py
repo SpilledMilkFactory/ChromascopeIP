@@ -27,7 +27,8 @@ class HlsLiveStabilityRegressions(unittest.TestCase):
 
     def test_segment_first_frame_uses_normal_cadence(self):
         self.assertIn('void pace_decoded_frame()', READER)
-        self.assertGreaterEqual(READER.count('pace_decoded_frame();'), 2)
+        self.assertEqual(READER.count('pace_decoded_frame();'), 1)
+        self.assertIn('HlsSequentialReader', READER)
         self.assertIn('last_output_at_', READER)
 
     def test_stream_privacy_budget_and_cancel_unchanged(self):

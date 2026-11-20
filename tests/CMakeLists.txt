@@ -916,3 +916,8 @@ chromascope_add_cpp_test(chromascope_unit_live_camera_recording
 # v1.0.1: secure public stream URL and offline playlist parsing (NO network I/O).
 chromascope_add_cpp_test(chromascope_unit_public_stream_policy
     unit/test_public_stream_policy.cpp "unit;security;privacy;network;negative" 20)
+
+# v1.0.1: deterministic MPEG-TS cross-segment decoder byte window regression.
+# No network, camera, remote files or FFmpeg initialization required.
+chromascope_add_cpp_test(chromascope_unit_hls_byte_window
+    unit/test_hls_byte_window.cpp "unit;streaming;security;privacy;regression" 20)

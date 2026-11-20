@@ -87,15 +87,24 @@ int main() {
                 "One unseen HLS segment should be processed once");
         require(!public_stream_next_live_segment(playlist, 43),
                 "Unchanged HLS playlist must not replay old segments");
+        require(public_stream_next_live_segment(playlist, 41) == 0,
+                "Adjacent segments must be decoded in sequence");
         require(public_stream_next_live_segment(playlist, 40) == 1,
-                "A lagging player must skip stale segments rather than catch up in bursts");
+                "An expired preceding sequence forces a live-edge decoder reset");
+        require(!public_stream_fresh_recovery_segment(playlist, 43),
+                "Unexpected decoder failure must never replay a consumed segment");
+        require(public_stream_fresh_recovery_segment(playlist, 42) == 1,
+                "Decoder recovery must select the newest fresh segment");
         const auto advanced = parse_public_stream_playlist(feed,
             "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MEDIA-SEQUENCE:44\n"
             "#EXTINF:4,\n44.ts\n#EXTINF:4,\n45.ts\n");
         require(advanced.target_duration_seconds == 4 &&
-                public_stream_next_live_segment(advanced, 43) == 1 &&
+                public_stream_next_live_segment(advanced, 43) == 0 &&
                 !public_stream_next_live_segment(advanced, 45),
                 "Advancing live window must select its newest unseen segment once");
+        require(public_stream_fresh_recovery_segment(advanced, 43) == 1 &&
+                !public_stream_fresh_recovery_segment(advanced, 45),
+                "Decoder recovery must not revisit the old or latest downloaded segment");
         for (std::string_view invalid : {
             "#EXTM3U\n#EXT-X-TARGETDURATION:0\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
             "#EXTM3U\n#EXT-X-TARGETDURATION:61\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
@@ -135,6 +144,9 @@ int main() {
             "#EXTINF:3,\n42.ts\n#EXT-X-DISCONTINUITY\n"
             "#EXT-X-KEY:METHOD=NONE\n#EXTINF:3,\n43.ts\n");
         require(metadata_media.media_sequence == 42 && metadata_media.segments.size() == 2 &&
+                metadata_media.discontinuity_before.size() == 2 &&
+                !metadata_media.discontinuity_before[0] &&
+                metadata_media.discontinuity_before[1] &&
                 metadata_media.segments[1].path_and_query.ends_with("43.ts"),
                 "Unencrypted media discontinuity markers must preserve sequence and segment order");
         // Error messages must reveal only reviewed directive *names*, never

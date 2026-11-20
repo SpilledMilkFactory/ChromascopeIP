@@ -145,10 +145,23 @@ std::optional<std::size_t> public_stream_next_live_segment(
     const auto newest_sequence = playlist.media_sequence + newest_index;
     if (!previous_sequence) return newest_index;
     if (*previous_sequence >= newest_sequence) return std::nullopt;
-    // An HLS player must not attempt to catch up by rapidly replaying stale
-    // segments. If more than one sequence is pending, resynchronize to live.
-    if (newest_sequence - *previous_sequence > 1) return newest_index;
-    return newest_index; // precisely the one unseen segment
+    // A continuous H.264 decoder needs the intervening reference pictures.
+    // Only skip to the live edge if they have expired from the playlist.
+    if (*previous_sequence < playlist.media_sequence) {
+        if (playlist.media_sequence - *previous_sequence > 1) return newest_index;
+        return 0;
+    }
+    return static_cast<std::size_t>(*previous_sequence - playlist.media_sequence + 1);
+}
+
+std::optional<std::size_t> public_stream_fresh_recovery_segment(
+    const PublicStreamPlaylist& playlist,
+    std::optional<std::uint64_t> previous_sequence) noexcept {
+    const auto newest = public_stream_next_live_segment(playlist, std::nullopt);
+    if (!newest || (previous_sequence &&
+        playlist.media_sequence + *newest <= *previous_sequence))
+        return std::nullopt;
+    return newest;
 }
 
 std::chrono::milliseconds public_stream_live_reload_delay(
@@ -175,6 +188,7 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
     bool master = false;
     bool discontinuity_sequence_seen = false;
     bool target_duration_seen = false;
+    bool next_segment_discontinuity = false;
     std::size_t cursor = 0;
     std::size_t count = 0;
     while (cursor < text.size()) {
@@ -191,13 +205,14 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
         if (pending_variant && line.front() == '#')
             throw std::invalid_argument("Missing master variant URI");
         // These tags do not name resources or authorize additional requests.
-        // Each MPEG-TS segment is decoded in a fresh in-memory capture, so a
-        // continuity break between segments does not reuse decoder state.
+        // A discontinuity is passed to the persistent reader so it can reset
+        // the decoder at the correct segment boundary.
         // Require exact forms: never silently ignore an unfamiliar extension.
         if (line == "#EXT-X-INDEPENDENT-SEGMENTS") continue;
         if (line == "#EXT-X-DISCONTINUITY") {
-            if (master || pending_segment)
+            if (master || pending_segment || next_segment_discontinuity)
                 throw std::invalid_argument("Invalid HLS discontinuity placement");
+            next_segment_discontinuity = true;
             continue;
         }
         if (line.starts_with("#EXT-X-DISCONTINUITY-SEQUENCE:")) {
@@ -281,6 +296,8 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
                 if (result.segments.size() >= 32)
                     throw std::invalid_argument("Playlist segment budget exceeded");
                 result.segments.push_back(std::move(segment));
+                result.discontinuity_before.push_back(next_segment_discontinuity);
+                next_segment_discontinuity = false;
                 pending_segment = false;
             }
         } else if (master && !line.starts_with("#EXTM3U") &&
@@ -293,7 +310,7 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
         result.media_sequence > std::numeric_limits<std::uint64_t>::max() -
                                     (result.segments.size() - 1))
         throw std::invalid_argument("HLS media sequence exceeds safe range");
-    if (pending_variant || pending_segment ||
+    if (pending_variant || pending_segment || next_segment_discontinuity ||
         (master && (!result.variant_playlist || !result.segments.empty())) ||
         (!master && (!has_media || result.segments.empty())))
         throw std::invalid_argument("Invalid or unsupported HLS playlist");

@@ -33,14 +33,22 @@ struct PublicStreamPlaylist {
     // Bounded fallback for older/nonconforming manifests without this tag.
     unsigned target_duration_seconds = 3;
     std::vector<PublicStreamUrl> segments;
+    // A segment after EXT-X-DISCONTINUITY cannot share decoder state.
+    std::vector<bool> discontinuity_before;
     // A master playlist can select exactly one same-origin .m3u8 child.
     // No alternate variants, renditions, nested masters, or third-party origins.
     std::optional<PublicStreamUrl> variant_playlist;
 };
 // Pure live-playlist scheduling policy. It never fetches a resource.
-// On startup or after falling behind, prefer the newest listed segment;
-// otherwise advance exactly once. No replay of an already-seen sequence.
+// On startup choose the newest listed segment; afterward fetch the next
+// available sequence in order to preserve decoder reference frames. If the
+// next sequence has expired, resync to the live edge in a new decoder.
 [[nodiscard]] std::optional<std::size_t> public_stream_next_live_segment(
+    const PublicStreamPlaylist& playlist,
+    std::optional<std::uint64_t> previous_sequence) noexcept;
+// Unexpected decoder errors may recover only at a newly advertised live-edge
+// segment, never by replaying the last downloaded segment.
+[[nodiscard]] std::optional<std::size_t> public_stream_fresh_recovery_segment(
     const PublicStreamPlaylist& playlist,
     std::optional<std::uint64_t> previous_sequence) noexcept;
 // RFC 8216 live reload cadence: at least target duration after a changed

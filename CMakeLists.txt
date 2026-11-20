@@ -63,6 +63,7 @@ add_library(chromascope_core STATIC
     src/core/AsyncCameraCapture.cpp
     src/core/PublicStreamPolicy.cpp
     src/core/PublicStreamReader.cpp
+    src/core/HlsByteWindow.cpp
     src/core/LiveCameraRecording.cpp
     src/core/AsyncLiveCameraInference.cpp
     src/core/AsyncVideoDecoder.cpp

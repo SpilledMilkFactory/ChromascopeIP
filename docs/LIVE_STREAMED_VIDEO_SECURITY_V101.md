@@ -77,13 +77,38 @@ from a feed provider; do not paste the surrounding HTML page URL.
   After prolonged non-advancement (at least 90 seconds, capped at five minutes
   depending on target duration) it reports a stalled feed rather than
   silently appearing live forever. Stop remains explicit and interruptible.
-- When multiple HLS media sequences advance during a lag spike, playback
-  selects the newest listed segment instead of replaying stale segments in a
-  burst. The first decoded frame of each segment obeys the normal frame
-  cadence as well. This is a best-effort low-latency reader, not a full HLS
-  adaptive player: segment decoding can still show frame discontinuities,
-  and FFmpeg may report corrupt frames. Codec whitelist restrictions remain
-  unchanged and AAC audio is not decoded or recorded.
+- MPEG-TS payloads from successive HLS media sequences are passed to **one
+  persistent OpenCV/FFmpeg demuxer**, instead of reopening a decoder for each
+  short segment. This allows H.264 reference frames to survive ordinary
+  segment boundaries and avoids repeated container probing. The decoder is
+  supplied only with an in-memory `cv::IStreamReader` and **never** receives
+  remote URLs, credentials, or access to the network. A four-segment rolling
+  window (at most 64 MiB, using the existing 16 MiB per-segment download cap)
+  supports bounded backward seeks during demuxer probing; it refuses seeks
+  outside retained bytes or to the unknown end of a live stream.
+- After startup, available HLS segments are fetched **in sequence** so the
+  decoder retains inter-frame prediction dependencies. A missing/expired
+  sequence or an explicit `EXT-X-DISCONTINUITY` instead causes a bounded
+  decoder reset using the already verified next segment, rather than joining
+  incompatible TS state. The initial live position is still near the current
+  edge. During transient network delays, preview latency can increase; a
+  feed is not guaranteed to have the same low latency as a full HLS player.
+  Callbacks do not unwind C++ exceptions through FFmpeg, manual Stop remains
+  interruptible, and the existing target-duration reload/stall limits apply.
+- When OpenCV unexpectedly fails to decode the next video frame **without**
+  a validated playlist boundary, the reader releases that decoder and starts
+  a fresh in-memory decoder at the latest newly advertised HLS segment. It
+  never replays a failed segment, never sends a remote URL to FFmpeg, and
+  bounds consecutive failed restarts to four attempts before reporting an
+  explicit error. A successfully decoded frame resets the attempt budget.
+  Network, TLS, playlist-policy, cancellation and byte-window failures still
+  propagate immediately; they are not converted into decoder retries.
+  This best-effort resynchronization can briefly interrupt preview and does
+  not guarantee that a segment begins with an independently decodable keyframe.
+- H.264 errors from malformed transport data or a source whose GOP cannot
+  recover after a sequence gap are still possible; this is not a full adaptive
+  HLS player and does not perform error-concealment or fix corrupt remote
+  segments. The codec whitelist is unchanged; AAC audio remains disabled.
 - A bounded queue, cancellation generation and local GUI texture rules from
   `AsyncCameraCapture` remain intact. Recording/inference use **the same frames**
   and require separate explicit user actions.

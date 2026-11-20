@@ -47,7 +47,7 @@ def validate_model(root):
         'license_text_path': selection.get('license_text_path'),
         'notice_path': selection.get('notice_path'),
         'redistribution_review_required': True,
-        'weights_bundled': False,
+        'weights_bundled': True,
     }
     for name, value in expected.items():
         if type(provenance.get(name)) is not type(value) or provenance.get(name) != value:

@@ -46,11 +46,26 @@ std::filesystem::path running_executable_path() {
     return {};
 }
 
+std::optional<std::filesystem::path> find_installed_nanodet_model(
+    const std::filesystem::path& executable) {
+    const auto directory = installed_data_directory(executable);
+    if (directory.empty()) return std::nullopt;
+    const auto model = directory / "models" / "object_detection_nanodet_2022nov.onnx";
+    std::error_code error;
+    if (std::filesystem::is_symlink(model, error) || error) return std::nullopt;
+    error.clear();
+    if (!std::filesystem::is_regular_file(model, error) || error) return std::nullopt;
+    return model;
+}
+
 namespace {
 bool contains_four_samples(const std::filesystem::path& directory) {
     std::error_code error;
-    for (unsigned n = 1; n <= 4; ++n) {
-        const auto file = directory / ("s" + std::to_string(n) + ".jpg");
+    static constexpr std::array<const char*, 4> sample_names{
+        "s1.jpg", "s2.jpg", "s3.jpg", "s4.jpg"
+    };
+    for (const char* name : sample_names) {
+        const auto file = directory / name;
         error.clear();
         if (std::filesystem::is_symlink(file, error) || error) return false;
         error.clear();

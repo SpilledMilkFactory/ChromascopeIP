@@ -64,7 +64,7 @@ It must return `STATIC_PREFLIGHT_ONLY_NOT_RELEASE_APPROVAL` to proceed toward ru
 
 ## Explicitly outstanding
 
-No production FFmpeg revision, CVE applicability analysis, Debian 12 binary, tarball contents, Windows v1.0.1 ZIP, or legal clearance is asserted by this document. FFmpeg's official LGPL checklist requires exact corresponding sources and review of every linked external library. Bundle notices, build options and required source materials with or alongside the release. Inference models/weights are separately licensed and should remain excluded unless their redistribution rights are established.
+No production FFmpeg revision, CVE applicability analysis, Debian 12 binary, tarball contents, Windows v1.0.1 ZIP, or legal clearance is asserted by this document. FFmpeg's official LGPL checklist requires exact corresponding sources and review of every linked external library. Bundle notices, build options and required source materials with or alongside the release. The single Apache-2.0 OpenCV Zoo NanoDet ONNX checkpoint is now permitted in v1.0.1 portable artifacts after digest and license/notice verification; all other weights and media remain excluded. P5/P6 still require release-wide clearance.
 
 ## P2 candidate implementation (2026-11-20)
 
@@ -101,3 +101,21 @@ private ELF dependencies, rewrites DT_RPATHs to relative `$ORIGIN` locations,
 runs P1 static preflight and CLI smoke checks, and uploads one engineering
 candidate tarball with its SHA-256 and reports. P3 does not publish a release
 or assert licensing/security clearance. The accepted PTS playback code is frozen.
+
+### Exact NanoDet model packaging contract for P3/P5
+
+The only approved v1.0.1 model weight is
+`models/object_detection_nanodet_2022nov.onnx`, SHA-256
+`4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186`.
+Both portable archives must include that same file at
+`share/chromascopeip/models/object_detection_nanodet_2022nov.onnx`, with
+`share/chromascopeip/models/LICENSE` (unmodified Apache-2.0 text) and
+`share/chromascopeip/models/NANODET_NOTICES.md` (upstream attribution).
+P3 checks this requirement in its stage and P1 preflight. The future P5
+Windows packager must enable `CHROMASCOPE_V101_P5_PORTABLE` and call the same
+`scripts/portable/v101_model_bundle.py` stage validator before creating the ZIP,
+then verify the archived payload independently. Historical v1.0.0 installers
+and the original Windows ZIP packaging rules are deliberately unchanged.
+Neither archive may include other model weights, training data, third-party
+video, or sample photographs. Named credit and the model's Hugging Face link
+in the root README remain on the P6 release-preparation checklist.

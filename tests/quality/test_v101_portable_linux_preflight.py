@@ -1,5 +1,6 @@
 """Fast, offline safeguards for the future Linux-x86_64 portable artifact gate."""
 import importlib.util
+import shutil
 from pathlib import Path
 import tempfile
 import unittest
@@ -101,7 +102,11 @@ class PortableLinuxPreflightTests(unittest.TestCase):
         (doc / 'PORTABLE_RELEASE_V1_0_1.md').write_text('fixture only')
         models = stage / 'share/chromascopeip/models'
         models.mkdir(parents=True)
-        (models / 'selected_model.json').write_text('{}')
+        source = Path(__file__).resolve().parents[2] / 'models'
+        for name in ('selected_model.json', 'model_provenance.json',
+                     'object_detection_nanodet_2022nov.onnx', 'NANODET_NOTICES.md',
+                     'LICENSE'):
+            shutil.copyfile(source / name, models / name)
         for name in ('chromascope-gui', 'chromascope-cli'):
             (stage / 'bin' / name).write_bytes(b'\x7fELFfixture')
         sonames = ['libopencv_core.so.5', 'libopencv_imgproc.so.5',

@@ -27,7 +27,7 @@ class ModelSelectionPolicyTests(unittest.TestCase):
     def test_reject_relicense_or_bundling(self):
         data = dict(model.EXPECTED_FIELDS)
         data["license_spdx"] = "MIT"
-        data["model_bundled"] = True
+        data["model_bundled"] = False
         errors = model.validate_fields(data)
         self.assertTrue(any("license_spdx" in e for e in errors))
         self.assertTrue(any("model_bundled" in e for e in errors))
@@ -50,21 +50,25 @@ class ModelSelectionPolicyTests(unittest.TestCase):
             root = Path(temp)
             (root / ".git").mkdir()
             (root / "models").mkdir()
+            payload = b"test selected model"
+            (root / "models" / model.EXPECTED_FILE).write_bytes(payload)
             calls = []
 
             def fake_run(command, **kwargs):
                 calls.append(command)
-                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+                return subprocess.CompletedProcess(command, 0,
+                    stdout="models/" + model.EXPECTED_FILE + "\n", stderr="")
 
             with patch.object(model.subprocess, "run", side_effect=fake_run):
-                self.assertEqual([], model.validate_local_weights(root))
+                self.assertEqual([], model.validate_local_weights(
+                    root, hashlib.sha256(payload).hexdigest()))
             self.assertEqual(1, len(calls))
             self.assertEqual(
                 ["git", "-c", f"safe.directory={root.resolve()}", "-C", str(root),
                  "ls-files", "--cached", "--", "models"], calls[0])
 
     @unittest.skipUnless(shutil.which("git"), "requires Git to check repository index")
-    def test_ignored_pinned_local_model_allowed(self):
+    def test_untracked_pinned_model_rejected_then_tracked_model_allowed(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             subprocess.run(["git", "init", "-q", str(root)], check=True)
@@ -75,15 +79,18 @@ class ModelSelectionPolicyTests(unittest.TestCase):
             checkpoint = models / model.EXPECTED_FILE
             checkpoint.write_bytes(payload)
             sha = hashlib.sha256(payload).hexdigest()
+            self.assertTrue(any("Git-tracked" in e for e in
+                                model.validate_local_weights(root, sha)))
+            subprocess.run(["git", "-C", str(root), "add", "-f", "--",
+                            "models/" + model.EXPECTED_FILE], check=True)
             self.assertEqual([], model.validate_local_weights(root, sha))
-            self.assertFalse((root / ".git" / "index").exists())
 
             checkpoint.write_bytes(b"changed bytes")
             errors = model.validate_local_weights(root, sha)
             self.assertTrue(any("SHA-256 mismatch" in error for error in errors))
 
     @unittest.skipUnless(shutil.which("git"), "requires Git to check repository index")
-    def test_reject_tracked_model_even_if_checksum_valid(self):
+    def test_tracked_approved_model_allowed_and_others_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             subprocess.run(["git", "init", "-q", str(root)], check=True)
@@ -95,7 +102,12 @@ class ModelSelectionPolicyTests(unittest.TestCase):
             checkpoint.write_bytes(payload)
             subprocess.run(["git", "-C", str(root), "add", "-f", "--", "models/" + model.EXPECTED_FILE], check=True)
             errors = model.validate_local_weights(root, hashlib.sha256(payload).hexdigest())
-            self.assertTrue(any("Git-tracked" in error for error in errors), errors)
+            self.assertEqual([], errors)
+            (models / "other.onnx").write_bytes(b"unapproved checkpoint")
+            subprocess.run(["git", "-C", str(root), "add", "-f", "--",
+                            "models/other.onnx"], check=True)
+            errors = model.validate_local_weights(root, hashlib.sha256(payload).hexdigest())
+            self.assertTrue(any("unapproved model weights are Git-tracked" in e for e in errors))
 
     @unittest.skipUnless(shutil.which("git"), "requires Git to check repository index")
     def test_reject_unapproved_local_model(self):
@@ -109,14 +121,14 @@ class ModelSelectionPolicyTests(unittest.TestCase):
             errors = model.validate_local_weights(root)
             self.assertTrue(any("unapproved local model" in error for error in errors), errors)
 
-    def test_reject_source_archive_with_unproven_model(self):
+    def test_reject_source_archive_with_wrong_digest(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             models = root / "models"
             models.mkdir()
             (models / model.EXPECTED_FILE).write_bytes(b"checkpoint in source archive")
             errors = model.validate_local_weights(root)
-            self.assertTrue(any("outside a verifiable Git checkout" in e for e in errors), errors)
+            self.assertTrue(any("SHA-256 mismatch" in e for e in errors), errors)
 
     def test_accept_matching_offline_digest_logic(self):
         import hashlib

@@ -14,6 +14,8 @@ import re
 import stat
 import subprocess
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'portable'))
+from v101_model_bundle import MODEL_NAME, RELATIVE as MODEL_DIR, inspect as inspect_model  # noqa: E402
 
 TOP_VERSION = "1.0.1"
 ABI_CEILING = (2, 36)  # Oldest promised target: Debian 12.
@@ -40,9 +42,11 @@ REQUIRED_PRIVATE_PREFIXES = (
     "libopencv_dnn.so.", "libavcodec.so.", "libavformat.so.",
     "libavutil.so.",
 )
-# Prevent accidentally bundling original media, weights or build-tree outputs.
+# Only this exact, verified v1.0.1 ONNX is permitted; all media and other
+# model/build inputs remain forbidden.
 FORBIDDEN_SUFFIXES = frozenset({".mp4", ".mkv", ".mov", ".avi", ".ts",
                                 ".onnx", ".pt", ".pth", ".o", ".a"})
+APPROVED_MODEL = MODEL_DIR / MODEL_NAME
 
 
 class PreflightError(RuntimeError):
@@ -121,8 +125,9 @@ def scan_stage_files(stage):
                     f'Setuid/setgid payload forbidden: {rel}')
             require(not (info.st_mode & stat.S_IWOTH), f'World-writable payload: {rel}')
             require(info.st_nlink == 1, f'Hardlinked payload not accepted: {rel}')
-            require(target.suffix.lower() not in FORBIDDEN_SUFFIXES,
-                    f'Forbidden media, model, or build artifact: {rel}')
+            if target.suffix.lower() in FORBIDDEN_SUFFIXES:
+                require(rel == APPROVED_MODEL and target.suffix.lower() == '.onnx',
+                        f'Forbidden media, model, or build artifact: {rel}')
             all_files.append(target)
     return all_files
 
@@ -132,6 +137,10 @@ def inspect_stage(stage):
             'Stage must be an existing non-symlink directory')
     stage = stage.resolve(strict=True)
     files = scan_stage_files(stage)
+    try:
+        approved_model = inspect_model(stage)
+    except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
+        raise PreflightError(f'Approved NanoDet v1.0.1 model gate: {exc}') from exc
     for rel in ('bin/chromascope-cli', 'bin/chromascope-gui',
                 'share/doc/chromascopeip/LICENSE',
                 'share/chromascopeip/models/selected_model.json'):
@@ -205,6 +214,7 @@ def inspect_stage(stage):
     return {'schema': 'chromascope-v101-linux-portable-static-preflight-1',
             'status': 'STATIC_PREFLIGHT_ONLY_NOT_RELEASE_APPROVAL',
             'target': 'Linux-x86_64', 'abi_ceiling': 'GLIBC_2.36',
+            'approved_model': approved_model,
             'runtime_objects': sorted(objects, key=lambda x: x['path']),
             'review_required_host_interfaces': sorted(host_edges),
             'remaining_gates': [

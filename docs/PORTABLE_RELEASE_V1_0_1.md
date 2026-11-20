@@ -21,8 +21,11 @@ for every Linux distribution: native validation on Debian 12/13 and Ubuntu
 24.04/26.04 is required before the candidate can become a release.
 
 Live Streamed Video is opt-in; use only streams you are permitted to access.
-Inference models/weights are not included. Refer to the user guides and
-`share/doc/chromascopeip/licenses/` for redistribution materials.
+The exact, SHA-256-verified OpenCV Zoo NanoDet FP32 ONNX model is included
+under `share/chromascopeip/models/` with its Apache-2.0 `LICENSE` and
+`NANODET_NOTICES.md`. Model inference remains explicitly opt-in and local;
+no automatic model download occurs. Refer to the user guides and
+`share/doc/chromascopeip/licenses/` for other redistribution materials.
 
 **Security and licensing status:** This engineering candidate has passed its
 specified P2 functional checks only; complete CVE applicability assessment,

@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT / 'scripts' / 'portable'))
 from v101_portable_linux_preflight import HOST_INTERFACE_SONAMES, inspect_stage  # noqa: E402
 from v101_p2_ci_artifact import select_run  # noqa: E402
 from v101_p2_build import FFMPEG_REV, OPENCV_REV, check_debian12  # noqa: E402
+from v101_model_bundle import inspect as inspect_model  # noqa: E402
 
 NAME = 'ChromascopeIP-1.0.1-Linux-x86_64'
 ARCHIVE = NAME + '.tar.gz'
@@ -303,6 +304,8 @@ def package(p2_root: Path, output: Path, jobs: int) -> dict:
     write_launcher(stage)
     (stage / 'share/doc/chromascopeip').mkdir(parents=True, exist_ok=True)
     dependency = stage_runtime(stage, p2, logs)
+    model_evidence = inspect_model(stage)
+    (logs / 'approved-nanodet-model.json').write_text(json.dumps(model_evidence, indent=2) + '\n')
     # Install only the approved human-readable subset of P2 evidence.
     provenance = {
         'schema': 'chromascope-v101-p3-technical-provenance-1',
@@ -356,6 +359,7 @@ def package(p2_root: Path, output: Path, jobs: int) -> dict:
         'archive_sha256': digest(dest),
         'app_version': '1.0.1',
         'private_lib_count': len(dependency['private_libraries']),
+        'approved_nanodet': model_evidence,
         'p1_static_preflight': audit['status'],
         'remaining_gates': [
             'CVE applicability and actual bundled library security review',

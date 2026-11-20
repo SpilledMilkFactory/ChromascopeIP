@@ -87,6 +87,37 @@ int main() {
             "#EXTINF:3,\nsegment0010.ts\n");
         require(!child_media.variant_playlist && child_media.segments.size() == 1,
                 "A single master level must lead to a media playlist");
+        // Common metadata-only tags are safe when syntactically well-formed:
+        // none can introduce a new network destination or decrypt content.
+        const auto metadata_master = parse_public_stream_playlist(earthcam,
+            "#EXTM3U\n#EXT-X-VERSION:4\n#EXT-X-INDEPENDENT-SEGMENTS\n"
+            "#EXT-X-STREAM-INF:BANDWIDTH=502066\nchunklist_w1908056588.m3u8\n");
+        require(metadata_master.variant_playlist.has_value(),
+                "Independent segment marker must not force a second fetch");
+        const auto metadata_media = parse_public_stream_playlist(*master.variant_playlist,
+            "#EXTM3U\n#EXT-X-VERSION:4\n#EXT-X-TARGETDURATION:3\n"
+            "#EXT-X-DISCONTINUITY-SEQUENCE:5\n#EXT-X-MEDIA-SEQUENCE:42\n"
+            "#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-KEY:METHOD=NONE\n"
+            "#EXTINF:3,\n42.ts\n#EXT-X-DISCONTINUITY\n"
+            "#EXT-X-KEY:METHOD=NONE\n#EXTINF:3,\n43.ts\n");
+        require(metadata_media.media_sequence == 42 && metadata_media.segments.size() == 2 &&
+                metadata_media.segments[1].path_and_query.ends_with("43.ts"),
+                "Unencrypted media discontinuity markers must preserve sequence and segment order");
+        // Error messages must reveal only reviewed directive *names*, never
+        // remote playlist contents such as an inline key URI.
+        try {
+            (void)parse_public_stream_playlist(*master.variant_playlist,
+                "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n"
+                "#EXT-X-KEY:METHOD=AES-128,URI=\"private-token\"\n"
+                "#EXTINF:3,\n1.ts\n");
+            throw std::runtime_error("Encrypted HLS key accepted");
+        } catch (const std::invalid_argument& error) {
+            const std::string_view message{error.what()};
+            require(message.find("EXT-X-KEY") != std::string_view::npos &&
+                    message.find("private-token") == std::string_view::npos,
+                    "Unsafe HLS directive must be named without leaking its value");
+        }
+
         // Downloaded playlists are text-only inputs: no local file references
         // are accepted as segment destinations, and the original HTTPS URL
         // is still required to resolve relative children.
@@ -113,6 +144,13 @@ int main() {
             "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-KEY:METHOD=AES-128,URI=\"key\"\n#EXTINF:2,\n1.ts\n",
             "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\nhttps://other.example.org/a.ts\n",
             "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\n1.m4s\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-KEY:METHOD=NONE,URI=\"bad\"\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-DISCONTINUITY-SEQUENCE:not-a-number\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\n#EXT-X-DISCONTINUITY\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\n1.ts\n#EXT-X-DISCONTINUITY-SEQUENCE:8\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-DISCONTINUITY-UNKNOWN\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-MAP:URI=\"init.mp4\"\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-BYTERANGE:100@0\n#EXTINF:2,\n1.ts\n",
             "<html><script src='tracker'></script></html>"})
             rejected([&] { (void)parse_public_stream_playlist(feed, bad); },
                      "Unsafe playlist accepted");

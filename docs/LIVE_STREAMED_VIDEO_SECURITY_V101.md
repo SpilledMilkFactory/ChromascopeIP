@@ -57,6 +57,11 @@ from a feed provider; do not paste the surrounding HTML page URL.
   segment resolves only against its original public HTTPS origin. No multi-
   bitrate variants, alternate audio/renditions, nested masters, substitutions,
   encryption, key requests, fMP4, redirects, cross-domain CDNs, or iframe loads.
+  HLS media playlists may contain validated metadata-only discontinuity markers,
+  `EXT-X-INDEPENDENT-SEGMENTS`, and exactly `EXT-X-KEY:METHOD=NONE` (no key
+  retrieval); encrypted keys and unreviewed media features remain prohibited.
+  Unsupported media directives are reported by a fixed directive name without
+  echoing server-controlled text or URLs.
 - An optional **downloaded `.m3u8` master file** can be selected manually.
   This local text file is bounded to 256 KiB and must be a regular, non-symlink
   file. The user must still supply the original HTTPS master URL to resolve

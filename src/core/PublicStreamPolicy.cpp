@@ -144,6 +144,7 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
     bool pending_segment = false;
     bool pending_variant = false;
     bool master = false;
+    bool discontinuity_sequence_seen = false;
     std::size_t cursor = 0;
     std::size_t count = 0;
     while (cursor < text.size()) {
@@ -159,13 +160,46 @@ PublicStreamPlaylist parse_public_stream_playlist(const PublicStreamUrl& base,
                 throw std::invalid_argument("HLS playlist contains a control byte");
         if (pending_variant && line.front() == '#')
             throw std::invalid_argument("Missing master variant URI");
-        if (line.starts_with("#EXT-X-KEY") || line.starts_with("#EXT-X-SESSION-KEY") ||
-            line.starts_with("#EXT-X-MAP") || line.starts_with("#EXT-X-BYTERANGE") ||
-            line.starts_with("#EXT-X-I-FRAME") || line.starts_with("#EXT-X-MEDIA:") ||
-            line.starts_with("#EXT-X-ENDLIST") || line.starts_with("#EXT-X-PART") ||
-            line.starts_with("#EXT-X-PRELOAD-HINT") || line.starts_with("#EXT-X-DISCONTINUITY") ||
-            line.starts_with("#EXT-X-DEFINE"))
-            throw std::invalid_argument("This HLS feature is unsupported by the privacy-restricted reader");
+        // These tags do not name resources or authorize additional requests.
+        // Each MPEG-TS segment is decoded in a fresh in-memory capture, so a
+        // continuity break between segments does not reuse decoder state.
+        // Require exact forms: never silently ignore an unfamiliar extension.
+        if (line == "#EXT-X-INDEPENDENT-SEGMENTS") continue;
+        if (line == "#EXT-X-DISCONTINUITY") {
+            if (master || pending_segment)
+                throw std::invalid_argument("Invalid HLS discontinuity placement");
+            continue;
+        }
+        if (line.starts_with("#EXT-X-DISCONTINUITY-SEQUENCE:")) {
+            if (master || pending_segment || !result.segments.empty() ||
+                discontinuity_sequence_seen)
+                throw std::invalid_argument("Invalid HLS discontinuity sequence placement");
+            std::uint64_t sequence = 0;
+            const auto value = line.substr(sizeof("#EXT-X-DISCONTINUITY-SEQUENCE:") - 1);
+            const auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), sequence);
+            if (ec != std::errc{} || ptr != value.data() + value.size())
+                throw std::invalid_argument("Invalid HLS discontinuity sequence number");
+            discontinuity_sequence_seen = true;
+            continue;
+        }
+        if (line == "#EXT-X-KEY:METHOD=NONE") {
+            // RFC 8216: METHOD=NONE means no encryption. Refuse other key
+            // attributes, methods or key URIs; never fetch a key resource.
+            if (master || pending_segment)
+                throw std::invalid_argument("Invalid HLS unencrypted key marker placement");
+            continue;
+        }
+        // Denial reasons include only our own constant directive names, never
+        // server-controlled values (which may contain credentials or URLs).
+        for (const std::string_view forbidden : {
+                 "#EXT-X-KEY", "#EXT-X-SESSION-KEY", "#EXT-X-MAP",
+                 "#EXT-X-BYTERANGE", "#EXT-X-I-FRAME", "#EXT-X-MEDIA:",
+                 "#EXT-X-ENDLIST", "#EXT-X-PART", "#EXT-X-PRELOAD-HINT",
+                 "#EXT-X-DISCONTINUITY", "#EXT-X-DEFINE"}) {
+            if (line.starts_with(forbidden))
+                throw std::invalid_argument("Unsupported HLS feature: " +
+                                            std::string(forbidden.substr(1)));
+        }
         if (line.starts_with("#EXT-X-STREAM-INF:")) {
             // Single explicit variant only. AUDIO/VIDEO/SUBTITLES attributes
             // would reference additional resources, outside this restriction.

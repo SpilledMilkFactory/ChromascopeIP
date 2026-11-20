@@ -165,7 +165,7 @@ jobs:
       # A development package qualifies only after the Noble smoke succeeds.
       - name: Upload tested Ubuntu 24.04 candidate package
         if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb
           path: build/packages/ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb
@@ -176,7 +176,7 @@ jobs:
       # Keep failed binaries separate: they are unqualified diagnostics only.
       - name: Upload UNQUALIFIED Ubuntu 24.04 package for failure diagnosis
         if: ${{ failure() && inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UNQUALIFIED-M11.4-Ubuntu24.04-amd64-diagnostics
           path: build/packages/ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb
@@ -210,7 +210,7 @@ jobs:
       # Only a successfully smoke-qualified Resolute package is uploaded.
       - name: Upload tested Ubuntu 26.04 candidate package
         if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb
           path: build/packages/ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb
@@ -221,7 +221,7 @@ jobs:
       # Never treat failed native .deb output as a qualified distribution.
       - name: Upload UNQUALIFIED Ubuntu 26.04 package for failure diagnosis
         if: ${{ failure() && inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UNQUALIFIED-M11.5-Ubuntu26.04-amd64-diagnostics
           path: build/packages/ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb

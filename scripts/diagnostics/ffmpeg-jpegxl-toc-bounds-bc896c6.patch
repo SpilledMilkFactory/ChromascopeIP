@@ -1,0 +1,31 @@
+From bc896c613ec0d4ad0108d62fbdda0196f69e7121 Mon Sep 17 00:00:00 2001
+From: Michael Niedermayer <michael@niedermayer.cc>
+Date: Thu, 29 Oct 2026 00:00:07 +0100
+Subject: [PATCH] avcodec/jpegxl_parser: stop before a TOC that cannot fit in
+ the input
+
+Fixes: QbQGn4p3g48Q
+Fixes: AISLE-2026-0150-00842
+Fixes: Timeout
+Timeout Replicated through UnModified FFmpeg with /usr/bin/time
+
+Found-by: Joshua Rogers <joshua.rogers@aisle.com>
+---
+ libavcodec/jpegxl_parser.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/libavcodec/jpegxl_parser.c b/libavcodec/jpegxl_parser.c
+index 902a1532aac6b..5b64347726d2a 100644
+--- a/libavcodec/jpegxl_parser.c
++++ b/libavcodec/jpegxl_parser.c
+@@ -1236,6 +1236,10 @@ static int parse_frame_header(void *avctx, JXLParseContext *ctx, GetBitContext *
+     if (num_groups == 1 && num_passes == 1)
+         toc_count = 1;
+     else
+         toc_count = 2 + num_lf_groups + num_groups * num_passes;
++    /* each TOC entry takes at least 12 bits */
++    if ((int64_t)toc_count * 12 > get_bits_left(gb))
++        return AVERROR_BUFFER_TOO_SMALL;
++
+     // permuted toc
+     if (get_bits1(gb)) {

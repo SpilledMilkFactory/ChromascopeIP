@@ -1,0 +1,11 @@
+# P2 builder only, NOT an application release image. Before P6, pin this base
+# image by digest and record immutable APT/supply-chain attestations.
+FROM debian:12-slim
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates git python3 cmake ninja-build build-essential binutils \
+      pkg-config make libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
+      libopenexr-dev libv4l-dev zlib1g-dev libprotobuf-dev protobuf-compiler \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /project

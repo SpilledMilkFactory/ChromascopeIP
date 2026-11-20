@@ -908,3 +908,24 @@ foreach(m106_target IN ITEMS chromascope_regression_malformed_media_preflight
     target_compile_definitions(${m106_target} PRIVATE
         CHROMASCOPE_M106_SEED_MANIFEST="${CMAKE_CURRENT_SOURCE_DIR}/fuzz/seeds/manifest.txt")
 endforeach()
+
+# v1.0.1: camera-free, cross-platform live recording policy validation.
+chromascope_add_cpp_test(chromascope_unit_live_camera_recording
+    unit/test_live_camera_recording.cpp "unit;camera;recording;privacy;negative" 20)
+
+# v1.0.1: secure public stream URL and offline playlist parsing (NO network I/O).
+# Media PTS-based HLS playout policy: no network or FFmpeg invocation.
+chromascope_add_cpp_test(chromascope_unit_hls_playout_timing
+    unit/test_hls_playout_timing.cpp "unit;hls;videoio;timing;regression" 20)
+
+chromascope_add_cpp_test(chromascope_unit_public_stream_policy
+    unit/test_public_stream_policy.cpp "unit;security;privacy;network;negative" 20)
+
+# v1.0.1: deterministic MPEG-TS cross-segment decoder byte window regression.
+# No network, camera, remote files or FFmpeg initialization required.
+chromascope_add_cpp_test(chromascope_unit_hls_byte_window
+    unit/test_hls_byte_window.cpp "unit;streaming;security;privacy;regression" 20)
+
+# v1.0.1: real producer/consumer HLS byte-prefetch contract; offline, no network.
+chromascope_add_cpp_test(chromascope_unit_hls_prefetch_buffer
+    unit/test_hls_prefetch_buffer.cpp "unit;streaming;concurrency;security;privacy;regression" 20)

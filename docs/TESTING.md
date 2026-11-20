@@ -101,3 +101,15 @@ OpenCV dependency before native CTests execute. See
 [M12.5 FFmpeg remediation](M12_5_FFMPEG_FINAL_REMEDIATION.md#local-native-regression-stale-opencv-dependency)
 for exact commands. Do not remove the hostile-option or MagicYUV regressions
 to compensate for outdated libraries.
+
+### v1.0.1 public HTTPS stream candidate
+
+`chromascope_unit_public_stream_policy` runs entirely offline on every native
+CTest platform. It checks explicit HTTPS-only URLs, no credentials/private
+hosts, nonpublic IPv4/IPv6, same-origin playlist references and rejection of
+malformed/unsafe or encrypted HLS. `test_public_stream_privacy_v101.py` checks
+that opening the workspace does not activate a network device, no URL enters
+Preferences, and Linux libcurl/Windows WinHTTP are configured with pinned
+public-DNS, redirect, proxy and cookie restrictions. The full OpenCV GUI build
+and live HTTPS image/HLS/MP4 decoding on each supported OS remain **pending
+native qualification** before any v1.0.1 release sign-off.

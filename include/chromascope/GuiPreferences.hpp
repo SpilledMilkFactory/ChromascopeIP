@@ -32,7 +32,7 @@ struct GuiPreferenceField {
 };
 
 inline constexpr std::array<GuiPreferenceField, 19> kGuiPreferenceFields{{
-    {"workspace", 0, 0, 2, true},
+    {"workspace", 0, 0, 3, true},
     {"preview", 0, 0, 2, true},
     {"sidebar_width", 345, 180, 2000, false},
     {"show_overlay", 1, 0, 1, true},

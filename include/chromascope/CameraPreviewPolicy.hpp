@@ -25,6 +25,27 @@ struct CameraPreviewBadge {
     return {"CAMERA UNKNOWN", true};
 }
 
+// Network progress is distinct from camera device ownership. A stream is
+// not LIVE until a decoded frame has actually reached the preview.
+enum class StreamBadgeTone { Off, Pending, Live, Error };
+struct StreamPreviewBadge {
+    const char* label;
+    StreamBadgeTone tone;
+};
+[[nodiscard]] constexpr StreamPreviewBadge stream_preview_badge(
+    CameraCaptureState state, bool frame_visible) noexcept {
+    switch (state) {
+        case CameraCaptureState::Idle: return {"STREAM OFF", StreamBadgeTone::Off};
+        case CameraCaptureState::Starting: return {"STREAM CONNECTING", StreamBadgeTone::Pending};
+        case CameraCaptureState::Capturing:
+            return frame_visible ? StreamPreviewBadge{"STREAM LIVE", StreamBadgeTone::Live}
+                                 : StreamPreviewBadge{"STREAM BUFFERING", StreamBadgeTone::Pending};
+        case CameraCaptureState::Stopping: return {"STREAM STOPPING", StreamBadgeTone::Pending};
+        case CameraCaptureState::Failed: return {"STREAM ERROR", StreamBadgeTone::Error};
+    }
+    return {"STREAM ERROR", StreamBadgeTone::Error};
+}
+
 // Only current-generation, running, owned frames may be rendered. Retired
 // events are never an implicit request to reopen a camera or persist media.
 [[nodiscard]] inline bool camera_preview_can_publish(

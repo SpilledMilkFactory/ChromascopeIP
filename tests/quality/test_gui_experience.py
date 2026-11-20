@@ -46,7 +46,7 @@ class GuiExperiencePolicyTests(unittest.TestCase):
         self.assertIn("gui_picker_extension(extension, kind)", gui)
         self.assertIn("browser_selected.clear()", gui)
         self.assertIn("std::filesystem::directory_iterator", gui)
-        self.assertIn("if (workspace_mode != 2) open_file_picker", gui)
+        self.assertIn("if (!live_workspace()) open_file_picker", gui)
         self.assertIn('extension == ".onnx"', policy)
         self.assertIn('extension == ".webp"', policy)
         self.assertIn('extension == ".wmv"', policy)

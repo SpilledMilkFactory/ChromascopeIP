@@ -22,6 +22,21 @@ int main() {
         expect(camera_preview_badge(state).may_be_active);
     expect(std::string_view(camera_preview_badge(CameraCaptureState::Capturing).label)
            == "LIVE - CAMERA ACTIVE");
+    // Remote HTTPS media is not LIVE merely because the capture reader opened.
+    const auto off = stream_preview_badge(CameraCaptureState::Idle, false);
+    const auto pending = stream_preview_badge(CameraCaptureState::Starting, false);
+    const auto buffering = stream_preview_badge(CameraCaptureState::Capturing, false);
+    const auto live = stream_preview_badge(CameraCaptureState::Capturing, true);
+    const auto error = stream_preview_badge(CameraCaptureState::Failed, false);
+    const auto stale_error = stream_preview_badge(CameraCaptureState::Failed, true);
+    const auto stopping = stream_preview_badge(CameraCaptureState::Stopping, false);
+    expect(std::string_view(off.label) == "STREAM OFF" && off.tone == StreamBadgeTone::Off);
+    expect(std::string_view(pending.label) == "STREAM CONNECTING" && pending.tone == StreamBadgeTone::Pending);
+    expect(std::string_view(buffering.label) == "STREAM BUFFERING" && buffering.tone == StreamBadgeTone::Pending);
+    expect(std::string_view(live.label) == "STREAM LIVE" && live.tone == StreamBadgeTone::Live);
+    expect(std::string_view(error.label) == "STREAM ERROR" && error.tone == StreamBadgeTone::Error);
+    expect(std::string_view(stale_error.label) == "STREAM ERROR" && stale_error.tone == StreamBadgeTone::Error);
+    expect(std::string_view(stopping.label) == "STREAM STOPPING" && stopping.tone == StreamBadgeTone::Pending);
     CameraCaptureEvent event;
     event.generation = 4;
     event.kind = CameraCaptureEventKind::Frame;

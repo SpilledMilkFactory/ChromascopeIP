@@ -40,7 +40,7 @@ class ToolbarPolishTests(unittest.TestCase):
             'ImGui::RadioButton("Recorded Video"',
             'ImGui::RadioButton("Live Camera"',
             'camera_preview_badge(camera_capture.state())',
-            'ImGui::Button("Help (F1)")',
+            'ImGui::Selectable("Help (F1)"',
             'ImGui::Button("Clear loaded media, model and results")',
             'ImGui::Button("People in image")',
             'ImGui::Button("People in video")',
@@ -59,7 +59,7 @@ class ToolbarPolishTests(unittest.TestCase):
         self.assertNotIn('ImGui::Dummy(ImVec2(0', header)
         self.assertEqual(header.count("ImGui::Separator();"), 1)
         self.assertEqual(header.count('ImGui::TextDisabled("|");'), 1)
-        self.assertEqual(header.count("toolbar_divider_if_fits("), 4)  # three first-row dividers and one second-row divider
+        self.assertEqual(header.count("toolbar_divider_if_fits("), 5)  # four first-row dividers and one second-row divider
         self.assertGreaterEqual(header.count("same_line_if_fits("), 6)
         self.assertIn("toolbar_right", header)
         self.assertIn("ImGui::GetItemRectMax().x", header)
@@ -72,7 +72,7 @@ class ToolbarPolishTests(unittest.TestCase):
             "help_requested = true", "draw_help();", "draw_preferences();", "draw_export();",
             "export_requested = true",
             "camera_badge.may_be_active", "camera_badge.label",
-            "The camera opens only after Start camera",
+            "The selected live source opens only after an explicit Start action",
             "show_overlay = true", "show_labels = true", "detector_profile = 1",
             "detector_session.clear_results()", "video_show_detections = true",
             "video_detection.cancel()", "video_export_worker.request_stop()",
@@ -171,7 +171,7 @@ class ToolbarPolishTests(unittest.TestCase):
         self.assertIn('draw_still_export_controls();', modal)
         self.assertIn('else if (workspace_mode == 1)', modal)
         self.assertIn('draw_video_export_controls();', modal)
-        self.assertIn('Live Camera does not offer a file export.', modal)
+        self.assertIn('draw_live_record_controls(true);', modal)
         for expected in ('ImGui::Combo("Export image", &export_base_mode',
                          'ImGui::InputText("##export", export_path.data(), export_path.size())',
                          'if (ImGui::Button("Export annotated image", ImVec2(-1, 0))) save();',
@@ -202,11 +202,13 @@ class ToolbarPolishTests(unittest.TestCase):
         self.assertNotIn('save_person()', modal)
 
     def test_header_full_size_controls_and_new_labels(self):
-        for expected in ('ImGui::Button("Help (F1)")',
+        for expected in ('ImGui::Selectable("Help (F1)"',
                          'ImGui::Button("People in image")',
                          'ImGui::Button("People in video")'):
             self.assertIn(expected, self.toolbar)
-            self.assertNotIn(expected.replace('ImGui::Button(', 'ImGui::SmallButton('), self.toolbar)
+        for expected in ('ImGui::SmallButton("Help (F1)")',
+                         'ImGui::Button("Help (F1)")'):
+            self.assertNotIn(expected, self.toolbar)
         for label in ('Still Images', 'Recorded Video', 'Live Camera'):
             self.assertIn(f'ImGui::RadioButton("{label}"', self.toolbar)
         self.assertNotIn('ImGui::RadioButton("Still images"', self.toolbar)

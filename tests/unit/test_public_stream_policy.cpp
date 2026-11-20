@@ -1,0 +1,269 @@
+#include "chromascope/PublicStreamPolicy.hpp"
+#include "chromascope/PublicStreamDiagnostics.hpp"
+#include "chromascope/PublicStreamRequestProfile.hpp"
+
+#include <array>
+#include <cstdint>
+#include <chrono>
+#include <limits>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <stdexcept>
+#include <string_view>
+
+namespace {
+void require(bool value, const char* message) {
+    if (!value) throw std::runtime_error(message);
+}
+template<class F> void rejected(F function, const char* message) {
+    try { function(); } catch (const std::invalid_argument&) { return; }
+    throw std::runtime_error(message);
+}
+}
+int main() {
+    try {
+        using namespace chromascope;
+        constexpr auto standard = PublicStreamRequestProfile::Standard;
+        constexpr auto firefox = PublicStreamRequestProfile::FirefoxCompatible;
+        static_assert(valid_public_stream_request_profile(standard));
+        static_assert(valid_public_stream_request_profile(firefox));
+        static_assert(!valid_public_stream_request_profile(static_cast<PublicStreamRequestProfile>(2)));
+        require(std::string_view(public_stream_user_agent(standard)).starts_with("ChromascopeIP/"),
+                "Default stream identity should remain ChromascopeIP");
+        require(std::string_view(public_stream_user_agent(firefox)) ==
+                "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+                "Firefox-compatible identity must match the isolated curl test");
+        require(std::wstring_view(public_stream_user_agent_wide(firefox)) ==
+                L"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+                "Windows and Linux must send the same selected identity");
+        // Diagnostic strings are constructed from bounded numeric HTTP status
+        // only, never the remote URL or potentially sensitive response body.
+        require(public_stream_http_failure(403).find("403 Forbidden") != std::string::npos,
+                "HTTP 403 must not look like a size limit or timeout");
+        require(public_stream_http_failure(302).find("redirect refused") != std::string::npos,
+                "Redirect must be reported as blocked");
+        require(public_stream_http_failure(429).find("rate-limiting") != std::string::npos,
+                "Rate limit must be distinguishable");
+        require(public_stream_http_failure(503).find("remote server error") != std::string::npos,
+                "Server error must be distinguishable");
+        require(public_stream_http_failure(0).find("did not provide") != std::string::npos,
+                "Missing HTTP status must be distinguishable");
+        const auto feed = parse_public_stream_url("https://camera.example.org/live/index.m3u8?token=opaque");
+        require(feed.host == "camera.example.org", "Hostname parser");
+        require(feed.path_and_query == "/live/index.m3u8?token=opaque", "Opaque query kept in memory");
+        for (const std::string_view candidate : {
+            "http://camera.example.org/live.jpg", "https://127.0.0.1/file.jpg",
+            "https://192.168.1.5/feed", "https://localhost/feed",
+            "https://camera.local/frame.jpg", "https://user:pass@camera.example.org/img.jpg",
+            "https://camera.example.org:8080/img.jpg", "https://camera.example.org/../bad",
+            "file:///etc/passwd", "https://[::1]/feed", "https://camera.example.org/a%2fb",
+            "https://camera.example.org/video#secret", "https://camera.example.org/iframe\nheader"})
+            rejected([&] { (void)parse_public_stream_url(candidate); }, "Unsafe URL accepted");
+        for (const std::string_view child : {
+            "https://other.example.org/segment.ts", "//other.example.org/segment.ts",
+            "../etc/passwd", "file:///etc/passwd", "https://127.0.0.1/p.ts",
+            "https://camera.example.org:444/segment.ts", "secret%2f.ts"})
+            rejected([&] { (void)resolve_public_stream_child(feed, child); }, "Unsafe playlist child");
+        const auto relative = resolve_public_stream_child(feed, "part15.ts?auth=a1");
+        require(relative.url == "https://camera.example.org/live/part15.ts?auth=a1", "Relative segment");
+        const auto playlist = parse_public_stream_playlist(feed,
+            "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:3\n"
+            "#EXT-X-MEDIA-SEQUENCE:42\n#EXTINF:3,\n42.ts\n#EXTINF:3,\n43.ts\n");
+        require(playlist.media_sequence == 42 && playlist.segments.size() == 2,
+                "HLS media playlist parsing");
+        require(playlist.target_duration_seconds == 3,
+                "HLS target duration must be parsed for the reload scheduler");
+        require(public_stream_live_reload_delay(3, true) == std::chrono::milliseconds(3000) &&
+                public_stream_live_reload_delay(3, false) == std::chrono::milliseconds(1500) &&
+                public_stream_live_reload_delay(1, false) == std::chrono::milliseconds(500),
+                "RFC 8216 changed/unchanged media playlist polling cadence");
+        require(public_stream_live_stall_budget(3) >= std::chrono::seconds(90) &&
+                public_stream_live_stall_budget(60) <= std::chrono::seconds(300),
+                "Live HLS must tolerate transient stalls without polling forever");
+        require(public_stream_next_live_segment(playlist, std::nullopt) == 0,
+                "New live sessions retain a short validated segment buffer");
+        const auto buffered = parse_public_stream_playlist(feed,
+            "#EXTM3U\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:100\n"
+            "#EXTINF:3,\n100.ts\n#EXTINF:3,\n101.ts\n#EXTINF:3,\n102.ts\n"
+            "#EXTINF:3,\n103.ts\n#EXTINF:3,\n104.ts\n");
+        // Download every already-advertised segment before any playlist reload.
+        // A live playlist's target duration limits manifest refresh frequency,
+        // NOT how quickly its previously validated segments may be fetched.
+        require(public_stream_next_live_segment(buffered, 100) == 1 &&
+                public_stream_next_live_segment(buffered, 101) == 2 &&
+                public_stream_next_live_segment(buffered, 102) == 3 &&
+                public_stream_next_live_segment(buffered, 103) == 4 &&
+                !public_stream_next_live_segment(buffered, 104),
+                "Consume cached consecutive HLS segment references without skipping");
+        require(valid_hls_latency_profile(HlsLatencyProfile::LowDelay) &&
+                valid_hls_latency_profile(HlsLatencyProfile::Balanced) &&
+                valid_hls_latency_profile(HlsLatencyProfile::Smooth) &&
+                !valid_hls_latency_profile(static_cast<HlsLatencyProfile>(99)),
+                "Only three session-local HLS latency profiles are accepted");
+        require(hls_live_edge_lag_segments(HlsLatencyProfile::LowDelay) == 3 &&
+                hls_live_edge_lag_segments(HlsLatencyProfile::Balanced) == 4 &&
+                hls_live_edge_lag_segments(HlsLatencyProfile::Smooth) == 5 &&
+                hls_startup_reserve_segments(HlsLatencyProfile::LowDelay) == 3 &&
+                hls_startup_reserve_segments(HlsLatencyProfile::Balanced) == 4 &&
+                hls_startup_reserve_segments(HlsLatencyProfile::Smooth) == 4,
+                "HLS latency presets must remain bounded by existing queue limits");
+        require(public_stream_next_live_segment(buffered, std::nullopt,
+                    HlsLatencyProfile::Balanced) == 0 &&
+                public_stream_next_live_segment(buffered, std::nullopt,
+                    HlsLatencyProfile::Smooth) == 0 &&
+                public_stream_next_live_segment(buffered, 100,
+                    HlsLatencyProfile::Smooth) == 1,
+                "Preset startup may move back, but subsequent segments stay sequential");
+        const auto longer = parse_public_stream_playlist(feed,
+            "#EXTM3U\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:200\n"
+            "#EXTINF:3,\n200.ts\n#EXTINF:3,\n201.ts\n#EXTINF:3,\n202.ts\n"
+            "#EXTINF:3,\n203.ts\n#EXTINF:3,\n204.ts\n#EXTINF:3,\n205.ts\n"
+            "#EXTINF:3,\n206.ts\n");
+        require(public_stream_next_live_segment(longer, std::nullopt,
+                    HlsLatencyProfile::LowDelay) == 3 &&
+                public_stream_next_live_segment(longer, std::nullopt,
+                    HlsLatencyProfile::Balanced) == 2 &&
+                public_stream_next_live_segment(longer, std::nullopt,
+                    HlsLatencyProfile::Smooth) == 1,
+                "Larger playlists must expose distinct startup positions");
+        require(public_stream_next_live_segment(buffered, std::nullopt) == 1 &&
+                public_stream_next_live_segment(buffered, 101) == 2 &&
+                public_stream_next_live_segment(buffered, 102) == 3 &&
+                public_stream_next_live_segment(buffered, 103) == 4 &&
+                public_stream_fresh_recovery_segment(buffered, 102) == 4,
+                "Startup retains three advertised HLS segments of jitter margin;"
+                " normal frames stay sequential; recovery selects a fresh live segment");
+        require(public_stream_next_live_segment(playlist, 42) == 1,
+                "One unseen HLS segment should be processed once");
+        require(!public_stream_next_live_segment(playlist, 43),
+                "Unchanged HLS playlist must not replay old segments");
+        require(public_stream_next_live_segment(playlist, 41) == 0,
+                "Adjacent segments must be decoded in sequence");
+        require(public_stream_next_live_segment(playlist, 40) == 0,
+                "An expired preceding sequence resumes at the earliest available frame");
+        require(!public_stream_fresh_recovery_segment(playlist, 43),
+                "Unexpected decoder failure must never replay a consumed segment");
+        require(public_stream_fresh_recovery_segment(playlist, 42) == 1,
+                "Decoder recovery must select the newest fresh segment");
+        const auto advanced = parse_public_stream_playlist(feed,
+            "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MEDIA-SEQUENCE:44\n"
+            "#EXTINF:4,\n44.ts\n#EXTINF:4,\n45.ts\n");
+        require(advanced.target_duration_seconds == 4 &&
+                public_stream_next_live_segment(advanced, 43) == 0 &&
+                !public_stream_next_live_segment(advanced, 45),
+                "Advancing live window must select its newest unseen segment once");
+        require(public_stream_fresh_recovery_segment(advanced, 43) == 1 &&
+                !public_stream_fresh_recovery_segment(advanced, 45),
+                "Decoder recovery must not revisit the old or latest downloaded segment");
+        for (std::string_view invalid : {
+            "#EXTM3U\n#EXT-X-TARGETDURATION:0\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-TARGETDURATION:61\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-TARGETDURATION:garbage\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-TARGETDURATION:3\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:3,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:18446744073709551615\n#EXTINF:3,\n1.ts\n#EXTINF:3,\n2.ts\n"})
+            rejected([&] { (void)parse_public_stream_playlist(feed, invalid); },
+                     "Invalid live HLS metadata was accepted");
+        const auto earthcam = parse_public_stream_url(
+            "https://videos-3.earthcam.com/fecnetwork/32781.flv/playlist.m3u8");
+        const std::string earthcam_master =
+            "#EXTM3U\n#EXT-X-VERSION:4\n"
+            "#EXT-X-STREAM-INF:BANDWIDTH=502066,CODECS=\"avc1.4d001f,mp4a.40.2\",RESOLUTION=1280x720\n"
+            "chunklist_w1908056588.m3u8\n";
+        const auto master = parse_public_stream_playlist(earthcam, earthcam_master);
+        require(master.variant_playlist.has_value() && master.segments.empty(),
+                "Single-variant master should resolve without fetching anything");
+        require(master.variant_playlist->url ==
+                "https://videos-3.earthcam.com/fecnetwork/32781.flv/chunklist_w1908056588.m3u8",
+                "EarthCam relative child resolution");
+        const auto child_media = parse_public_stream_playlist(*master.variant_playlist,
+            "#EXTM3U\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:10\n"
+            "#EXTINF:3,\nsegment0010.ts\n");
+        require(!child_media.variant_playlist && child_media.segments.size() == 1,
+                "A single master level must lead to a media playlist");
+        // Common metadata-only tags are safe when syntactically well-formed:
+        // none can introduce a new network destination or decrypt content.
+        const auto metadata_master = parse_public_stream_playlist(earthcam,
+            "#EXTM3U\n#EXT-X-VERSION:4\n#EXT-X-INDEPENDENT-SEGMENTS\n"
+            "#EXT-X-STREAM-INF:BANDWIDTH=502066\nchunklist_w1908056588.m3u8\n");
+        require(metadata_master.variant_playlist.has_value(),
+                "Independent segment marker must not force a second fetch");
+        const auto metadata_media = parse_public_stream_playlist(*master.variant_playlist,
+            "#EXTM3U\n#EXT-X-VERSION:4\n#EXT-X-TARGETDURATION:3\n"
+            "#EXT-X-DISCONTINUITY-SEQUENCE:5\n#EXT-X-MEDIA-SEQUENCE:42\n"
+            "#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-KEY:METHOD=NONE\n"
+            "#EXTINF:3,\n42.ts\n#EXT-X-DISCONTINUITY\n"
+            "#EXT-X-KEY:METHOD=NONE\n#EXTINF:3,\n43.ts\n");
+        require(metadata_media.media_sequence == 42 && metadata_media.segments.size() == 2 &&
+                metadata_media.discontinuity_before.size() == 2 &&
+                !metadata_media.discontinuity_before[0] &&
+                metadata_media.discontinuity_before[1] &&
+                metadata_media.segments[1].path_and_query.ends_with("43.ts"),
+                "Unencrypted media discontinuity markers must preserve sequence and segment order");
+        // Error messages must reveal only reviewed directive *names*, never
+        // remote playlist contents such as an inline key URI.
+        try {
+            (void)parse_public_stream_playlist(*master.variant_playlist,
+                "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n"
+                "#EXT-X-KEY:METHOD=AES-128,URI=\"private-token\"\n"
+                "#EXTINF:3,\n1.ts\n");
+            throw std::runtime_error("Encrypted HLS key accepted");
+        } catch (const std::invalid_argument& error) {
+            const std::string_view message{error.what()};
+            require(message.find("EXT-X-KEY") != std::string_view::npos &&
+                    message.find("private-token") == std::string_view::npos,
+                    "Unsafe HLS directive must be named without leaking its value");
+        }
+
+        // Downloaded playlists are text-only inputs: no local file references
+        // are accepted as segment destinations, and the original HTTPS URL
+        // is still required to resolve relative children.
+        const auto temp = std::filesystem::temp_directory_path() /
+            "chromascope_hls_single_variant_test.m3u8";
+        {
+            std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+            out << earthcam_master;
+        }
+        require(read_public_stream_local_playlist(temp.string()) == earthcam_master,
+                "Downloaded HLS file read failed");
+        std::filesystem::remove(temp);
+        for (const std::string_view bad : {
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=128000\nhttps://other.example.org/child.m3u8\n",
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=128000\nfile:///etc/passwd\n",
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=128000\n../child.m3u8\n",
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=128000\na.m3u8\n"
+                "#EXT-X-STREAM-INF:BANDWIDTH=256000\nb.m3u8\n",
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=128000,AUDIO=\"audio\"\na.m3u8\n",
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=128000\na.m3u8\n"
+                "#EXT-X-KEY:METHOD=AES-128,URI=\"key\"\n",
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=128000\na.m3u8\n"
+                "#EXT-X-DEFINE:NAME=\"x\",VALUE=\"y\"\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-KEY:METHOD=AES-128,URI=\"key\"\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\nhttps://other.example.org/a.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\n1.m4s\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-KEY:METHOD=NONE,URI=\"bad\"\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-DISCONTINUITY-SEQUENCE:not-a-number\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\n#EXT-X-DISCONTINUITY\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\n1.ts\n#EXT-X-DISCONTINUITY-SEQUENCE:8\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-DISCONTINUITY-UNKNOWN\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-MAP:URI=\"init.mp4\"\n#EXTINF:2,\n1.ts\n",
+            "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-BYTERANGE:100@0\n#EXTINF:2,\n1.ts\n",
+            "<html><script src='tracker'></script></html>"})
+            rejected([&] { (void)parse_public_stream_playlist(feed, bad); },
+                     "Unsafe playlist accepted");
+        const std::array<std::uint8_t, 4> good{8,8,8,8}, local{127,0,0,1},
+            intranet{10,0,0,1}, public_doco{203,0,113,1};
+        require(public_stream_ipv4(good.data()), "Public v4");
+        require(!public_stream_ipv4(local.data()) && !public_stream_ipv4(intranet.data()) &&
+                !public_stream_ipv4(public_doco.data()), "Nonpublic v4");
+        const std::array<std::uint8_t, 16> global6{0x26,0x06,0x47,0x00},
+            local6{0xfc,0x00}, docs6{0x20,0x01,0x0d,0xb8};
+        require(public_stream_ipv6(global6.data()) && !public_stream_ipv6(local6.data()) &&
+                !public_stream_ipv6(docs6.data()), "Public IPv6 policy");
+        std::cout << "PASS: HTTPS-only, single-variant HLS, downloaded manifest and public-IP policy\n";
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "FAIL: " << error.what() << '\n';
+        return 1;
+    }
+}

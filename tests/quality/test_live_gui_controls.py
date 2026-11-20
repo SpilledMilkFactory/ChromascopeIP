@@ -29,7 +29,7 @@ class LiveGuiControlsQualityTests(unittest.TestCase):
         self.assertIn("input_epoch != pause_epoch_", core)
         self.assertIn("snapshot_.paused", core)
         self.assertIn("if (live_inference_active && !live_paused)", gui)
-        self.assertIn("if (live_inference_active && !live_paused && workspace_mode == 2", gui)
+        self.assertIn("if (live_inference_active && !live_paused && live_workspace()", gui)
         self.assertIn('live_paused = false;', gui)
         self.assertIn("live_inference.set_paused(next)", gui)
         self.assertNotIn("camera_capture.stop()", gui.split("void toggle_live_pause()",1)[1].split("void start_camera()",1)[0])

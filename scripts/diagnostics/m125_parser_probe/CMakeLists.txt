@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.24)
+project(chromascope_m125_parser_ab_probe LANGUAGES CXX)
+find_package(OpenCV 5.1.0 EXACT CONFIG REQUIRED COMPONENTS core imgproc videoio)
+add_executable(chromascope_parser_probe probe.cpp)
+target_include_directories(chromascope_parser_probe SYSTEM PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(chromascope_parser_probe PRIVATE ${OpenCV_LIBS})
+target_compile_features(chromascope_parser_probe PRIVATE cxx_std_20)

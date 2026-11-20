@@ -7,7 +7,19 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      legacy_packages:
+        description: 'Also build and smoke-test the historical v1.0.0 packages'
+        required: false
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      legacy_packages:
+        description: 'Run historical v1.0.0 packaging steps for legacy matrix callers'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -45,7 +57,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build git pkg-config \
             libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
-            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+            libcurl4-openssl-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
             libglfw3-dev libgl1-mesa-dev \
             libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
           cmake --version
@@ -54,7 +66,7 @@ jobs:
 
       # M11.4-only package tools: keep the 26.04 job's prerequisites unchanged.
       - name: Install Ubuntu 24.04 packaging prerequisites
-        if: matrix.os == 'ubuntu-24.04'
+        if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -63,7 +75,7 @@ jobs:
 
       # M11.5: independent native Resolute packaging tools.
       - name: Install Ubuntu 26.04 packaging prerequisites
-        if: matrix.os == 'ubuntu-26.04'
+        if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -131,7 +143,7 @@ jobs:
       # M11.4: package only the native Noble binary. Never repackage the
       # Debian builds or 26.04 binary: ABI and apt dependencies are OS-specific.
       - name: Build Ubuntu 24.04 AMD64 candidate package
-        if: matrix.os == 'ubuntu-24.04'
+        if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -143,7 +155,7 @@ jobs:
             build/packages/ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb
 
       - name: Smoke-test clean Ubuntu 24.04 installation
-        if: matrix.os == 'ubuntu-24.04'
+        if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -152,7 +164,7 @@ jobs:
 
       # A development package qualifies only after the Noble smoke succeeds.
       - name: Upload tested Ubuntu 24.04 candidate package
-        if: matrix.os == 'ubuntu-24.04'
+        if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb
@@ -163,7 +175,7 @@ jobs:
 
       # Keep failed binaries separate: they are unqualified diagnostics only.
       - name: Upload UNQUALIFIED Ubuntu 24.04 package for failure diagnosis
-        if: failure() && matrix.os == 'ubuntu-24.04'
+        if: ${{ failure() && inputs.legacy_packages == true && matrix.os == 'ubuntu-24.04' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: UNQUALIFIED-M11.4-Ubuntu24.04-amd64-diagnostics
@@ -176,7 +188,7 @@ jobs:
 
       # M11.5: package only the native Resolute binary; no Noble/Debian reuse.
       - name: Build Ubuntu 26.04 AMD64 candidate package
-        if: matrix.os == 'ubuntu-26.04'
+        if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -188,7 +200,7 @@ jobs:
             build/packages/ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb
 
       - name: Smoke-test clean Ubuntu 26.04 installation
-        if: matrix.os == 'ubuntu-26.04'
+        if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -197,7 +209,7 @@ jobs:
 
       # Only a successfully smoke-qualified Resolute package is uploaded.
       - name: Upload tested Ubuntu 26.04 candidate package
-        if: matrix.os == 'ubuntu-26.04'
+        if: ${{ inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb
@@ -208,7 +220,7 @@ jobs:
 
       # Never treat failed native .deb output as a qualified distribution.
       - name: Upload UNQUALIFIED Ubuntu 26.04 package for failure diagnosis
-        if: failure() && matrix.os == 'ubuntu-26.04'
+        if: ${{ failure() && inputs.legacy_packages == true && matrix.os == 'ubuntu-26.04' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: UNQUALIFIED-M11.5-Ubuntu26.04-amd64-diagnostics
@@ -230,11 +242,12 @@ jobs:
             echo '- GUI + CLI: built in Release configuration'
             echo '- GUI-enabled build: full CTest suite passed'
             echo '- CLI-only build: full CTest suite passed'
-            if [[ '${{ matrix.os }}' == 'ubuntu-24.04' ]]; then
+            if [[ '${{ inputs.legacy_packages }}' == 'true' && '${{ matrix.os }}' == 'ubuntu-24.04' ]]; then
               echo '- Ubuntu 24.04: native .deb and isolated clean-install CLI smoke passed'
             fi
-            if [[ '${{ matrix.os }}' == 'ubuntu-26.04' ]]; then
+            if [[ '${{ inputs.legacy_packages }}' == 'true' && '${{ matrix.os }}' == 'ubuntu-26.04' ]]; then
               echo '- Ubuntu 26.04: native .deb and isolated clean-install CLI smoke passed'
             fi
+            echo '- Historical v1.0.0 packaging: ${{ inputs.legacy_packages == true && 'enabled' || 'skipped on normal PR' }}'
             echo '- GUI launch, display interaction and webcam hardware: not tested in this workflow'
           } >> "$GITHUB_STEP_SUMMARY"

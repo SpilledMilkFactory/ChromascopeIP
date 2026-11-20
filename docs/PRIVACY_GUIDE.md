@@ -57,3 +57,33 @@ write diagnostic messages to stderr for an excluded stream. This restriction
 does not sandbox native parsers or certify absence of OS/network behavior.
 The [current source clearance report](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M11_9_M12_5_CLEARANCE_REPORT.md)
 describes remaining release blockers.
+
+## Optional local live-camera recording (v1.0.1 development)
+
+Recording is a **separate explicit action** after camera capture starts. The Live Camera
+workspace has Start/Stop recording controls; the Export dialog selects AVI/MJPEG
+or MP4 (depending on the operating system's available encoder) and an optional
+output path. If blank, a timestamped `ChromascopeIP-Live-...` file is created
+in the operating system's Videos directory. The file contains silent camera video;
+**the currently displayed, frame-matched detection boxes and labels are burned
+into recorded pixels while live inference and overlay display are active**.
+Turning inference off during recording returns output to unannotated camera
+pixels. When inference is on, the recording follows the analyzed preview frame
+and may repeat it between inference completions; stale boxes are never applied
+to a different raw capture. The recording worker uses a bounded queue and may drop captured
+frames when storage cannot keep up. Stopping the camera, clearing the session
+or leaving the workspace requests recording finalization. Previously saved
+recordings are never deleted by session clearing. No recording starts when
+opening the camera, entering the workspace or opening the Export dialog.
+
+### Direct public HTTPS feeds (v1.0.1 development)
+
+**Live Streamed Video** introduces **explicit opt-in external network traffic**;
+it is not part of the offline camera/image/recorded-video paths. ChromascopeIP
+opens neither a URL nor a camera when that workspace is selected. The stream
+host and user's resolver observe the connection after **Start stream**;
+ChromascopeIP does not provide an anonymity network. The URL is not persisted
+in Preferences or written to the application log. Scripts, tracking code,
+redirects, cookies, credentials, unsafe DNS addresses, cross-domain HLS
+resources and embedded webpages are rejected by design. The repository source document `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`
+provides the full threat model and supported-feed restrictions.

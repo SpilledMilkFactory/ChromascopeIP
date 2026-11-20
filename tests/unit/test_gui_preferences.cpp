@@ -41,8 +41,13 @@ void exercise() {
     rejects(text + "camera_index=0\n"); // disallowed sensitive key
     rejects(text.substr(0, text.size()-1));
     rejects(std::string(17000, 'x'));
+    auto stream_workspace = prefs;
+    stream_workspace.ui["workspace"] = 3;
+    const auto stream_text = chromascope::serialize_gui_preferences(stream_workspace);
+    check(chromascope::parse_gui_preferences(stream_text).ui.at("workspace") == 3,
+          "public stream workspace should roundtrip without starting network activity");
     auto invalid = prefs;
-    invalid.ui["workspace"] = 3;
+    invalid.ui["workspace"] = 4; // outside the four legal workspaces
     bool threw = false;
     try { (void)chromascope::serialize_gui_preferences(invalid); }
     catch (const std::invalid_argument&) { threw = true; }

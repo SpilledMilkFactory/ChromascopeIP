@@ -58,12 +58,13 @@ inline float gui_sidebar_drag(float logical_width, float delta_pixels,
     return std::clamp(logical_width + delta_pixels / scale, 215.0F, 850.0F);
 }
 
-enum class GuiPickerKind { Image, Video, Model };
+enum class GuiPickerKind { Image, Video, Model, HlsPlaylist };
 
 inline bool gui_picker_extension(std::string_view extension, GuiPickerKind kind) noexcept {
     // Extension must be lower-case, starting with a dot. The caller validates
     // regular file type and remains responsible for actual media decoding.
     if (kind == GuiPickerKind::Model) return extension == ".onnx";
+    if (kind == GuiPickerKind::HlsPlaylist) return extension == ".m3u8";
     if (kind == GuiPickerKind::Video)
         return extension == ".avi" || extension == ".mp4" || extension == ".mov" ||
                extension == ".mkv" || extension == ".webm" || extension == ".m4v" ||

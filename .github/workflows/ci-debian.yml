@@ -65,7 +65,7 @@ jobs:
             build-essential cmake ninja-build pkg-config python3 \
             dpkg-dev patchelf debootstrap \
             libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
-            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+            libcurl4-openssl-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
             libglfw3-dev libgl1-mesa-dev \
             libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
           cmake --version

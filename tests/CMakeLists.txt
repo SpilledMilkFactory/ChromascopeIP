@@ -912,3 +912,7 @@ endforeach()
 # v1.0.1: camera-free, cross-platform live recording policy validation.
 chromascope_add_cpp_test(chromascope_unit_live_camera_recording
     unit/test_live_camera_recording.cpp "unit;camera;recording;privacy;negative" 20)
+
+# v1.0.1: secure public stream URL and offline playlist parsing (NO network I/O).
+chromascope_add_cpp_test(chromascope_unit_public_stream_policy
+    unit/test_public_stream_policy.cpp "unit;security;privacy;network;negative" 20)

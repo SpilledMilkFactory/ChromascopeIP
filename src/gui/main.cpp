@@ -12,6 +12,7 @@
 #include "chromascope/AsyncRecordedVideoDetection.hpp"
 #include "chromascope/AnnotatedVideoExport.hpp"
 #include "chromascope/AsyncCameraCapture.hpp"
+#include "chromascope/PublicStreamReader.hpp"
 #include "chromascope/LiveCameraRecording.hpp"
 #include "chromascope/AsyncLiveCameraInference.hpp"
 #include "chromascope/CameraDiscovery.hpp"
@@ -193,7 +194,11 @@ struct App {
     int camera_index = 0;
     bool camera_frame_visible = false;
     std::string camera_status = "Camera is OFF. Select a device and press Start camera.";
-    int workspace_mode = 0; // 0 = still image; 1 = recorded video; 2 = live camera
+    int workspace_mode = 0; // 0 = still image; 1 = recorded video; 2 = camera; 3 = HTTPS stream
+    std::array<char, 2049> public_stream_url{}; // In-memory only; NEVER saved to preferences.
+    std::array<char, 4097> public_stream_playlist_file{}; // Optional local master; never persisted.
+    std::shared_ptr<std::atomic<bool>> public_stream_cancel;
+    int public_stream_kind = 0; // Auto, image, unencrypted HLS, bounded MP4.
     int detector_profile = 0; // 0 = disabled; 1 = verified NanoDet raw/person detection
     chromascope::DnnGuiSession detector_session;
     chromascope::DnnGuiOptions detector_options;
@@ -202,6 +207,7 @@ struct App {
     int detector_selected_class = 0;
     std::array<std::optional<float>, chromascope::kNanoDetClassCount> detector_class_overrides{};
     bool picker_video = false;
+    bool picker_stream_playlist = false;
     bool picker_model = false;
     Texture original_texture, processed_texture;
     Texture source_overlay_texture, processed_overlay_texture;
@@ -430,6 +436,10 @@ struct App {
         }
     }
 
+    [[nodiscard]] bool live_workspace() const noexcept {
+        return workspace_mode == 2 || workspace_mode == 3;
+    }
+
     void cancel_live_inference() noexcept {
         live_inference.cancel();
         live_inference_active = false;
@@ -440,6 +450,7 @@ struct App {
     }
 
     void stop_camera() noexcept {
+        if (public_stream_cancel) public_stream_cancel->store(true);
         live_recorder.stop();
         cancel_live_inference();
         // stop() returns immediately even if native driver I/O is blocked;
@@ -459,15 +470,16 @@ struct App {
     void switch_workspace(int next_mode) {
         if (workspace_mode == next_mode) return;
         if (workspace_mode == 2) stop_camera(); // privacy: leaving stops capture
+        if (workspace_mode == 3) stop_camera(); // leaving network mode stops remote requests
         if (next_mode != 1) video_player.pause();
         workspace_mode = next_mode;
     }
 
     void start_live_inference() {
         try {
-            if (workspace_mode != 2 ||
+            if (!live_workspace() ||
                 camera_capture.state() != chromascope::CameraCaptureState::Capturing)
-                throw std::invalid_argument("Start the live camera before enabling inference");
+                throw std::invalid_argument("Start the live source before enabling inference");
             chromascope::DnnPostprocessOptions policy;
             policy.confidence_threshold = static_cast<double>(live_confidence_threshold);
             policy.nms_iou_threshold = detector_options.nms_iou_threshold;
@@ -500,7 +512,7 @@ struct App {
     }
 
     void toggle_live_pause() {
-        if (!live_inference_active || workspace_mode != 2) return;
+        if (!live_inference_active || !live_workspace()) return;
         const bool next = !live_paused;
         if (!live_inference.set_paused(next)) {
             camera_status = "Live inference is not available for pausing.";
@@ -519,6 +531,7 @@ struct App {
     }
 
     void start_camera() {
+        if (public_stream_cancel) public_stream_cancel->store(true);
         live_recorder.stop();
         cancel_live_inference();
         // Only called by the explicit user-facing Start camera button.
@@ -537,10 +550,33 @@ struct App {
         }
     }
 
+    void start_public_stream() {
+        live_recorder.stop();
+        cancel_live_inference();
+        try {
+            public_stream_cancel = std::make_shared<std::atomic<bool>>(false);
+            auto reader = chromascope::make_public_stream_reader(
+                public_stream_url.data(), public_stream_cancel,
+                static_cast<chromascope::PublicStreamMediaKind>(public_stream_kind),
+                public_stream_playlist_file.data());
+            camera_texture.reset();
+            camera_view.fit();
+            camera_frame_visible = false;
+            camera_frame_index = 0;
+            camera_frame_time = std::chrono::nanoseconds{0};
+            camera_active_format = {};
+            // The reader is only called on the existing bounded capture worker.
+            camera_generation = camera_capture.start_with_reader(std::move(reader));
+            camera_status = "Public HTTPS stream start requested. No local camera opened.";
+        } catch (const std::exception& error) {
+            camera_status = std::string("Stream rejected: ") + error.what();
+        }
+    }
+
     [[nodiscard]] chromascope::LiveRecordingPresentation live_record_presentation() const {
         chromascope::LiveRecordingPresentation presentation;
         if (!live_inference_active || !live_displayed || !camera_frame_visible ||
-            workspace_mode != 2) return presentation;
+            !live_workspace()) return presentation;
         const auto snap = live_inference.snapshot();
         if (snap.stage != chromascope::LiveInferenceStage::Running ||
             snap.camera_generation != camera_generation ||
@@ -590,7 +626,7 @@ struct App {
                 case chromascope::CameraCaptureEventKind::Frame:
                     if (chromascope::camera_preview_can_publish(
                             *event, camera_generation, camera_capture.state()) &&
-                        workspace_mode == 2) {
+                        live_workspace()) {
                         // Recording samples the CURRENT displayed inference frame
                         // (with matching boxes) when enabled, not stale boxes
                         // projected onto this newer raw camera capture.
@@ -620,7 +656,7 @@ struct App {
         }
         // A stop/restart may race an already-popped frame. Recheck the
         // generation and state before publishing its pixels to the screen.
-        if (newest && workspace_mode == 2 &&
+        if (newest && live_workspace() &&
             camera_capture.generation() == camera_generation &&
             camera_capture.state() == chromascope::CameraCaptureState::Capturing) {
             try {
@@ -644,7 +680,7 @@ struct App {
                 camera_status = std::string("Preview conversion failed: ") + error.what();
             }
         }
-        if (live_inference_active && !live_paused && workspace_mode == 2 &&
+        if (live_inference_active && !live_paused && live_workspace() &&
             camera_capture.state() == chromascope::CameraCaptureState::Capturing) {
             const auto snapshot = live_inference.snapshot();
             if (snapshot.latest && snapshot.camera_generation == camera_generation &&
@@ -950,6 +986,8 @@ struct App {
     // finishing OpenCV calls; generation invalidation blocks stale publication.
     // No previously saved export is deleted by this UI action.
     void clear_private_session() {
+        public_stream_url.fill('\0');
+        public_stream_playlist_file.fill('\0');
         stop_camera();
         live_enable_tracking = false; // reset opt-in alongside in-memory track history
         live_max_inference_fps = 0;
@@ -1131,10 +1169,10 @@ struct App {
             switch (action) {
             case GuiShortcut::Help: help_requested = true; break;
             case GuiShortcut::Browse:
-                if (workspace_mode != 2) open_file_picker(workspace_mode == 1);
+                if (!live_workspace()) open_file_picker(workspace_mode == 1);
                 break; // Ctrl+O never starts camera capture or model inference.
             case GuiShortcut::Fit:
-                if (workspace_mode == 2) camera_view.fit();
+                if (live_workspace()) camera_view.fit();
                 else if (workspace_mode == 1) video_view.fit();
                 else {
                     result_view.fit(); comparison_original_view.fit();
@@ -1274,9 +1312,9 @@ struct App {
 
     void start_live_recording() {
         try {
-            if (workspace_mode != 2 ||
+            if (!live_workspace() ||
                 camera_capture.state() != chromascope::CameraCaptureState::Capturing)
-                throw std::invalid_argument("Start the camera before recording");
+                throw std::invalid_argument("Start the live source before recording");
             const auto format = live_record_format == 0
                 ? chromascope::LiveRecordingFormat::AVI
                 : chromascope::LiveRecordingFormat::MP4;
@@ -1374,19 +1412,22 @@ struct App {
             ImGui::TextUnformatted("ANNOTATED VIDEO EXPORT (M6.4)");
             draw_video_export_controls();
         } else {
-            ImGui::TextUnformatted("LOCAL LIVE CAMERA RECORDING");
+            ImGui::TextUnformatted(workspace_mode == 3 ? "HTTPS LIVE STREAM RECORDING" : "LOCAL LIVE CAMERA RECORDING");
             draw_live_record_controls(true);
         }
         ImGui::EndPopup();
     }
 
-    void open_file_picker(bool for_video = false, bool for_model = false) {
+    void open_file_picker(bool for_video = false, bool for_model = false,
+                          bool for_stream_playlist = false) {
         picker_video = for_video;
         picker_model = for_model;
+        picker_stream_playlist = for_stream_playlist;
         browser_selected.clear();
         browser_status_message.clear();
-        const std::filesystem::path selected(for_model ? detector_model_path.data() :
-            (for_video ? video_path.data() : path.data()));
+        const std::filesystem::path selected(for_stream_playlist ? public_stream_playlist_file.data() :
+            (for_model ? detector_model_path.data() :
+            (for_video ? video_path.data() : path.data())));
         const auto dir = selected.has_parent_path() ? selected.parent_path()
                                                     : std::filesystem::path(".");
         if (!set_path_buffer(browser_directory, dir))
@@ -1395,8 +1436,9 @@ struct App {
     }
 
     void accept_browser_selection(const std::filesystem::path& selected) {
-        const auto kind = picker_model ? chromascope::GuiPickerKind::Model :
-            (picker_video ? chromascope::GuiPickerKind::Video : chromascope::GuiPickerKind::Image);
+        const auto kind = picker_stream_playlist ? chromascope::GuiPickerKind::HlsPlaylist :
+            (picker_model ? chromascope::GuiPickerKind::Model :
+            (picker_video ? chromascope::GuiPickerKind::Video : chromascope::GuiPickerKind::Image));
         auto extension = selected.extension().string();
         std::transform(extension.begin(), extension.end(), extension.begin(),
             [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
@@ -1407,7 +1449,14 @@ struct App {
             browser_status_message = "Select an existing, regular supported file (not a symlink).";
             return;
         }
-        if (picker_model) {
+        if (picker_stream_playlist) {
+            std::error_code ec;
+            const auto absolute = std::filesystem::absolute(selected, ec);
+            if (ec || !set_path_buffer(public_stream_playlist_file, absolute)) {
+                browser_status_message = "Playlist path is too long.";
+                return;
+            }
+        } else if (picker_model) {
             if (!set_path_buffer(detector_model_path, selected)) {
                 browser_status_message = "Model path is too long.";
                 return;
@@ -1426,8 +1475,9 @@ struct App {
                                  ImGuiCond_Appearing);
         if (!ImGui::BeginPopupModal("Select media", nullptr,
                                    ImGuiWindowFlags_NoSavedSettings)) return;
-        ImGui::TextWrapped("%s", picker_model ? "Choose a local ONNX model (.onnx)" :
-            (picker_video ? "Choose a recorded video" : "Choose a photograph"));
+        ImGui::TextWrapped("%s", picker_stream_playlist ? "Choose downloaded HLS master (.m3u8)" :
+            (picker_model ? "Choose a local ONNX model (.onnx)" :
+            (picker_video ? "Choose a recorded video" : "Choose a photograph")));
         ImGui::SetNextItemWidth(-1.0F);
         ImGui::InputText("##directory", browser_directory.data(), browser_directory.size());
         const auto navigate = [this](const std::filesystem::path& next) {
@@ -1452,8 +1502,9 @@ struct App {
         ImGui::Separator();
 
         const auto dir = std::filesystem::path(browser_directory.data());
-        const auto kind = picker_model ? chromascope::GuiPickerKind::Model :
-            (picker_video ? chromascope::GuiPickerKind::Video : chromascope::GuiPickerKind::Image);
+        const auto kind = picker_stream_playlist ? chromascope::GuiPickerKind::HlsPlaylist :
+            (picker_model ? chromascope::GuiPickerKind::Model :
+            (picker_video ? chromascope::GuiPickerKind::Video : chromascope::GuiPickerKind::Image));
         std::error_code error;
         std::filesystem::directory_iterator cursor(dir, error);
         constexpr std::size_t maximum_entries = 1024;
@@ -2268,26 +2319,69 @@ struct App {
         draw_file_picker();
     }
 
-    void draw_camera_ui() {
+    void draw_camera_ui(bool remote = false) {
         const auto layout = panel_layout();
-        ImGui::BeginChild("Camera controls", panel_controls_size(layout), ImGuiChildFlags_Borders);
-        ImGui::TextUnformatted("LOCAL LIVE CAMERA");
-        ImGui::TextWrapped("Camera and CPU detection are separately opt-in. "
-                           "Nothing is recorded, uploaded, or inferred automatically.");
+        ImGui::BeginChild(remote ? "Stream controls" : "Camera controls",
+                          panel_controls_size(layout), ImGuiChildFlags_Borders);
+        ImGui::TextUnformatted(remote ? "LIVE STREAMED VIDEO (HTTPS)" : "LOCAL LIVE CAMERA");
+        if (remote)
+            ImGui::TextWrapped("Explicit opt-in only. No scripts, cookies, redirects,"
+                " webpage embeds, tracking integrations or local-camera access."
+                " Public media servers will see your public IP address."
+                " No stream URL is saved in Preferences.");
+        else
+            ImGui::TextWrapped("Camera and CPU detection are separately opt-in. "
+                "Nothing is recorded, uploaded, or inferred automatically.");
         ImGui::Separator();
         const auto current_state = camera_capture.state();
         const auto badge = chromascope::camera_preview_badge(current_state);
         const ImVec4 color = badge.may_be_active
             ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
             : ImVec4(0.52F, 0.78F, 0.62F, 1.0F);
-        ImGui::TextColored(color, "%s", badge.label);
-        ImGui::TextWrapped("%s", camera_status.c_str());
+        ImGui::TextColored(color, "%s", remote ? (badge.may_be_active ? "STREAM ACTIVE" : "STREAM OFF") : badge.label);
+        if (remote && camera_status == "Camera is OFF. Select a device and press Start camera.")
+            ImGui::TextWrapped("Stream is OFF. Paste a direct public HTTPS media URL and press Start stream.");
+        else ImGui::TextWrapped("%s", camera_status.c_str());
         if (current_state == chromascope::CameraCaptureState::Stopping ||
             current_state == chromascope::CameraCaptureState::Failed) {
-            ImGui::TextWrapped("Driver I/O can block. The camera may remain active "
-                               "until the worker confirms device release.");
+            ImGui::TextWrapped(remote ? "A remote TLS request may need to finish or time out before the reader closes."
+                                      : "Driver I/O can block. The camera may remain active "
+                                        "until the worker confirms device release.");
         }
         ImGui::Separator();
+        const bool capturing = current_state == chromascope::CameraCaptureState::Capturing;
+        if (remote) {
+            ImGui::TextUnformatted("PUBLIC HTTPS FEED URL");
+            ImGui::SetNextItemWidth(-1.0F);
+            ImGui::InputTextWithHint("##public_stream_url", "https://public.example.org/feed.m3u8",
+                                     public_stream_url.data(), public_stream_url.size());
+            responsive_combo("Direct media type", &public_stream_kind,
+                "Automatic (by URL extension)\0JPEG/PNG/MJPEG snapshot\0"
+                "HLS MPEG-TS (.m3u8)\0Bounded MP4\0");
+            ImGui::TextUnformatted("DOWNLOADED HLS MASTER (OPTIONAL)");
+            ImGui::SetNextItemWidth(-1.0F);
+            ImGui::InputTextWithHint("##public_stream_playlist_file", "Absolute path to playlist.m3u8",
+                                     public_stream_playlist_file.data(), public_stream_playlist_file.size());
+            if (ImGui::Button("Browse downloaded playlist...", ImVec2(-1, 0)))
+                open_file_picker(false, false, true);
+            ImGui::SetItemTooltip("The original HTTPS feed URL is still required to resolve"
+                " the downloaded playlist's relative references. No file is uploaded.");
+            ImGui::TextWrapped("No iframe pages or scripts. Same-origin, unencrypted"
+                " HLS MPEG-TS only. Single-variant master playlists are supported."
+                " Downloaded playlists must be paired with their original HTTPS URL."
+                " Encrypted or cross-origin resources remain blocked.");
+            const bool opening = current_state == chromascope::CameraCaptureState::Starting;
+            const bool capturing = current_state == chromascope::CameraCaptureState::Capturing;
+            const bool stopping = current_state == chromascope::CameraCaptureState::Stopping;
+            ImGui::BeginDisabled(opening || capturing || stopping || public_stream_url[0] == '\0');
+            if (ImGui::Button("Start stream", ImVec2(-1, 0))) start_public_stream();
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(!opening && !capturing);
+            if (ImGui::Button("Stop stream", ImVec2(-1, 0))) stop_camera();
+            ImGui::EndDisabled();
+            ImGui::TextDisabled("HTTPS requests stop when leaving this mode."
+                " A pending network read may complete before Stop finishes.");
+        } else {
         ImGui::TextUnformatted("CAMERA BACKEND");
         const auto backends = chromascope::camera_backend_info();
         const auto backend_name = chromascope::camera_backend_name(camera_backend);
@@ -2339,6 +2433,7 @@ struct App {
         ImGui::BeginDisabled(!opening && !capturing);
         if (ImGui::Button("Stop camera", ImVec2(-1, 0))) stop_camera();
         ImGui::EndDisabled();
+        } // local camera controls versus private HTTPS stream controls
         ImGui::Separator();
         ImGui::TextUnformatted("LIVE RECORDING (OPT-IN)");
         ImGui::TextDisabled("Destination and AVI/MP4 format: Export menu.");
@@ -2383,7 +2478,7 @@ struct App {
                          0.01F, 1.0F,
                          static_cast<float>(slider_ui_default("live_display_confidence_threshold", 0.50)), "%.2f");
         ImGui::TextDisabled("Display-only threshold; lower values cannot recover model-filtered boxes.");
-        ImGui::TextDisabled("FPS cap limits inference submissions, not physical camera FPS.");
+        ImGui::TextDisabled("FPS cap limits inference submissions, not the live source frame rate.");
         const auto live_state = live_inference.snapshot();
         ImGui::TextWrapped("%s", live_state.message.c_str());
         ImGui::Text("Inference accepted: %llu | analyzed: %llu",
@@ -2412,7 +2507,7 @@ struct App {
             ImGui::Text("Temporary tracks: %zu active | %zu matched | %zu new",
                 live_track_frame->active_tracks, live_track_frame->matched_tracks,
                 live_track_frame->created_tracks);
-        ImGui::TextDisabled("One pending frame + one worker. Spacing uses capture timestamps, not wall time.");
+        ImGui::TextDisabled("One pending frame + one worker. Spacing uses source capture timestamps.");
         ImGui::TextDisabled("In-flight CPU forward cannot be forcibly interrupted.");
         ImGui::Separator();
         ImGui::Text("Completed frames dropped: %llu",
@@ -2427,20 +2522,22 @@ struct App {
         if (camera_active_format.width > 0 && camera_active_format.height > 0)
             ImGui::Text("Negotiated: %d x %d | reported %.1f fps",
                 camera_active_format.width, camera_active_format.height, camera_active_format.fps);
-        ImGui::TextWrapped("Stop or switch workspaces to request device release. "
-                           "Session reset also stops the preview and clears pixels.");
+        ImGui::TextWrapped(remote ? "Stop or leave this mode to cancel new requests and clear pixels."
+                                 : "Stop or switch workspaces to request device release. "
+                                   "Session reset also stops the preview and clears pixels.");
         ImGui::EndChild();
         next_panel(layout);
-        ImGui::BeginChild("Live camera preview", ImVec2(0, 0), ImGuiChildFlags_Borders,
+        ImGui::BeginChild(remote ? "Live stream preview" : "Live camera preview", ImVec2(0, 0), ImGuiChildFlags_Borders,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        ImGui::TextUnformatted("LIVE PREVIEW");
+        ImGui::TextUnformatted(remote ? "LIVE STREAM PREVIEW" : "LIVE PREVIEW");
         ImGui::SameLine();
         const auto preview_badge = chromascope::camera_preview_badge(camera_capture.state());
         ImGui::TextColored(preview_badge.may_be_active
             ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
-            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", preview_badge.label);
+            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", remote ?
+                (preview_badge.may_be_active ? "STREAM ACTIVE" : "STREAM OFF") : preview_badge.label);
         ImGui::SameLine();
-        if (ImGui::SmallButton("Fit camera")) camera_view.fit();
+        if (ImGui::SmallButton(remote ? "Fit stream" : "Fit camera")) camera_view.fit();
         ImGui::Separator();
         if (live_inference_active && live_displayed) {
             if (live_paused) ImGui::TextDisabled("PAUSED: last analyzed frame frozen; camera remains active.");
@@ -2488,9 +2585,17 @@ struct App {
                 synchronized_boxes, live_show_confidence_labels, true, synchronized_track_ids,
                 static_cast<double>(live_display_confidence_threshold));
         else
-            ImGui::TextWrapped("No live camera frame. Choose a camera and press Start camera. "
-                               "An OS permission prompt may appear.");
+            ImGui::TextWrapped(remote ? "No decoded stream frame. Paste a public HTTPS media URL and press Start stream."
+                                      : "No live camera frame. Choose a camera and press Start camera. "
+                                        "An OS permission prompt may appear.");
         ImGui::EndChild();
+        if (remote) {
+            if (browse_requested) {
+                ImGui::OpenPopup("Select media");
+                browse_requested = false;
+            }
+            draw_file_picker();
+        }
     }
 
     void draw_ui() {
@@ -2555,12 +2660,16 @@ struct App {
         same_line_if_fits(radio_width("Live Camera"));
         if (ImGui::RadioButton("Live Camera", workspace_mode == 2))
             switch_workspace(2); // no implicit device opening
+        same_line_if_fits(radio_width("Live Streamed Video"));
+        if (ImGui::RadioButton("Live Streamed Video", workspace_mode == 3))
+            switch_workspace(3); // NO implicit DNS query or network access
         const auto camera_badge = chromascope::camera_preview_badge(camera_capture.state());
         same_line_if_fits(text_width(camera_badge.label));
         ImGui::TextColored(camera_badge.may_be_active
             ? ImVec4(1.0F, 0.40F, 0.36F, 1.0F)
-            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s", camera_badge.label);
-        ImGui::SetItemTooltip("The camera opens only after Start camera. Leaving Live Camera requests Stop.");
+            : ImVec4(0.52F, 0.78F, 0.62F, 1.0F), "%s",
+            workspace_mode == 3 ? (camera_badge.may_be_active ? "STREAM ACTIVE" : "STREAM OFF") : camera_badge.label);
+        ImGui::SetItemTooltip("The selected live source opens only after an explicit Start action. Leaving a live workspace requests Stop.");
         const auto record_state = live_recorder.status().stage;
         const bool recording_now = record_state == chromascope::LiveRecordingStage::Starting ||
             record_state == chromascope::LiveRecordingStage::Recording;
@@ -2635,8 +2744,8 @@ struct App {
             ImGui::End();
             return;
         }
-        if (workspace_mode == 2) {
-            draw_camera_ui();
+        if (workspace_mode == 2 || workspace_mode == 3) {
+            draw_camera_ui(workspace_mode == 3);
             ImGui::End();
             return;
         }

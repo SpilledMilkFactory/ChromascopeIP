@@ -89,3 +89,18 @@ In the **Preferences** dialog, **Save preferences** explicitly persists validate
 ## What to check after a change
 
 Verify original Skittles examples, at least one non-Skittles filter, object/person profile only with an approved model, recorded playback/seek/export, explicit camera start/stop, pause/resume, tracking reset, and manual DPI/shortcuts. Native automated CTests deliberately **cannot** certify a physical camera. Follow [verification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/VERIFICATION.md) and [M10.7 soak qualification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_7_SANITIZER_STATIC_SOAK.md).
+
+### Live Streamed Video (v1.0.1 development)
+
+The new **Live Streamed Video** workspace accepts an explicitly pasted direct
+**public HTTPS media URL** and begins fetching only when you click **Start
+stream**. It shares the Live Camera preview, optional local ONNX inference,
+annotations and optional recording controls, but **never opens a local camera**
+for a stream. The URL is not saved in Preferences. The live media operator can
+see your public IP and connection details. HTML/iframe webpages, scripts,
+trackers and unsafe nested HLS resources are not executed. Only direct JPEG,
+PNG, MJPEG, restricted HLS MPEG-TS, and bounded MP4 inputs are candidates for
+playback; many publisher feeds legitimately will not meet those restrictions.
+The repository source document `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`
+describes the threat model, unsupported feed formats and native qualification
+requirements.

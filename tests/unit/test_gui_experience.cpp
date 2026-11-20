@@ -30,6 +30,8 @@ void run() {
     check(gui_picker_extension(".jpeg", GuiPickerKind::Image), "JPEG missing");
     check(gui_picker_extension(".webm", GuiPickerKind::Video), "WEBM missing");
     check(gui_picker_extension(".onnx", GuiPickerKind::Model), "ONNX missing");
+    check(gui_picker_extension(".m3u8", GuiPickerKind::HlsPlaylist), "HLS playlist missing");
+    check(!gui_picker_extension(".html", GuiPickerKind::HlsPlaylist), "HTML playlist accepted");
     check(!gui_picker_extension(".exe", GuiPickerKind::Image), "executable accepted");
     check(!gui_picker_extension(".jpg", GuiPickerKind::Model), "invalid ONNX extension accepted");
     check(gui_shortcut(true, false, false, false, false, false, GuiShortcutKey::Three) ==

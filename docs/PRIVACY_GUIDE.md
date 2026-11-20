@@ -75,3 +75,15 @@ frames when storage cannot keep up. Stopping the camera, clearing the session
 or leaving the workspace requests recording finalization. Previously saved
 recordings are never deleted by session clearing. No recording starts when
 opening the camera, entering the workspace or opening the Export dialog.
+
+### Direct public HTTPS feeds (v1.0.1 development)
+
+**Live Streamed Video** introduces **explicit opt-in external network traffic**;
+it is not part of the offline camera/image/recorded-video paths. ChromascopeIP
+opens neither a URL nor a camera when that workspace is selected. The stream
+host and user's resolver observe the connection after **Start stream**;
+ChromascopeIP does not provide an anonymity network. The URL is not persisted
+in Preferences or written to the application log. Scripts, tracking code,
+redirects, cookies, credentials, unsafe DNS addresses, cross-domain HLS
+resources and embedded webpages are rejected by design. The repository source document `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`
+provides the full threat model and supported-feed restrictions.

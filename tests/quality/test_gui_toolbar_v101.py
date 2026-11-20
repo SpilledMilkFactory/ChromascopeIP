@@ -72,7 +72,7 @@ class ToolbarPolishTests(unittest.TestCase):
             "help_requested = true", "draw_help();", "draw_preferences();", "draw_export();",
             "export_requested = true",
             "camera_badge.may_be_active", "camera_badge.label",
-            "The camera opens only after Start camera",
+            "The selected live source opens only after an explicit Start action",
             "show_overlay = true", "show_labels = true", "detector_profile = 1",
             "detector_session.clear_results()", "video_show_detections = true",
             "video_detection.cancel()", "video_export_worker.request_stop()",

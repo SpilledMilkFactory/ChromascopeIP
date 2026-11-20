@@ -25,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[2]
 # Reuse reviewed implementation from M12.5 rather than duplicating a security
 # transformation. That module only declares functions when imported.
 sys.path.insert(0, str(ROOT / 'scripts' / 'diagnostics'))
+sys.path.insert(0, str(ROOT / 'scripts' / 'portable'))
+from v101_p2_ci_fixture import generate_fixture  # noqa: E402
 from m125_fixed_ffmpeg_trial import (  # noqa: E402
     FFMPEG_PATCH_SHA, JPEGXL_BACKPORT_LINES, JPEGXL_ANCHOR, JPEGXL_NEXT,
     FLAG_SET, FLAG_CHECK, OPENCV_PATCHES,
@@ -193,10 +195,23 @@ class Builder:
         for cmd in ('git', 'cmake', 'ninja', 'make', 'cc', 'c++', 'pkg-config', 'ldd', 'readelf'):
             require(shutil.which(cmd) is not None, f'Missing build tool: {cmd}')
         require(not self.base.is_symlink(), 'Refusing symlink output directory')
-        sample = self.a.sample.resolve(strict=True)
-        require(sample.is_file() and sha256(sample) == SAMPLE_SHA,
-                'Missing or unexpected 276-frame private regression sample')
-        self.result['sample_sha256'] = SAMPLE_SHA
+        if self.a.ci_synthetic_fixture:
+            require(self.a.sample is None, 'CI-generated fixture cannot use an operator sample')
+            sample = self.tmp / 'p2-synthetic-ci.ts'
+            fixture_info = generate_fixture(sample)
+            self.a.sample = sample
+            self.result['fixture'] = fixture_info
+            self.result['sample_sha256'] = fixture_info['sha256']
+            self.result['sample_kind'] = 'GENERATED_SYNTHETIC_CI_ONLY'
+            (self.logs / 'synthetic-fixture.json').write_text(
+                json.dumps(fixture_info, indent=2, sort_keys=True) + '\n')
+        else:
+            require(self.a.sample is not None, 'Private sample path required without --ci-synthetic-fixture')
+            sample = self.a.sample.resolve(strict=True)
+            require(sample.is_file() and sha256(sample) == SAMPLE_SHA,
+                    'Missing or unexpected 276-frame private regression sample')
+            self.result['sample_sha256'] = SAMPLE_SHA
+            self.result['sample_kind'] = 'HASH_PINNED_OPERATOR_SAMPLE'
         patch = ROOT / 'scripts/diagnostics/ffmpeg-jpegxl-toc-bounds-bc896c6.patch'
         require(sha256(patch) == FFMPEG_PATCH_SHA,
                 'Upstream JPEG XL backport bytes differ from reviewed hash')
@@ -397,7 +412,9 @@ class Builder:
 def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--out', type=Path, required=True, help='Owned writable output directory')
-    p.add_argument('--sample', type=Path, required=True, help='Hash-pinned PRIVATE sample.ts')
+    p.add_argument('--sample', type=Path, help='Hash-pinned PRIVATE sample.ts for manual Debian 12 run')
+    p.add_argument('--ci-synthetic-fixture', action='store_true',
+                   help='Generate synthetic 276-frame H.264/MPEG-TS sample (no private footage)')
     p.add_argument('--jobs', type=int, default=2)
     return p.parse_args(argv)
 

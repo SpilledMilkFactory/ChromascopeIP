@@ -1,0 +1,106 @@
+# v1.0.1 P2 engineering candidate only; never a GitHub Release.
+# GitHub-hosted runner provisions the Debian 12 environment. No local Docker/Podman.
+name: v1.0.1 P2 — Debian 12 private multimedia runtime
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v101-p2-private-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  p2-debian12:
+    name: Debian 12 / pinned FFmpeg + OpenCV / private candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    # Reuse the digest already reviewed for the project's Debian 12 CI matrix.
+    # This container runs IN GITHUB ACTIONS, not on the user's workstation.
+    container:
+      image: debian:bookworm@sha256:366a6da5efcceffbaa19c560a101b97b87a1a9664eeeac8bc3d24395ddbf14f3
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CHROMASCOPE_P2_JOBS: '2'
+
+    steps:
+      - name: Install Debian 12 build and synthetic-fixture prerequisites
+        run: |
+          set -Eeuo pipefail
+          source /etc/os-release
+          test "$ID" = 'debian'
+          test "$VERSION_ID" = '12'
+          test "$(dpkg --print-architecture)" = 'amd64'
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git tar zstd python3 cmake ninja-build \
+            build-essential binutils pkg-config make ffmpeg \
+            libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
+            libopenexr-dev libv4l-dev zlib1g-dev \
+            libprotobuf-dev protobuf-compiler
+          printf 'Debian 12 base (bookworm), glibc: '
+          ldd --version | head -n 1
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep -E '^[[:space:]]*V.*libx264[[:space:]]'
+
+      - name: Check out exact ChromascopeIP source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run P1, P2 and GitHub Actions safeguard tests
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s tests/quality -p 'test_v101_portable_linux_preflight.py' -v
+          python3 -m unittest discover -s tests/quality -p 'test_v101_p2_private_runtime.py' -v
+          python3 -m unittest discover -s tests/quality -p 'test_v101_p2_github_actions.py' -v
+
+      - name: Build and test private FFmpeg/OpenCV using synthetic local media
+        run: |
+          set -Eeuo pipefail
+          mkdir -p build/p2-ci
+          python3 scripts/portable/v101_p2_build.py \
+            --out "$GITHUB_WORKSPACE/build/p2-ci" \
+            --ci-synthetic-fixture \
+            --jobs "$CHROMASCOPE_P2_JOBS"
+
+      - name: Stage engineering runtime candidate and SHA-256 manifest
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/portable/v101_p2_ci_artifact.py \
+            --output-root "$GITHUB_WORKSPACE/build/p2-ci" \
+            --destination "$GITHUB_WORKSPACE/build/p2-artifact"
+
+      - name: Upload successful P2 runtime candidate (not a portable application)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ChromascopeIP-v101-P2-Debian12-Private-Runtime-CANDIDATE
+          path: build/p2-artifact/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload P2 failure diagnostics when build fails
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ChromascopeIP-v101-P2-Debian12-FAILURE-REPORT
+          path: build/p2-ci/ChromascopeIP-v101-P2-RESULTS.zip
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Summarize P2 candidate boundaries
+        if: ${{ success() }}
+        run: |
+          {
+            echo '## v1.0.1 P2 — native Debian 12 multimedia candidate'
+            echo '- Private FFmpeg/OpenCV compiled under Debian 12 glibc 2.36.'
+            echo '- File/memory decode and variable PTS checked using generated H.264 MPEG-TS.'
+            echo '- No EarthCam or other third-party footage was uploaded.'
+            echo '- Download the **P2 Debian12 Private Runtime CANDIDATE** artifact.'
+            echo '- **This is NOT the P3 portable application tarball, and NOT a release approval.**'
+            echo '- Real EarthCam and live GUI qualification remain separate.'
+          } >> "$GITHUB_STEP_SUMMARY"

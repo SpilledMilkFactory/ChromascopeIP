@@ -124,14 +124,14 @@ and installation console output are retained as downloadable failure diagnostics
 without hiding Make's exit status (`set -o pipefail`). No runtime/security
 component restrictions, application media behavior, or Linux build paths change.
 
-Acceptance requires the P5 **pull-request** job to pass all steps on a hosted
-Windows 2022 runner: MSYS2 installation, real Make quoting preflight, FFmpeg
-configure and MSVC compilation, restricted-component/DLL verification, pinned
-OpenCV install and independent consumer, H.264 file/memory/HLS-memory plus
-source-PTS probes, application CTests, package/dependency-closure validation,
-and relocated CLI smoke tests. Do not merge based solely on Python policy
-regressions or the six ordinary PR checks. A hosted pass is still not Windows
-10/11 GUI, HLS, camera, security, or redistribution sign-off; see P6.
+Acceptance requires a **manually dispatched** P5 job to pass all steps on a
+hosted Windows 2022 runner: MSYS2 installation, real Make quoting preflight,
+FFmpeg configure and MSVC compilation, restricted-component/DLL verification,
+pinned OpenCV install and independent consumer, H.264 file/memory/HLS-memory
+plus source-PTS probes, application CTests, package/dependency-closure
+validation, and relocated CLI smoke tests. The six regular PR checks remain
+separate. A hosted pass is still not Windows 10/11 GUI, HLS, camera, security,
+or redistribution sign-off; see P6.
 
 ### Reviewed upstream FFmpeg installation contract
 
@@ -149,6 +149,27 @@ exercise the real verifier and CMake finder with both positive and negative
 installed-prefix fixtures. These fixtures are not evidence of native MSVC
 compilation; hosted Windows CI remains the acceptance gate.
 
-The P5 PR path filter also explicitly covers the private FFmpeg CMake finder,
-P5 quality tests, and the reviewed FFmpeg/OpenCV security-patch scripts. Edits
-to these dependency-build inputs must trigger the hosted P5 job before merge.
+## P5 import-library test path-alias correction and manual trigger (2026-11-21)
+
+The hosted run at `b0ca104f01d885a21d40fb0228da0a2c47ebecb9` failed in
+`test_accepts_actual_upstream_win64_bin_import_layout`, before reaching MSYS2
+provisioning or FFmpeg compilation. The test compared Python-created absolute
+paths with those emitted by the CMake finder. Windows represented the same
+runner temporary folder both as `C:/Users/runneradmin/...` and as its DOS 8.3
+spelling `C:/Users/RUNNER~1/...`. A textual comparison of those different
+representations incorrectly rejected the discovered import libraries.
+
+The probe now builds the exact expected `bin/<name>-<major>.lib` sequence using
+the same CMake-effective `CHROMASCOPE_PRIVATE_FFMPEG_PREFIX` that the finder
+uses. Missing imports, ambiguous imports, unexpected directory placement, and
+incorrect library order remain failures. This is a test-contract repair only;
+it does not weaken the production finder or change any installed binaries.
+
+The P5 workflow is **manual-only** again (`workflow_dispatch` exclusively).
+No push or pull-request event starts the expensive P5 workflow. Its automated
+source-quality tests now reject the return of any nonmanual trigger. The six
+normal source CI checks remain unaffected. To test a pushed branch before
+merging, explicitly select that branch in the Actions 'Run workflow' menu or
+run `gh workflow run v101-p5-portable-windows.yml --ref <branch>`; alternatively,
+follow the established six-check/merge/manual-run-on-main cadence. A successful
+real MSVC FFmpeg/OpenCV build is still required for P5 engineering acceptance.

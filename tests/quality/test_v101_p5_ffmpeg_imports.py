@@ -51,15 +51,22 @@ class P5ImportLibraryTests(unittest.TestCase):
         if not shutil.which('cmake'):
             self.skipTest('CMake not installed for installed-prefix finder probe')
         probe = self.root / 'probe.cmake'
-        expected = ';'.join(str(self.prefix / 'bin' / f'{name}-{major}.lib')
-                            for name, major in MAJORS.items())
+        # Python and CMake may spell the same Windows temp path differently:
+        # C:/Users/runneradmin vs. C:/Users/RUNNER~1 (8.3 alias). Construct
+        # the expected *exact* import paths from CMake's own effective prefix.
+        # This still verifies each library's name, bin location and ordering.
+        names = ' '.join(f'{name}-{major}.lib' for name, major in MAJORS.items())
         script = f"""set(WIN32 TRUE)
 set(MSVC TRUE)
 set(CMAKE_SIZEOF_VOID_P 8)
 set(CHROMASCOPE_PRIVATE_FFMPEG_PREFIX [==[{self.prefix.as_posix()}]==])
 include([==[{FINDER.as_posix()}]==])
-if(NOT FFMPEG_LIBRARIES STREQUAL [==[{expected}]==])
-  message(FATAL_ERROR \"Unexpected FFmpeg import libraries: ${{FFMPEG_LIBRARIES}}\")
+set(_expected "")
+foreach(_filename IN ITEMS {names})
+  list(APPEND _expected "${{CHROMASCOPE_PRIVATE_FFMPEG_PREFIX}}/bin/${{_filename}}")
+endforeach()
+if(NOT "${{FFMPEG_LIBRARIES}}" STREQUAL "${{_expected}}")
+  message(FATAL_ERROR "Unexpected FFmpeg import libraries: ${{FFMPEG_LIBRARIES}} (expected ${{_expected}})")
 endif()
 """
         probe.write_text(script, encoding='utf-8')
@@ -95,8 +102,10 @@ endif()
         self.assertLess(workflow.index('Provision MSYS2 POSIX FFmpeg build tools'),
                         workflow.index('Build reviewed FFmpeg 8.1.3 for MSVC x64'))
         self.assertIn('v101_p5_provision_msys2.ps1', workflow)
-        self.assertIn("'scripts/portable/cmake/FindChromascopePrivateFFmpeg.cmake'", workflow)
-        self.assertIn("'tests/quality/test_v101_p5_*'", workflow)
+        trigger = workflow.split('\non:\n', 1)[1].split('\npermissions:', 1)[0]
+        events = [line.strip() for line in trigger.splitlines()
+                  if line.strip() and not line.lstrip().startswith('#')]
+        self.assertEqual(events, ['workflow_dispatch:'])
         self.assertIn('pacman.exe', powershell)
         self.assertIn('-S --needed --noconfirm make gawk sed diffutils', powershell)
         self.assertIn("@('make.exe', 'awk.exe', 'sed.exe', 'sh.exe', 'cygpath.exe', 'diff.exe')", powershell)

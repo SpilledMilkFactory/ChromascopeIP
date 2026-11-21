@@ -86,15 +86,12 @@ exit 0
         self.assertIn('"${CHROMASCOPE_P5_TEST_MODE:-}" != 1', source)
         self.assertIn('make_bin=/usr/bin/make', source)
 
-    def test_path_scoped_p5_pr_execution_keeps_manual_workflow(self):
+    def test_manual_only_p5_dispatch_keeps_diagnostics_and_read_only_permissions(self):
         workflow = WORKFLOW.read_text(encoding='utf-8')
-        self.assertIn('workflow_dispatch:', workflow)
-        self.assertIn('pull_request:', workflow)
-        self.assertIn('paths:', workflow)
-        for pattern in ("'scripts/portable/v101_p5_*'",
-                        "'scripts/portable/v101_p2_*'",
-                        "'scripts/bootstrap_opencv_windows_x64.ps1'"):
-            self.assertIn(pattern, workflow)
+        trigger = workflow.split('\non:\n', 1)[1].split('\npermissions:', 1)[0]
+        events = [line.strip() for line in trigger.splitlines()
+                  if line.strip() and not line.lstrip().startswith('#')]
+        self.assertEqual(events, ['workflow_dispatch:'])
         self.assertIn('permissions:\n  contents: read', workflow)
         self.assertIn('msys-make-preflight.log', workflow)
         self.assertIn('ffmpeg-configure-console.log', workflow)

@@ -31,16 +31,24 @@ void bump_saturating(std::uint64_t& count) noexcept {
     if (count != std::numeric_limits<std::uint64_t>::max()) ++count;
 }
 
+// Explicitly initialized previous-frame state avoids a GCC 12 -Wmaybe-uninitialized
+// false positive when inlining std::optional<nanoseconds> comparisons at -O3.
+// The validity flag gates BOTH monotonicity checks for each capture generation.
+struct PreviousCameraFrame {
+    std::uint64_t index = 0;
+    std::chrono::nanoseconds timestamp{};
+    bool valid = false;
+};
+
 [[nodiscard]] bool valid_camera_packet(const CameraFramePacket& packet,
-                                       std::optional<std::uint64_t> previous_index,
-                                       std::optional<std::chrono::nanoseconds> previous_time) noexcept {
+                                       const PreviousCameraFrame& previous) noexcept {
     const auto& image = packet.image;
     const auto& timestamp = image.metadata().timestamp;
     return image.format() == PixelFormat::BGR8 && timestamp.has_value() &&
         timestamp->domain == TimestampDomain::CaptureMonotonic &&
         timestamp->value.count() >= 0 &&
-        (!previous_time || timestamp->value >= *previous_time) &&
-        (!previous_index || packet.index > *previous_index);
+        (!previous.valid ||
+         (timestamp->value >= previous.timestamp && packet.index > previous.index));
 }
 } // namespace
 
@@ -203,8 +211,7 @@ bool AsyncCameraCapture::push_frame_locked(CameraCaptureEvent event) {
 void AsyncCameraCapture::loop() noexcept {
     std::unique_ptr<CameraFrameReader> reader;
     std::uint64_t current = 0;
-    std::optional<std::uint64_t> previous_index;
-    std::optional<std::chrono::nanoseconds> previous_time;
+    PreviousCameraFrame previous;
     for (;;) {
         std::unique_lock lock(mutex_);
         if (!reader && !pending_ && !shutting_down_)
@@ -219,8 +226,7 @@ void AsyncCameraCapture::loop() noexcept {
             pending_.reset();
             lock.unlock();
             reader.reset(); // previous device released before next open
-            previous_index.reset();
-            previous_time.reset();
+            previous = {}; // Each new capture generation starts with no prior frame.
             std::optional<CameraActiveFormat> active_format;
             std::optional<CameraErrorCode> error_code;
             std::string message;
@@ -269,11 +275,12 @@ void AsyncCameraCapture::loop() noexcept {
         std::string message;
         try {
             frame.emplace(reader->read());
-            if (!valid_camera_packet(*frame, previous_index, previous_time))
+            if (!valid_camera_packet(*frame, previous))
                 throw CameraError(CameraErrorCode::ReadFailed,
                                   "CameraCapture: invalid or nonmonotonic BGR8 frame packet");
-            previous_index = frame->index;
-            previous_time = frame->image.metadata().timestamp->value;
+            previous.index = frame->index;
+            previous.timestamp = frame->image.metadata().timestamp->value;
+            previous.valid = true;
         } catch (const CameraError& error) {
             error_code = error.code();
             message = error.what();

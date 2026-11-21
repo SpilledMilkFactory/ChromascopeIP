@@ -108,5 +108,50 @@ class PortableNanoDetCMakePolicyTests(unittest.TestCase):
         self.assert_rejected('check_model_selection.cmake', 'exactly one approved')
 
 
+@unittest.skipUnless(shutil.which('git'), 'Git is required')
+class ModelLicenseCheckoutTests(unittest.TestCase):
+    """Prevent Windows checkout newline conversion from invalidating license hashes."""
+
+    def test_model_license_has_explicit_lf_checkout_policy(self):
+        attributes = (ROOT / '.gitattributes').read_text(encoding='utf-8').splitlines()
+        self.assertIn('models/LICENSE text eol=lf', attributes)
+        self.assertIn('licenses/*.txt text eol=lf', attributes)
+
+    def test_windows_style_checkout_preserves_license_byte_identity(self):
+        # Git for Windows commonly checks out text files as CRLF. This
+        # reproduces that setting on any CI host, without requiring Windows.
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'source'
+            checkout = Path(temp) / 'checkout'
+            source.mkdir()
+            paths = ('.gitattributes', 'models/LICENSE',
+                     'licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt')
+            for relative in paths:
+                destination = source / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / relative, destination)
+
+            def git(*args):
+                return subprocess.run(['git', *args], check=True,
+                                      capture_output=True, text=True)
+
+            git('init', '-q', str(source))
+            git('-C', str(source), 'add', '--', *paths)
+            git('-C', str(source), '-c', 'user.name=CI License Test',
+                '-c', 'user.email=license-test@example.invalid',
+                'commit', '-qm', 'test license checkout policy')
+            git('-c', 'core.autocrlf=true', 'clone', '-q',
+                str(source), str(checkout))
+
+            model_license = (checkout / 'models/LICENSE').read_bytes()
+            reviewed_license = (checkout / 'licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt').read_bytes()
+            self.assertEqual(model_license, reviewed_license)
+            self.assertEqual(model_license, (ROOT / 'models/LICENSE').read_bytes())
+            self.assertNotIn(b'\r\n', model_license)
+            attr = git('-C', str(checkout), 'check-attr', 'eol', '--',
+                       'models/LICENSE').stdout.strip()
+            self.assertEqual(attr, 'models/LICENSE: eol: lf')
+
+
 if __name__ == '__main__':
     unittest.main()

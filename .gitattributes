@@ -17,6 +17,7 @@ CMakeUserPresets.json.example text eol=lf
 # Git for Windows may otherwise convert .txt files to CRLF (core.autocrlf=true),
 # causing genuine notice verification to fail during Windows packaging.
 licenses/*.txt text eol=lf
+models/LICENSE text eol=lf
 
 # The original photographs and other binary media remain byte-identical.
 *.jpg -text

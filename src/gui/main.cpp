@@ -21,6 +21,7 @@
 #include "chromascope/LiveObjectTracker.hpp"
 #include "chromascope/LiveGuiControlPolicy.hpp"
 #include "chromascope/GuiExperiencePolicy.hpp"
+#include "chromascope/NativeFileDialog.hpp"
 #include "chromascope/GuiPreferences.hpp"
 #include "chromascope/GuiPreferenceStorage.hpp"
 #include "chromascope/DnnGuiSession.hpp"
@@ -1253,9 +1254,10 @@ struct App {
         ImGui::TextWrapped("Resize the application window or drag the separator between controls "
             "and preview. On narrow windows, controls stack above the preview. "
             "Controls scroll independently. DPI scale follows the active monitor.");
-        ImGui::TextWrapped("Browser: choose a folder, single-click a compatible file to select; "
-            "double-click it or press Open selected to load. Models require explicit SHA-256 "
-            "verification and a separate Load action.");
+        ImGui::TextWrapped("Browse opens your system file chooser (Windows Explorer-style, "
+            "KDE Plasma or GNOME). If a native Linux chooser is unavailable, the "
+            "in-app file browser remains available. Models still require explicit "
+            "SHA-256 verification and a separate Load action.");
         ImGui::TextWrapped("View navigation: mouse wheel zoom; middle/right-drag pan; "
             "double-click preview to fit. Camera selection never starts capture or inference.");
         ImGui::Separator();
@@ -1457,14 +1459,37 @@ struct App {
         const std::filesystem::path selected(for_stream_playlist ? public_stream_playlist_file.data() :
             (for_model ? detector_model_path.data() :
             (for_video ? video_path.data() : path.data())));
-        const auto dir = selected.has_parent_path() ? selected.parent_path()
-                                                    : std::filesystem::path(".");
-        if (!set_path_buffer(browser_directory, dir))
-            browser_status_message = "Directory path too long for the picker.";
+        auto dir = selected.has_parent_path() ? selected.parent_path()
+                                              : std::filesystem::path{};
+        // The bundled example directory should not be the default landing
+        // location when a portable user first clicks Browse.
+        if (legacy_sample_directory && dir == *legacy_sample_directory)
+            dir.clear();
+        // Always offer the actual host desktop's file chooser first, even when
+        // running bin/chromascope-gui directly from an extracted portable archive.
+        const auto native = chromascope::open_native_file_dialog(
+            for_stream_playlist ? chromascope::GuiPickerKind::HlsPlaylist :
+            (for_model ? chromascope::GuiPickerKind::Model :
+            (for_video ? chromascope::GuiPickerKind::Video : chromascope::GuiPickerKind::Image)),
+            dir);
+        if (native.status == chromascope::NativeDialogStatus::Cancelled) return;
+        if (native.status == chromascope::NativeDialogStatus::Selected) {
+            // Reuse the existing file-type, regular-file, symlink and size
+            // checks. A native dialog cannot bypass the media/model policies.
+            if (accept_browser_selection(native.path, false)) return;
+        } else {
+            browser_status_message = native.message;
+        }
+        // A Linux session without kdialog/zenity, a failed native dialog, or
+        // an invalid selection still has the historical bounded local picker.
+        const auto fallback_dir = dir.empty() ? std::filesystem::path(".") : dir;
+        if (!set_path_buffer(browser_directory, fallback_dir))
+            browser_status_message = "Directory path is too long for the picker.";
         browse_requested = true;
     }
 
-    void accept_browser_selection(const std::filesystem::path& selected) {
+    bool accept_browser_selection(const std::filesystem::path& selected,
+                                  bool from_internal_picker = true) {
         const auto kind = picker_stream_playlist ? chromascope::GuiPickerKind::HlsPlaylist :
             (picker_model ? chromascope::GuiPickerKind::Model :
             (picker_video ? chromascope::GuiPickerKind::Video : chromascope::GuiPickerKind::Image));
@@ -1476,25 +1501,26 @@ struct App {
             std::filesystem::is_symlink(selected, error) || error ||
             !std::filesystem::is_regular_file(selected, error) || error) {
             browser_status_message = "Select an existing, regular supported file (not a symlink).";
-            return;
+            return false;
         }
         if (picker_stream_playlist) {
             std::error_code ec;
             const auto absolute = std::filesystem::absolute(selected, ec);
             if (ec || !set_path_buffer(public_stream_playlist_file, absolute)) {
                 browser_status_message = "Playlist path is too long.";
-                return;
+                return false;
             }
         } else if (picker_model) {
             if (!set_path_buffer(detector_model_path, selected)) {
                 browser_status_message = "Model path is too long.";
-                return;
+                return false;
             }
             detector_session.unload();
             video_detection.cancel();
         } else if (picker_video) open_video(selected);
         else load(selected);
-        ImGui::CloseCurrentPopup();
+        if (from_internal_picker) ImGui::CloseCurrentPopup();
+        return true;
     }
 
     void draw_file_picker() {

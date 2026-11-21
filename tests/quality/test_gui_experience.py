@@ -37,6 +37,7 @@ class GuiExperiencePolicyTests(unittest.TestCase):
         gui = GUI.read_text(encoding="utf-8")
         policy = POLICY.read_text(encoding="utf-8")
         self.assertIn("accept_browser_selection", gui)
+        self.assertIn("open_native_file_dialog(", gui)
         self.assertIn('ImGui::Button("Open selected")', gui)
         self.assertIn('ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)', gui)
         self.assertIn("std::filesystem::is_symlink", gui)

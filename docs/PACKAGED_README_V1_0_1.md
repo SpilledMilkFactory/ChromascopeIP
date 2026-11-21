@@ -16,3 +16,7 @@ Application source: https://github.com/SpilledMilkFactory/ChromascopeIP
 The four original, author-owned Skittles example photographs are included at
 `share/chromascopeip/samples/skittles/s1.jpg` through `s4.jpg`. The GUI
 locates them relative to the application executable, without extra setup.
+
+### System file chooser
+
+Browse in Still Images, Recorded Video, ONNX model selection, and downloaded HLS playlists opens the desktop's system file selection dialog. KDE Plasma uses `kdialog`; GNOME uses `zenity`, with the alternate helper if the preferred one is absent. These small dialog tools are supplied by the host desktop, **not** bundled with the portable tarball. If neither is installed or available, the previous in-app browser remains available. File selection never authorizes media processing, model execution, or remote network access by itself.

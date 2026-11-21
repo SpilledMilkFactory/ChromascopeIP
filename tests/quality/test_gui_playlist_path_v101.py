@@ -24,7 +24,8 @@ class GuiPlaylistPathRegressionTests(unittest.TestCase):
         self.assertIn("std::array<char, 4097> public_stream_playlist_file", GUI)
         self.assertIn("set_path_buffer(public_stream_playlist_file, absolute)", GUI)
         self.assertIn('browser_status_message = "Playlist path is too long.";', GUI)
-        self.assertIn("set_path_buffer(browser_directory, dir)", GUI)
+        self.assertIn("set_path_buffer(browser_directory, fallback_dir)", GUI)
+        self.assertIn("open_native_file_dialog(", GUI)
 
     def test_workspace_preferences_allow_stream_without_hardware_activation(self):
         self.assertIn('stream_workspace.ui["workspace"] = 3;', PREFS_TEST)

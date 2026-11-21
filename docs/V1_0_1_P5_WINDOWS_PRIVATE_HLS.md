@@ -339,3 +339,27 @@ Python regression tests have been added. The actual security, decoder, native
 CTest, package integrity, dependency closure, and relocated-CLI gates remain
 mandatory. This targeted correction is *not* evidence that stages later than
 the failed fixture generation have yet passed on Windows.
+
+## P5 application-link FFmpeg import-library discovery (run 121500991821)
+
+The November 21 hosted Windows candidate passed the real MSVC preflight,
+restricted FFmpeg 8.1.3 build, OpenCV 5.1.0 build and independent consumer,
+all three file/memory/HLS-memory 276-frame probes, PTS qualification, and the
+GLFW 3.4 build. The *application* CMake configure then failed at line 142:
+`P5 requires exactly one import library for avcodec`.
+
+The main `CMakeLists.txt` retained an obsolete `${prefix}/lib/avcodec*.lib`
+search, even though the pinned upstream Windows FFmpeg installs MSVC import
+libraries in `bin/`, and the private OpenCV finder was already corrected to
+accept this exact layout. This duplicate lookup was the immediate failure;
+there is no evidence of a decoder, compiler, or FFmpeg runtime regression.
+
+The P5-only application block now includes the existing reviewed
+`FindChromascopePrivateFFmpeg.cmake` directly, passing its same-job verified
+FFmpeg prefix in CMake-native path syntax, and links against the exact
+`FFMPEG_LIBRARIES` it discovers. The finder rejects missing, multiple, or
+unapproved import libraries. There is no file glob, DLL-copy workaround,
+security-policy relaxation, new Python test, or change to Linux/historical
+Windows builds. Actual application compilation, native CTests, ZIP integrity,
+PE runtime closure and relocated smoke testing still require hosted execution.
+The P5 workflow remains manual-only (`workflow_dispatch`).

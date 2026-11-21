@@ -27,7 +27,16 @@ def digest(data):
 
 
 def run_patch(source, patch, reverse=False):
-    args = ['git', '-C', str(source), 'apply']
+    # The output SHA-256 is pinned to LF bytes. In particular, the detached
+    # temporary tree used by verify_final_bytes() has no repository-local Git
+    # configuration, so Git for Windows may inherit core.autocrlf=true and
+    # silently rewrite *every line* when reversing the final patch.
+    #
+    # Both the forward application and the reverse verifier MUST operate on
+    # the same byte representation. Restrict the override to these exact Git
+    # invocations; do not change the user's Git configuration or relax hashes.
+    args = ['git', '-c', 'core.autocrlf=false', '-c', 'core.eol=lf',
+            '-C', str(source), 'apply']
     if reverse:
         args.append('--reverse')
     subprocess.run(args + ['--check', str(patch)], check=True)
@@ -47,8 +56,10 @@ def verify_final_bytes(data):
         candidate.parent.mkdir(parents=True)
         candidate.write_bytes(data)
         run_patch(root, FINAL_PATCH, reverse=True)
-        if digest(candidate.read_bytes()) != PATCHED_HASH:
-            raise ValueError('Refusing unexpected OpenCV final security-policy source')
+        actual = digest(candidate.read_bytes())
+        if actual != PATCHED_HASH:
+            raise ValueError('Refusing unexpected OpenCV final security-policy source '
+                             f'(reverse-patch SHA-256 {actual}, expected {PATCHED_HASH})')
 
 
 def apply(source):

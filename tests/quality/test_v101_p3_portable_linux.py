@@ -132,11 +132,13 @@ class P3CandidateTests(unittest.TestCase):
         self.assertIn('debian:bookworm@sha256:', ci)
         self.assertIn('if-no-files-found: error', ci)
 
-    def test_no_private_media_or_model_weights(self):
+    def test_no_private_media_and_exact_approved_model(self):
         script = (ROOT / 'scripts/portable/v101_p3_package.py').read_text()
         self.assertNotIn('EarthCam', script)
         self.assertNotIn('sample.ts', script)
         self.assertIn('P1 static preflight', script)
+        self.assertIn('model_evidence = inspect_model(stage)', script)
+        self.assertIn('approved_nanodet', script)
 
     def test_build_default_remains_v100(self):
         source = (ROOT / 'CMakeLists.txt').read_text()

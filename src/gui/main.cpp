@@ -275,8 +275,13 @@ struct App {
         std::snprintf(export_path.data(), export_path.size(), "%s", "annotated.jpg");
         std::snprintf(video_path.data(), video_path.size(), "%s", "recording.avi");
         std::snprintf(video_export_path.data(), video_export_path.size(), "%s", "annotated-video.avi");
+        const auto installed_model = chromascope::find_installed_nanodet_model(
+            chromascope::running_executable_path());
+        const auto default_model = installed_model
+            ? installed_model->string()
+            : std::string("models/object_detection_nanodet_2022nov.onnx");
         std::snprintf(detector_model_path.data(), detector_model_path.size(), "%s",
-                      "models/object_detection_nanodet_2022nov.onnx");
+                      default_model.c_str());
         std::snprintf(browser_directory.data(), browser_directory.size(), "%s", ".");
     }
 

@@ -92,6 +92,23 @@ install(FILES models/README.md models/NANODET_NOTICES.md
     models/person_evaluation_policy.json
     DESTINATION "${CHROMASCOPE_INSTALL_DATADIR}/models")
 
+# Exactly one reviewed model is distributable in the v1.0.1 portable formats.
+# P5 will enable CHROMASCOPE_V101_P5_PORTABLE with its own Windows release gate.
+# Never change the v1.0.0 install tree or install models/ wholesale.
+if(CHROMASCOPE_V101_P3_PORTABLE OR CHROMASCOPE_V101_P5_PORTABLE)
+    set(_approved_nanodet "${CMAKE_CURRENT_SOURCE_DIR}/models/object_detection_nanodet_2022nov.onnx")
+    if(NOT EXISTS "${_approved_nanodet}")
+        message(FATAL_ERROR "v1.0.1 portable model is missing")
+    endif()
+    file(SHA256 "${_approved_nanodet}" _approved_nanodet_sha)
+    if(NOT _approved_nanodet_sha STREQUAL
+            "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186")
+        message(FATAL_ERROR "v1.0.1 portable model SHA-256 mismatch")
+    endif()
+    install(FILES "${_approved_nanodet}" models/LICENSE
+        DESTINATION "${CHROMASCOPE_INSTALL_DATADIR}/models")
+endif()
+
 # Stage in the *build* tree, so source checkouts and user media are unaffected.
 # For the relocated CLI *smoke only*, provide the build's OpenCV libdir via
 # the loader environment. This is NOT bundled into the installation tree and

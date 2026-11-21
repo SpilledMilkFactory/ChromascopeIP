@@ -42,8 +42,10 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 
-# M5.1: model binaries are third-party artifacts, not repository source.
+# v1.0.1: the single reviewed NanoDet checkpoint is permitted in Git.
+# Other model weights remain ignored and are forbidden by model policy.
 /models/*.onnx
+!/models/object_detection_nanodet_2022nov.onnx
 /models/*.pth
 /models/*.pt
 /models/*.bin

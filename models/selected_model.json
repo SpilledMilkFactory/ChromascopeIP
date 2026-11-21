@@ -23,7 +23,7 @@
   "license_evidence_url": "https://github.com/opencv/opencv_zoo/blob/main/models/object_detection_nanodet/LICENSE",
   "license_text_path": "licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt",
   "notice_path": "models/NANODET_NOTICES.md",
-  "model_bundled": false,
+  "model_bundled": true,
   "release_redistribution_status": "requires_artifact_notices_and_final_release_review",
   "inference_runtime_status": "not_implemented_in_m5_1"
 }

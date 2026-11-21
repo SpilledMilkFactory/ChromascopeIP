@@ -34,7 +34,7 @@ EXPECTED_FIELDS = {
     "license_spdx": "Apache-2.0",
     "license_text_path": "licenses/OpenCV-Zoo-NanoDet-Apache-2.0.txt",
     "notice_path": "models/NANODET_NOTICES.md",
-    "model_bundled": False,
+    "model_bundled": True,
     "release_redistribution_status": "requires_artifact_notices_and_final_release_review",
     "inference_runtime_status": "not_implemented_in_m5_1",
 }
@@ -57,19 +57,29 @@ def validate_fields(data):
 
 
 def validate_local_weights(repo_root, expected_sha256=EXPECTED_SHA256):
-    """Permit only a pinned, ignored local model; reject committed weights.
+    """Require the one reviewed file; accept source snapshots only by pinned bytes.
 
-    A source archive containing weights without Git metadata cannot prove the
-    no-bundling rule and must fail closed. Neither check downloads anything.
+    On actual Git checkouts, the selected model must also be in Git's index,
+    and other model binaries must not be tracked or distributed.
     """
     root = Path(repo_root)
     models = root / "models"
     weights = sorted({p for pattern in ("*.onnx", "*.pt", "*.pth", "*.bin")
                       for p in models.glob(pattern)})
     errors = []
+    selected = models / EXPECTED_FILE
+    if selected.is_symlink() or not selected.is_file():
+        errors.append(f"approved NanoDet model is missing or symlinked: {selected}")
+    else:
+        mismatch = verify_artifact(selected, expected_sha256)
+        if mismatch:
+            errors.append(f"approved NanoDet model: {mismatch}")
+    for path in weights:
+        if path != selected:
+            errors.append(f"unapproved local model artifact: {path.relative_to(root)}")
+
     if not (root / ".git").exists():
-        if weights:
-            errors.append("model weights present outside a verifiable Git checkout")
+        # A source ZIP must remain verifiable without an accompanying .git dir.
         return errors
 
     def git(*args):
@@ -87,21 +97,13 @@ def validate_local_weights(repo_root, expected_sha256=EXPECTED_SHA256):
     if tracked.returncode != 0:
         errors.append("cannot inspect tracked model files: " + tracked.stderr.strip())
         return errors
-    for rel in tracked.stdout.splitlines():
-        if Path(rel).suffix.lower() in {".onnx", ".pt", ".pth", ".bin"}:
-            errors.append(f"model weights are Git-tracked: {rel}")
-
-    for path in weights:
-        rel = path.relative_to(root).as_posix()
-        if path.name != EXPECTED_FILE:
-            errors.append(f"unapproved local model artifact: {rel}")
-            continue
-        ignored = git("check-ignore", "--quiet", "--", rel)
-        if ignored is None or ignored.returncode != 0:
-            errors.append(f"local model is not protected by .gitignore: {rel}")
-        mismatch = verify_artifact(path, expected_sha256)
-        if mismatch:
-            errors.append(f"local model {rel}: {mismatch}")
+    tracked_set = set(tracked.stdout.splitlines())
+    expected_rel = "models/" + EXPECTED_FILE
+    if expected_rel not in tracked_set:
+        errors.append("approved NanoDet model must be Git-tracked for reproducible CI")
+    for rel in sorted(tracked_set):
+        if Path(rel).suffix.lower() in {".onnx", ".pt", ".pth", ".bin"} and rel != expected_rel:
+            errors.append(f"unapproved model weights are Git-tracked: {rel}")
     return errors
 
 

@@ -22,6 +22,18 @@ int main() {
     require(data.is_absolute(), "installed data path is absolute when executable is");
     require(data.string().find("stage") != std::string::npos, "layout-relative data path");
     require(!chromascope::find_legacy_sample_directory(exe, root), "missing samples not found");
+    require(!chromascope::find_installed_nanodet_model(exe), "missing packaged model");
+    const auto model_dir = data / "models";
+    fs::create_directories(model_dir);
+    const auto model = model_dir / "object_detection_nanodet_2022nov.onnx";
+    std::ofstream(model) << "model fixture";
+    require(chromascope::find_installed_nanodet_model(exe) == model,
+            "installed NanoDet path discovered from executable");
+    fs::remove(model);
+    fs::create_symlink(root / "missing.onnx", model);
+    require(!chromascope::find_installed_nanodet_model(exe),
+            "refuse symlinked bundled weights");
+    fs::remove(model);
 
     auto fixture = root / "checkout" / "samples" / "skittles";
     for (unsigned n = 1; n <= 4; ++n)

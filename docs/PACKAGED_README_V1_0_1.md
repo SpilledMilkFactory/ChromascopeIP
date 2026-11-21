@@ -9,4 +9,6 @@ Read `PORTABLE_RELEASE_V1_0_1.md` before first use. For details see
 `docs/MEDIA_RIGHTS.md`, and `SECURITY.md`. Additional source and license
 obligations are tracked separately before public redistribution.
 
+The portable v1.0.1 build contains the locally executed, checksum-pinned OpenCV Zoo NanoDet ONNX model and its Apache-2.0 license and attribution in `share/chromascopeip/models/`.
+
 Application source: https://github.com/SpilledMilkFactory/ChromascopeIP

@@ -23,10 +23,10 @@ ChromascopeIP's root MIT license apply to the model.
 - **Official artifact mirror:** https://huggingface.co/opencv/opencv_zoo/tree/main/models/object_detection_nanodet
 - **Upstream architecture/training:** https://github.com/RangiLyu/nanodet
 
-## Conditions if weights are distributed later
+## Conditions for v1.0.1 redistribution of the selected weights
 
 The Apache-2.0 license authorizes redistribution subject to its conditions.
-Before bundling this exact ONNX checkpoint, the packaging process must:
+The v1.0.1 packaging process must:
 
 1. **Check actual downloaded bytes** against the recorded SHA-256. `main` is
    mutable; do not treat an unverified download as the selected model.
@@ -40,7 +40,9 @@ Before bundling this exact ONNX checkpoint, the packaging process must:
 5. Independently resolve the historical `samples/skittles` photo rights. A
    permissive model license does not authorize bundling those photos.
 
-**M5.1 does not download, execute, or bundle weights.** This is a documented
-selection for future integration, not legal advice or final binary release
-clearance. Class labels correspond to COCO; the COCO dataset is **not**
+**v1.0.1 distribution decision:** the unmodified, digest-pinned ONNX file
+is included in the portable Linux tarball and planned portable Windows ZIP
+alongside `models/LICENSE` and this notice. The M5.1 historical development
+stage did not distribute weights. No other weights, COCO photos or training
+media are authorized. Final v1.0.1 distribution still requires P5/P6 review. Class labels correspond to COCO; the COCO dataset is **not**
 redistributed here, and permission to copy its images is not inferred.

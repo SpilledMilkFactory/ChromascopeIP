@@ -49,6 +49,10 @@ set(_expected_user_guides
     "MEDIA_RIGHTS.md"
     "RESOURCE_BUDGETS.md"
 )
+if(CHROMASCOPE_V101_PORTABLE_STAGE)
+    list(REMOVE_ITEM _expected_user_guides
+        "INSTALLATION_1_0_0.md" "RELEASE_EXAMPLES_1_0_0.md" "RELEASE_NOTES_1_0_0.md")
+endif()
 list(SORT _expected_user_guides)
 set(_installed_doc_root "${_relocated}/${CHROMASCOPE_DOCDIR}/docs")
 file(GLOB_RECURSE _doc_files RELATIVE "${_installed_doc_root}"
@@ -65,7 +69,27 @@ if(EXISTS "${_relocated}/${CHROMASCOPE_DOCDIR}/docs/history" OR
     message(FATAL_ERROR "Source-only engineering documents leaked into installation")
 endif()
 file(GLOB_RECURSE _staged_entries LIST_DIRECTORIES FALSE "${_relocated}/*")
+set(_expected_model_path
+    "${_relocated}/${CHROMASCOPE_DATADIR}/models/object_detection_nanodet_2022nov.onnx")
+if(CHROMASCOPE_V101_PORTABLE_STAGE)
+    if(NOT EXISTS "${_expected_model_path}" OR IS_SYMLINK "${_expected_model_path}")
+        message(FATAL_ERROR "Missing approved v1.0.1 NanoDet model")
+    endif()
+    file(SHA256 "${_expected_model_path}" _model_sha256)
+    if(NOT _model_sha256 STREQUAL
+       "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186")
+        message(FATAL_ERROR "v1.0.1 staged model SHA-256 mismatch")
+    endif()
+    foreach(_notice IN ITEMS LICENSE NANODET_NOTICES.md)
+        if(NOT EXISTS "${_relocated}/${CHROMASCOPE_DATADIR}/models/${_notice}")
+            message(FATAL_ERROR "Missing portable model license/notice: ${_notice}")
+        endif()
+    endforeach()
+endif()
 foreach(_entry IN LISTS _staged_entries)
+    if(CHROMASCOPE_V101_PORTABLE_STAGE AND _entry STREQUAL "${_expected_model_path}")
+        continue()
+    endif()
     if(_entry MATCHES "\\.(jpg|jpeg|png|mp4|avi|onnx|pth|pt)$")
         message(FATAL_ERROR "Unapproved or unevaluated media/model artifact staged: ${_entry}")
     endif()

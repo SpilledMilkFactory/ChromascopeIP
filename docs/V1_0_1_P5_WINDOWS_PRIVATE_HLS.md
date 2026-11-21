@@ -266,3 +266,13 @@ merging. Source-level red/green reproduction and passing local P5 tests are
 not a substitute for a complete hosted Windows build and subsequent manual
 Windows 10/11 qualification. The previous OpenCV checkout normalization and
 the approved Linux HLS behavior remain unchanged.
+
+
+## P5 Windows OpenCV configure: CMake module-path serialization (November 21, run 121490270998)
+
+- **Hosted evidence:** pinned FFmpeg 8.1.3, installation, and enabled-component security verification completed. OpenCV source normalization and reviewed security patches also completed successfully. MSVC 19.44 was detected; the OpenCV configure failed while CMake attempted compiler ABI detection, before OpenCV compilation.
+- **Exact failure:** a CMake-generated `CMakeScratch/TryCompile-*/CMakeLists.txt` contained the string `D:\a\ChromascopeIP\ChromascopeIP\scripts\portable\cmake` and rejected the escape `\a`. This value originated in the bootstrap's `-DCMAKE_MODULE_PATH=$modules` argument, previously constructed with Windows-native backslashes.
+- **Correction:** a shared `ConvertTo-CMakePath` function converts the P5 bootstrap's module path and all other CMake `-D` filesystem paths to forward-slash syntax before handing them to CMake. Native filesystem operations retain their normal Windows paths.
+- **Hosted preflight:** before building FFmpeg, a small Visual Studio 2022/MSVC CMake project runs compiler detection and a *nested* `try_compile` with paths produced by the same shared helper. This specifically exercises the failed generated-CMakeLists path serialization without downloading/building OpenCV or FFmpeg. The preflight must pass, and the full OpenCV configure/build still requires separate hosted qualification.
+- **Regression:** `test_v101_p5_cmake_paths.py` reproduces the invalid Windows-backslash CMake parse on a real CMake executable, checks the forward-slash form, and checks the P5 bootstrap/preflight wiring. These Linux-compatible tests do not substitute for hosted MSVC execution.
+- **Scope:** no changes to FFmpeg, OpenCV security fingerprints, HLS playback, runtime security policies, or manual-only P5 dispatch.

@@ -340,13 +340,13 @@ struct App {
         try {
             const auto file = chromascope::gui_preferences_path();
             if (!file) throw std::runtime_error("No valid OS configuration directory");
-            const auto input = chromascope::read_gui_preferences_file(*file);
-            if (!input) {
+            const auto saved_preferences_text = chromascope::read_gui_preferences_file(*file);
+            if (!saved_preferences_text) {
                 active_preference_defaults.reset();
                 preferences_status = "No saved preferences. Using defaults.";
                 return;
             }
-            const auto prefs = chromascope::parse_gui_preferences(*input);
+            const auto prefs = chromascope::parse_gui_preferences(*saved_preferences_text);
             // Validate *everything* before altering a running GUI. Registered
             // processors enforce option bounds, relationships and unknown keys.
             (void)processors.default_profile(prefs.selected_profile);
@@ -2379,6 +2379,8 @@ struct App {
                                         "until the worker confirms device release.");
         }
         ImGui::Separator();
+        // Shared by both branches and the inference controls below; do not
+        // redeclare in the nested scopes (MSVC /W4 C4456 under /WX).
         const bool capturing = current_state == chromascope::CameraCaptureState::Capturing;
         if (remote) {
             ImGui::TextUnformatted("PUBLIC HTTPS FEED URL");
@@ -2418,7 +2420,6 @@ struct App {
                 " Downloaded playlists must be paired with their original HTTPS URL."
                 " Encrypted or cross-origin resources remain blocked.");
             const bool opening = current_state == chromascope::CameraCaptureState::Starting;
-            const bool capturing = current_state == chromascope::CameraCaptureState::Capturing;
             const bool stopping = current_state == chromascope::CameraCaptureState::Stopping;
             ImGui::BeginDisabled(opening || capturing || stopping || public_stream_url[0] == '\0');
             if (ImGui::Button("Start stream", ImVec2(-1, 0))) start_public_stream();
@@ -2472,7 +2473,6 @@ struct App {
         ImGui::TextDisabled("OpenCV device index, 0 to 255; indices are backend-specific.");
         ImGui::TextDisabled("Format: driver-selected (M8.2 strict format API retained).");
         const bool opening = current_state == chromascope::CameraCaptureState::Starting;
-        const bool capturing = current_state == chromascope::CameraCaptureState::Capturing;
         const bool stopping = current_state == chromascope::CameraCaptureState::Stopping;
         ImGui::BeginDisabled(opening || capturing || stopping || camera_index < 0 || camera_index > 255);
         if (ImGui::Button("Start camera", ImVec2(-1, 0))) start_camera();

@@ -34,12 +34,14 @@ MODEL_DIR = 'share/chromascopeip/models'
 EXPECTED_EXES = {'bin/chromascope-gui.exe', 'bin/chromascope-cli.exe'}
 REQUIRED_FFMPEG = {'bin/' + name for name in FFMPEG_DLL_NAMES}
 REVIEWED_FFMPEG_COMMIT = '1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7'
+REVIEWED_CURL_COMMIT = '3163ec065643ba20709f190111f42c3e1fe95273'
 REQUIRED = {
     *EXPECTED_EXES,
     *REQUIRED_FFMPEG,
     f'{DOC}/LICENSE', f'{DOC}/README.md',
     f'{DOC}/PORTABLE_RELEASE_V1_0_1.md', f'{DOC}/SECURITY.md',
     f'{DOC}/licenses/FFmpeg-8.1.3-LGPL-2.1.txt',
+    f'{DOC}/licenses/curl-8.23.0-COPYING.txt',
     f'{DOC}/licenses/GLFW-3.4-Zlib.txt',
     f'{DOC}/licenses/DearImGui-1.93.0-MIT.txt',
     f'{DOC}/licenses/OpenCV-5.1.0-Apache-2.0.txt',
@@ -62,7 +64,7 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def verify_build(build: Path, opencv: Path, ffmpeg: Path) -> None:
+def verify_build(build: Path, opencv: Path, ffmpeg: Path, curl: Path) -> None:
     if sys.platform != 'win32' or platform.machine().lower() not in ('amd64', 'x86_64'):
         raise CandidateError('P5 build requires native Windows x64')
     cache = legacy.cache_values(build / 'CMakeCache.txt')
@@ -107,6 +109,17 @@ def verify_build(build: Path, opencv: Path, ffmpeg: Path) -> None:
     for name in FFMPEG_DLL_NAMES:
         if not (ffmpeg / 'bin' / name).is_file():
             raise CandidateError('Missing FFmpeg DLL: ' + name)
+    curl_stamp = curl / '.chromascope-curl-windows-p5.txt'
+    if not curl_stamp.is_file() or not {
+        'curl=8.23.0', f'commit={REVIEWED_CURL_COMMIT}',
+        'target=windows-x64-msvc2022', 'tls=schannel',
+        'linkage=static', 'protocols=http,https',
+    } <= set(curl_stamp.read_text(encoding='utf-8-sig').splitlines()):
+        raise CandidateError('P5 private Schannel libcurl provenance mismatch')
+    if Path(cache.get('CHROMASCOPE_P5_CURL_PREFIX', '')).resolve() != curl.resolve():
+        raise CandidateError('P5 application does not use same-job reviewed private curl')
+    if not (curl / 'share/chromascopeip/curl-COPYING').is_file():
+        raise CandidateError('Missing reviewed private curl source license')
     for filename in legacy.APP_EXES:
         if not (build / 'Release' / filename).is_file():
             raise CandidateError('Missing P5 application executable: ' + filename)
@@ -133,7 +146,7 @@ def validate_inventory(names: set[str]) -> None:
     }
     approved_licenses = (
         set(legacy.NOTICES['notice_payloads']()) |
-        {'OpenCV-5.1.0-Apache-2.0.txt', 'OpenCV-Zoo-NanoDet-Apache-2.0.txt', 'FFmpeg-8.1.3-LGPL-2.1.txt'}
+        {'OpenCV-5.1.0-Apache-2.0.txt', 'OpenCV-Zoo-NanoDet-Apache-2.0.txt', 'FFmpeg-8.1.3-LGPL-2.1.txt', 'curl-8.23.0-COPYING.txt'}
     )
     approved_guides = set(legacy.SHIPPED_USER_GUIDES) - {
         'INSTALLATION_1_0_0.md', 'RELEASE_EXAMPLES_1_0_0.md',
@@ -336,7 +349,8 @@ def build_candidate(args) -> dict:
     build = args.build_dir.resolve(strict=True)
     opencv = args.opencv_prefix.resolve(strict=True)
     ffmpeg = args.ffmpeg_prefix.resolve(strict=True)
-    verify_build(build, opencv, ffmpeg)
+    curl = args.curl_prefix.resolve(strict=True)
+    verify_build(build, opencv, ffmpeg, curl)
     available = legacy.verify_redist_path(args.vc_redist_dir)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='chromascope-p5-stage-') as td:
@@ -356,6 +370,8 @@ def build_candidate(args) -> dict:
         if not license_src.is_file():
             raise CandidateError('Missing reviewed FFmpeg LGPL source license')
         shutil.copyfile(license_src, stage / DOC / 'licenses' / 'FFmpeg-8.1.3-LGPL-2.1.txt')
+        shutil.copyfile(curl / 'share/chromascopeip/curl-COPYING',
+                        stage / DOC / 'licenses' / 'curl-8.23.0-COPYING.txt')
         stage_files(stage)
         # Resolve app-local FFmpeg + CRT dependencies recursively to a fixed point.
         imports = {name: sorted(legacy.read_pe_imports(stage / name)) for name in EXPECTED_EXES | REQUIRED_FFMPEG}
@@ -374,6 +390,7 @@ def build_candidate(args) -> dict:
         runtime_note = (f'# ChromascopeIP {VERSION} Windows P5 engineering runtime\n\n'
                         'OpenCV 5.1.0 is statically linked (MSMF/DirectShow + private FFmpeg for HLS).\n'
                         'Pinned FFmpeg 8.1.3 shared DLLs are app-local, verified by PE import closure.\n'
+                        'Pinned curl 8.23.0 Schannel HTTPS transport is statically linked.\n'
                         'Microsoft VC143 DLLs are app-local, selected by PE import closure.\n'
                         'Windows OS DLLs remain host-provided.\n'
                         'Private FFmpeg custom stream decoder requires live Windows 10/11 testing.\n'
@@ -389,6 +406,8 @@ def build_candidate(args) -> dict:
             'platform': 'Windows-x64', 'status': STATUS, 'release_approved': False,
             'opencv_commit': legacy.OPEN_CV_COMMIT,
             'ffmpeg_commit': REVIEWED_FFMPEG_COMMIT,
+            'curl_commit': REVIEWED_CURL_COMMIT,
+            'https_transport': 'curl-8.23.0-msvc-static-schannel-pinned-dns',
             'ffmpeg_dll_sha256': {name: digest(payload['bin/' + name]) for name in FFMPEG_DLL_NAMES},
             'glfw_commit': legacy.GLFW_COMMIT, 'model_sha256': MODEL_HASH,
             'skittles_samples_sha256': sample_evidence,
@@ -423,7 +442,7 @@ def main() -> None:
         result = inspect_archive(args.inspect)
     else:
         for key in ('build_dir', 'opencv_prefix', 'vc_redist_dir',
-                    'glfw_license', 'imgui_license', 'ffmpeg_prefix', 'output_dir'):
+                    'glfw_license', 'imgui_license', 'ffmpeg_prefix', 'curl_prefix', 'output_dir'):
             if getattr(args, key) is None:
                 parser.error('--build requires --' + key.replace('_', '-'))
         result = build_candidate(args)

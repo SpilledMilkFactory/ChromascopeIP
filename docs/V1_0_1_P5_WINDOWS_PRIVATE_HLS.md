@@ -363,3 +363,29 @@ security-policy relaxation, new Python test, or change to Linux/historical
 Windows builds. Actual application compilation, native CTests, ZIP integrity,
 PE runtime closure and relocated smoke testing still require hosted execution.
 The P5 workflow remains manual-only (`workflow_dispatch`).
+
+## P5 Windows laptop live HLS DNS-pinning failure (21 November 2026)
+
+The completed P5 hosted Windows build and relocated CLI passed, and a real
+Windows laptop accepted still images, recorded video and live camera. Live HTTPS
+HLS requests failed before the first master playlist transfer because the
+WinHTTP `WINHTTP_OPTION_RESOLUTION_HOSTNAME` override was rejected by the laptop.
+The previous error concealed `GetLastError`, so the precise OS-level reason
+cannot be inferred from the message alone. Microsoft's documented minimum for
+this request-handle option is Windows 10 21H1; our Windows 10 target cannot
+assume it universally exists.
+
+The P5 engineering candidate therefore uses the **same already reviewed
+libcurl `CURLOPT_RESOLVE` DNS-pinning implementation as Linux**, built with
+Visual Studio 2022 as static curl 8.23.0 at the immutable upstream commit
+`3163ec065643ba20709f190111f42c3e1fe95273` and native Schannel TLS.
+No general-purpose curl executable, MinGW library, OpenSSL DLL, system-default
+proxy, or new FFmpeg network component is introduced. The pinned source license
+is copied into the candidate's third-party notices. The package verifier also
+requires matching curl source and build provenance, a same-job prefix and
+static linkage. The old WinHTTP implementation remains for historical builds.
+
+The private FFmpeg/OpenCV HLS decoder, source-PTS scheduler and Linux baseline
+are unchanged. The hosted MSVC build plus real HTTPS/HLS playback on Windows
+10 and Windows 11 remain required acceptance evidence. No live endpoint is
+contacted automatically by this workflow.

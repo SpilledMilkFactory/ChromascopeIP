@@ -35,8 +35,11 @@ from a feed provider; do not paste the surrounding HTML page URL.
   literals, URL user-info, private/internal host suffixes, ambiguous control
   characters and path encodings are rejected before DNS.
 - The application resolves the hostname and rejects non-public DNS answers.
-  Linux libcurl pins the validated numeric IP with `CURLOPT_RESOLVE`; Windows
-  WinHTTP uses `WINHTTP_OPTION_RESOLUTION_HOSTNAME`. This preserves Host/SNI
+  Linux libcurl pins the validated numeric IP with `CURLOPT_RESOLVE`; the P5
+  portable Windows build uses pinned static MSVC libcurl with Schannel and the
+  same `CURLOPT_RESOLVE` policy, avoiding older WinHTTP option dependencies.
+  Historical non-P5 Windows builds still use WinHTTP and fail closed when its
+  DNS-pinning option is unavailable. This preserves Host/SNI
   and certificate validation while blocking DNS rebinding to private addresses.
 - HTTPS peer and hostname checks remain **enabled**; redirects are denied.
   Proxies and ambient cookies are disabled. Individual requests have size and

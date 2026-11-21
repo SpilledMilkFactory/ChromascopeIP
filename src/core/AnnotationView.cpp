@@ -1,6 +1,5 @@
 #include "chromascope/AnnotationView.hpp"
 
-#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -8,12 +7,15 @@ namespace chromascope {
 
 bool annotation_visible(const Annotation& annotation,
                         const AnnotationViewOptions& options) noexcept {
-    return std::visit([&options](const auto& geometry) {
-        using Shape = std::decay_t<decltype(geometry)>;
-        if constexpr (std::is_same_v<Shape, CircleGeometry>) return options.circles;
-        if constexpr (std::is_same_v<Shape, BoxGeometry>) return options.boxes;
+    // Avoid an optimizer-dependent unreachable tail in MSVC's instantiated
+    // std::visit visitor (C4702 under /WX). Preserve all three shape filters.
+    if (std::holds_alternative<CircleGeometry>(annotation.geometry))
+        return options.circles;
+    if (std::holds_alternative<BoxGeometry>(annotation.geometry))
+        return options.boxes;
+    if (std::holds_alternative<PolygonGeometry>(annotation.geometry))
         return options.polygons;
-    }, annotation.geometry);
+    return false; // No geometry is visible if the variant is valueless.
 }
 
 AnnotationLayer make_annotation_view(const AnnotationLayer& source,

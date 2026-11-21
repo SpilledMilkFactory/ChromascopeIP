@@ -15,6 +15,7 @@
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
+#include "chromascope/WindowsEnvironment.hpp"
 #else
 #include <cerrno>
 #include <fcntl.h>
@@ -27,11 +28,9 @@ namespace prefs_fs = std::filesystem;
 
 [[nodiscard]] inline std::optional<prefs_fs::path> gui_preferences_path() {
 #ifdef _WIN32
-    const char* base = std::getenv("APPDATA");
-    if (!base || !*base) return std::nullopt;
-    const prefs_fs::path parent(base);
-    if (!parent.is_absolute()) return std::nullopt;
-    return parent / "ChromascopeIP" / "preferences-v1.conf";
+    const auto parent = windows_environment_path(L"APPDATA");
+    if (!parent || !parent->is_absolute()) return std::nullopt;
+    return *parent / "ChromascopeIP" / "preferences-v1.conf";
 #else
     const char* base = std::getenv("XDG_CONFIG_HOME");
     if (base && *base) {

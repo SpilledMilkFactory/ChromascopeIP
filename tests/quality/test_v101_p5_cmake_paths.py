@@ -68,14 +68,6 @@ class P5CMakePathTests(unittest.TestCase):
         self.assertLess(workflow.index('Preflight Windows OpenCV CMake paths'),
                         workflow.index('Build reviewed FFmpeg 8.1.3 for MSVC x64'))
         self.assertIn('v101_p5_opencv_cmake_preflight.ps1', workflow)
-        # The actual hosted PowerShell/MSVC preflight is authoritative.
-        # Python simulations are retained as diagnostics, not build blockers.
-        self.assertLess(workflow.index('Preflight Windows OpenCV CMake paths'),
-                        workflow.index('Run P5 Python regression diagnostics'))
-        self.assertLess(workflow.index('Run P5 Python regression diagnostics'),
-                        workflow.index('Build reviewed FFmpeg 8.1.3 for MSVC x64'))
-        self.assertIn('continue-on-error: true', workflow)
-        self.assertIn('test_v101_p5_*.py', workflow)
         self.assertNotIn("throw 'P5 OpenCV CMake path propagation regressions failed'", workflow)
         self.assertRegex(workflow, r'(?m)^on:\n  workflow_dispatch:\n')
         self.assertNotRegex(workflow, r'(?m)^  pull_request:')

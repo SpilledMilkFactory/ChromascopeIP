@@ -148,9 +148,40 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_package(CURL REQUIRED)
     target_link_libraries(chromascope_core PUBLIC CURL::libcurl)
     target_compile_definitions(chromascope_core PRIVATE CHROMASCOPE_SECURE_STREAM_CURL=1)
+elseif(CHROMASCOPE_V101_P5_PORTABLE)
+    # The WinHTTP DNS override is not universally available across Windows 10.
+    # Use a PINNED, statically linked MSVC libcurl with the OS Schannel TLS store.
+    # This shares Linux's already reviewed CURLOPT_RESOLVE DNS pinning policy.
+    if(NOT DEFINED CHROMASCOPE_P5_CURL_PREFIX OR
+       NOT EXISTS "${CHROMASCOPE_P5_CURL_PREFIX}/.chromascope-curl-windows-p5.txt")
+        message(FATAL_ERROR "P5 requires the reviewed private Windows Schannel libcurl")
+    endif()
+    file(STRINGS "${CHROMASCOPE_P5_CURL_PREFIX}/.chromascope-curl-windows-p5.txt" _curl_fields)
+    foreach(_required IN ITEMS
+            "curl=8.23.0"
+            "commit=3163ec065643ba20709f190111f42c3e1fe95273"
+            "target=windows-x64-msvc2022"
+            "tls=schannel"
+            "linkage=static")
+        if(NOT _required IN_LIST _curl_fields)
+            message(FATAL_ERROR "P5 private Schannel libcurl provenance missing: ${_required}")
+        endif()
+    endforeach()
+    file(TO_CMAKE_PATH "${CHROMASCOPE_P5_CURL_PREFIX}" _p5_curl_root)
+    # An exact installed Config package prevents accidentally using a runner's
+    # unrelated curl, OpenSSL, or MinGW-produced libcurl.
+    find_package(CURL 8.23.0 EXACT CONFIG REQUIRED
+        PATHS "${_p5_curl_root}/lib/cmake/CURL" NO_DEFAULT_PATH)
+    target_link_libraries(chromascope_core PUBLIC CURL::libcurl)
+    target_compile_definitions(chromascope_core PRIVATE
+        CHROMASCOPE_SECURE_STREAM_CURL=1 CURL_STATICLIB=1)
 endif()
 if(WIN32)
-    target_link_libraries(chromascope_core PUBLIC ws2_32 winhttp)
+    target_link_libraries(chromascope_core PUBLIC ws2_32)
+    # Historical non-P5 Windows builds retain their original WinHTTP backend.
+    if(NOT CHROMASCOPE_V101_P5_PORTABLE)
+        target_link_libraries(chromascope_core PUBLIC winhttp)
+    endif()
     # SHGetKnownFolderPath(FOLDERID_Videos) and CoTaskMemFree.
     target_link_libraries(chromascope_core PUBLIC shell32 ole32)
 endif()

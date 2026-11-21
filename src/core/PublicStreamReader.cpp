@@ -43,9 +43,10 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#if defined(CHROMASCOPE_SECURE_STREAM_CURL)
-#include <curl/curl.h>
 #endif
+#if defined(CHROMASCOPE_SECURE_STREAM_CURL)
+// P5 Windows uses private MSVC libcurl + Schannel; Linux uses libcurl as before.
+#include <curl/curl.h>
 #endif
 
 namespace chromascope {
@@ -165,7 +166,19 @@ int curl_progress(void* pointer, curl_off_t, curl_off_t, curl_off_t, curl_off_t)
                                    PublicStreamRequestProfile request_profile) {
     if (cancel && cancel->load()) throw std::runtime_error("Stream stop requested");
     const auto ip = checked_public_ip(address.host);
-    static const bool curl_ready = [] { return curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK; }();
+    static const bool curl_ready = [] {
+        if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) return false;
+#if defined(_WIN32)
+        // A Windows P5 archive must use Schannel and the system trust store,
+        // not an unreviewed TLS backend or an external CA-bundle dependency.
+        const auto* version = curl_version_info(CURLVERSION_NOW);
+        return version && (version->features & CURL_VERSION_SSL) &&
+               version->ssl_version &&
+               std::strncmp(version->ssl_version, "Schannel", 8) == 0;
+#else
+        return true;
+#endif
+    }();
     if (!curl_ready) throw std::runtime_error("HTTPS transport initialization failed");
     std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl(curl_easy_init(), &curl_easy_cleanup);
     if (!curl) throw std::runtime_error("HTTPS transport unavailable");

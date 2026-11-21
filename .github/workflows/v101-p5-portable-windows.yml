@@ -227,6 +227,16 @@ jobs:
           "glfw3_DIR=$(Join-Path $prefix 'lib/cmake/glfw3')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "GLFW_LICENSE=$(Join-Path $src 'LICENSE.md')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Build pinned MSVC static libcurl Schannel transport for Windows 10/11
+        shell: pwsh
+        run: |
+          ./scripts/portable/v101_p5_build_curl.ps1 `
+            -BuildRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-curl-build') `
+            -InstallPrefix (Join-Path $env:RUNNER_TEMP 'chromascope-p5-curl-install')
+          if ($LASTEXITCODE -ne 0) { throw 'Private MSVC Schannel libcurl build failed' }
+          $prefix = Join-Path $env:RUNNER_TEMP 'chromascope-p5-curl-install'
+          "CHROMASCOPE_P5_CURL_PREFIX=$prefix" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Configure Windows v1.0.1 P5 GUI and CLI
         shell: pwsh
         run: |
@@ -234,7 +244,8 @@ jobs:
             '-DCHROMASCOPE_BUILD_GUI=ON' '-DCHROMASCOPE_BUILD_TESTS=ON' `
             '-DCHROMASCOPE_WARNINGS_AS_ERRORS=ON' '-DCHROMASCOPE_V101_P5_PORTABLE=ON' `
             "-DOpenCV_DIR=$env:OpenCV_DIR" "-Dglfw3_DIR=$env:glfw3_DIR" `
-            "-DCHROMASCOPE_P5_FFMPEG_PREFIX=$env:CHROMASCOPE_P5_FFMPEG_PREFIX"
+            "-DCHROMASCOPE_P5_FFMPEG_PREFIX=$env:CHROMASCOPE_P5_FFMPEG_PREFIX" `
+            "-DCHROMASCOPE_P5_CURL_PREFIX=$env:CHROMASCOPE_P5_CURL_PREFIX"
           if ($LASTEXITCODE -ne 0) { throw 'Windows P5 configure failed' }
 
       - name: Build Windows v1.0.1 GUI CLI and tests
@@ -279,6 +290,7 @@ jobs:
             --build-dir build/v101-p5-windows --opencv-prefix $env:OPENCV_PREFIX `
             --vc-redist-dir $env:CHROMASCOPE_VC_REDIST_DIR `
             --ffmpeg-prefix $env:CHROMASCOPE_P5_FFMPEG_PREFIX `
+            --curl-prefix $env:CHROMASCOPE_P5_CURL_PREFIX `
             --glfw-license $env:GLFW_LICENSE `
             --imgui-license 'build/v101-p5-windows/_deps/imgui-src/LICENSE.txt' `
             --output-dir build/v101-p5-candidate

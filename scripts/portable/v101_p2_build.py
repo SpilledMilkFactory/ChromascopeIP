@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts' / 'diagnostics'))
 sys.path.insert(0, str(ROOT / 'scripts' / 'portable'))
 from v101_p2_ci_fixture import generate_fixture  # noqa: E402
+from v101_p2_hls_options import patch_pinned_opencv  # noqa: E402
 from m125_fixed_ffmpeg_trial import (  # noqa: E402
     FFMPEG_PATCH_SHA, JPEGXL_BACKPORT_LINES, JPEGXL_ANCHOR, JPEGXL_NEXT,
     FLAG_SET, FLAG_CHECK, OPENCV_PATCHES,
@@ -328,7 +329,7 @@ class Builder:
                      ROOT / 'scripts/apply_opencv_security_patch.py', source])
         target = source / 'modules/videoio/src/cap_ffmpeg_impl.hpp'
         current = target.read_text()
-        new_source = source_without_noparse(current)
+        new_source = patch_pinned_opencv(source_without_noparse(current))
         require(new_source != current and 'AVFMT_FLAG_NOPARSE' not in new_source,
                 'OpenCV FFmpeg parser restriction was not removed as tested')
         target.write_text(new_source)
@@ -337,6 +338,7 @@ class Builder:
                      ['git', '-C', source, 'diff', '--binary', '--',
                       'modules/videoio/src/cap_ffmpeg_impl.hpp'])
         self.result['phases']['opencv_source'] = 'EXACT_PIN_ORIGINAL_SECURITY_PATCHES_MINUS_NOPARSE'
+        self.result['phases']['hls_probe_source'] = 'PINNED_PER_CAPTURE_HLS_MPEGTS_OPTIONS'
         return source
 
     def build_opencv(self, source: Path) -> None:
@@ -382,12 +384,13 @@ class Builder:
             'libopencv_videoio', 'libopencv_core'))
         self.result['ffmpeg_linkage'] = verify_ldd(links, self.ff_prefix, (
             'libavformat', 'libavcodec', 'libavutil'))
-        for mode in ('file', 'memory'):
+        for mode in ('file', 'memory', 'hls_memory'):
             content = self.command('probe-' + mode, [exe, mode, self.a.sample], env=env)
             found = re.search(r'(?m)^FRAMES=(\d+)\s*$', content)
             require(found and int(found.group(1)) == EXPECTED_FRAMES,
                     f'{mode}: missing expected {EXPECTED_FRAMES} decoded frames')
         self.result['phases']['decode_probes'] = '276_FRAMES_FILE_AND_MEMORY_VERIFIED'
+        self.result['phases']['hls_probe_runtime'] = '276_FRAMES_PER_CAPTURE_HLS_OPTIONS_VERIFIED'
 
     def pts_probe(self) -> None:
         bdir = self.tmp / 'pts-probe'

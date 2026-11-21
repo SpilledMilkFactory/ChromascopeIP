@@ -267,6 +267,9 @@ def package(p2_root: Path, output: Path, jobs: int) -> dict:
             report['opencv_commit'] == OPENCV_REV and
             report['status'] == 'P2_PRIVATE_RUNTIME_FUNCTIONAL_PASS_NOT_RELEASE_APPROVAL',
             'P2 source revisions or acceptance status changed')
+    require(report['phases'].get('hls_probe_runtime') ==
+            '276_FRAMES_PER_CAPTURE_HLS_OPTIONS_VERIFIED',
+            'P2 private HLS per-capture probing is not verified')
     require(report['phases'].get('pts_timeline') == 'VARIABLE_SOURCE_PTS_SPAN_VERIFIED',
             'P2 variable presentation timestamps not verified')
     require(report['phases'].get('decode_probes') == '276_FRAMES_FILE_AND_MEMORY_VERIFIED',
@@ -313,6 +316,7 @@ def package(p2_root: Path, output: Path, jobs: int) -> dict:
         'opencv_commit': OPENCV_REV,
         'p2_status': report['status'],
         'p2_phases': report['phases'],
+        'hls_probe_policy': 'PER_CAPTURE_PINNED_OPENCV_NO_GLOBAL_ENV',
         'ffmpeg_components': report.get('ffmpeg_components'),
         'security_input_hashes': report.get('security_input_hashes'),
         'stage': 'P3_ENGINEERING_CANDIDATE',
@@ -361,6 +365,7 @@ def package(p2_root: Path, output: Path, jobs: int) -> dict:
         'private_lib_count': len(dependency['private_libraries']),
         'approved_nanodet': model_evidence,
         'p1_static_preflight': audit['status'],
+        'hls_probe_policy': 'PER_CAPTURE_PINNED_OPENCV_NO_GLOBAL_ENV',
         'remaining_gates': [
             'CVE applicability and actual bundled library security review',
             'Corresponding source and LGPL/third-party license clearance',

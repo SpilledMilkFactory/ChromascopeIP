@@ -173,3 +173,47 @@ merging, explicitly select that branch in the Actions 'Run workflow' menu or
 run `gh workflow run v101-p5-portable-windows.yml --ref <branch>`; alternatively,
 follow the established six-check/merge/manual-run-on-main cadence. A successful
 real MSVC FFmpeg/OpenCV build is still required for P5 engineering acceptance.
+
+## P5 Windows OpenCV checkout byte-identity correction (2026-11-21, candidate)
+
+The manually dispatched P5 run in `logs_121478549615.zip` successfully
+**compiled, installed, and verified the restricted FFmpeg 8.1.3 MSVC runtime**.
+The FFmpeg qualification printed the approved component inventory and ended
+`PASS: private Windows FFmpeg candidate (NOT release approved)`. The next step
+cloned OpenCV at its approved commit, but the private source transformation
+failed in `apply_opencv_security_patch.py` at line 74. That branch runs only
+when the checked-out `cap_ffmpeg_impl.hpp` bytes match neither the pinned
+upstream SHA-256 nor the pinned first-patch SHA-256. No OpenCV compilation was
+attempted, and the security patcher correctly refused an unknown file state.
+
+The runner did not report its actual file SHA-256, so the exact byte difference
+cannot be proven from that log. **Windows Git CRLF checkout conversion is a
+specific leading hypothesis:** upstream OpenCV 5.1.0 marks `*.hpp` files as
+`text` without `eol=lf`. This can produce different working-tree bytes under
+Windows Git configurations, despite the Git commit being correct.
+
+The Windows **P5-only** preparation step now first examines the file as bytes.
+If its SHA-256 already matches the approved upstream source, it proceeds with
+no changes. If changing CRLF to LF produces *exactly* the existing pinned
+upstream SHA-256, the helper independently reads the committed Git blob with
+`git show HEAD:modules/videoio/src/cap_ffmpeg_impl.hpp` and requires that
+blob to equal the normalized bytes and the approved SHA-256. **Only then** is
+the working-tree file rewritten to the exact reviewed Git bytes. Any
+unrecognized content is left untouched and rejected by the existing fail-closed
+security patcher; no SHA-256 pin, reviewed patch, or decoder restriction is
+modified. Diagnostics now report the actual and expected SHA-256 when the
+file does not match the approved upstream state.
+
+New regression tests construct real temporary Git repositories and verify LF
+no-op behavior, approved CRLF recovery, refusal of a mismatched committed Git
+blob, rejection of unrelated CRLF modifications, and exact composition of the
+*existing two reviewed security patches* after a simulated CRLF checkout.
+These run as early P5 hosted preflight tests. They are evidence of source-level
+correctness, not of a completed Windows OpenCV build.
+
+The P5 workflow remains **`workflow_dispatch` only**. There is no change to
+the accepted Linux runtime, static MSVC application baseline, media
+algorithms, HLS scheduler, decoder allowlist, security patch fingerprints,
+model or sample packaging, or Windows camera backends. Engineering acceptance
+still requires a complete manually initiated P5 Windows job, followed by real
+Windows 10/11 media and camera testing before P6 release qualification.

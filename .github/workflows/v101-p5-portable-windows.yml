@@ -39,6 +39,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'P5 safeguards failed' }
           python -m unittest discover -s tests/quality -p test_v101_p5_ffmpeg_imports.py -v
           if ($LASTEXITCODE -ne 0) { throw 'P5 FFmpeg import-library contract failed' }
+          python -m unittest discover -s tests/quality -p test_v101_p5_opencv_checkout.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'P5 pinned OpenCV checkout EOL/provenance contract failed' }
 
       - name: Provision MSYS2 POSIX FFmpeg build tools (retain MSVC)
         shell: pwsh

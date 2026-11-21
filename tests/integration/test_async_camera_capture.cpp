@@ -25,6 +25,8 @@ struct Gate {
     std::atomic<int> destroyed{0};
     bool throw_read = false;
     bool bad_timestamp = false;
+    bool regressing_timestamp = false;
+    bool duplicate_index = false;
 };
 
 class SyntheticReader final : public CameraFrameReader {
@@ -40,10 +42,14 @@ public:
         if (gate_->throw_read)
             throw CameraError(CameraErrorCode::ReadFailed, "synthetic unplug event");
         FrameMetadata metadata;
-        metadata.timestamp = FrameTimestamp{std::chrono::milliseconds(id),
+        const auto stamp = gate_->regressing_timestamp
+            ? (id == 0 ? std::chrono::milliseconds{2} : std::chrono::milliseconds{1})
+            : std::chrono::milliseconds{static_cast<std::int64_t>(id)};
+        metadata.timestamp = FrameTimestamp{stamp,
             gate_->bad_timestamp ? TimestampDomain::MediaPresentation :
                                     TimestampDomain::CaptureMonotonic};
-        return {id, ImageFrame::from_owned_bytes(8, 8, PixelFormat::BGR8, 24,
+        const auto frame_index = gate_->duplicate_index ? std::uint64_t{0} : id;
+        return {frame_index, ImageFrame::from_owned_bytes(8, 8, PixelFormat::BGR8, 24,
                 std::vector<std::uint8_t>(192, static_cast<std::uint8_t>(id)), metadata)};
     }
 private:
@@ -177,7 +183,54 @@ int main() {
                 "non-capture timestamp domain accepted");
         capture.stop();
         stopped = next(capture, "bad-clock stop missing");
+        require(stopped.kind == CameraCaptureEventKind::Stopped,
+                "bad-clock stop completion wrong");
+
+        // A new generation accepts its own initial timestamp and index, but
+        // must reject a decreasing capture timestamp within that generation.
+        auto regressing = std::make_shared<Gate>();
+        regressing->regressing_timestamp = true;
+        capture.start_with_reader(std::make_unique<SyntheticReader>(regressing));
+        opened = next(capture, "regressing-clock source did not open");
+        grant(regressing, 1);
+        auto initial = next(capture, "regressing-clock initial frame missing");
+        require(initial.kind == CameraCaptureEventKind::Frame &&
+                initial.frame->index == 0 &&
+                initial.frame->image.metadata().timestamp->value == 2ms,
+                "initial timestamp should be accepted after generation reset");
+        grant(regressing, 1);
+        error = next(capture, "decreasing capture timestamp not rejected");
+        require(error.kind == CameraCaptureEventKind::Error && error.error_code &&
+                *error.error_code == CameraErrorCode::ReadFailed,
+                "decreasing capture timestamp was accepted");
+        capture.stop();
+        stopped = next(capture, "regressing-clock stop missing");
+        require(stopped.kind == CameraCaptureEventKind::Stopped,
+                "regressing-clock stop completion wrong");
+
+        // Timestamp monotonicity alone is insufficient: the frame index
+        // must strictly increase within the same reader generation.
+        auto duplicate = std::make_shared<Gate>();
+        duplicate->duplicate_index = true;
+        capture.start_with_reader(std::make_unique<SyntheticReader>(duplicate));
+        opened = next(capture, "duplicate-index source did not open");
+        grant(duplicate, 1);
+        initial = next(capture, "duplicate-index initial frame missing");
+        require(initial.kind == CameraCaptureEventKind::Frame &&
+                initial.frame->index == 0,
+                "first frame should be accepted after generation reset");
+        grant(duplicate, 1);
+        error = next(capture, "duplicate frame index not rejected");
+        require(error.kind == CameraCaptureEventKind::Error && error.error_code &&
+                *error.error_code == CameraErrorCode::ReadFailed,
+                "duplicate frame index was accepted");
+        capture.stop();
+        stopped = next(capture, "duplicate-index stop missing");
+        require(stopped.kind == CameraCaptureEventKind::Stopped,
+                "duplicate-index stop completion wrong");
+
         std::cout << "PASS: bounded newest-frame queue, owned pixels, monotonic clock, "
+                     "generation resets, ordered timestamps and indices, "
                      "cooperative stop, restart generations and typed errors\n";
         return 0;
     } catch (const std::exception& error) {

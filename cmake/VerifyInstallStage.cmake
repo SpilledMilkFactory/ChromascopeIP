@@ -1,5 +1,10 @@
 # Hardware-free install/stage/relocate smoke. Do not execute an incomplete
 # distribution: OpenCV/codec DLL and .so bundling is an explicit later gate.
+# This file is executed via `cmake -P`, which does not inherit the parent
+# project's cmake_minimum_required() policy settings. The v1.0.1 Skittles
+# allowlist uses IN_LIST; enable its defining policy explicitly so the same
+# install-stage smoke test works on Debian, Ubuntu, and Windows CMake versions.
+cmake_policy(SET CMP0057 NEW)
 foreach(_name CHROMASCOPE_BUILD_DIR CHROMASCOPE_SOURCE_DIR CHROMASCOPE_BINDIR
               CHROMASCOPE_DATADIR CHROMASCOPE_DOCDIR CHROMASCOPE_CONFIG)
     if(NOT DEFINED ${_name} OR "${${_name}}" STREQUAL "")

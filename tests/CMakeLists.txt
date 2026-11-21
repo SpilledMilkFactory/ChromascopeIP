@@ -24,6 +24,13 @@ function(chromascope_add_cpp_test name source labels timeout_seconds)
     set_tests_properties(${name} PROPERTIES LABELS "${labels}" TIMEOUT ${timeout_seconds})
 endfunction()
 
+# P5: exercise the real Windows UTF-16 environment API with MSVC /WX.
+# Avoid introducing Windows SDK or environment-variable test dependencies on Linux.
+if(WIN32)
+    chromascope_add_cpp_test(chromascope_unit_windows_environment
+        unit/test_windows_environment.cpp "unit;windows;security;portability;regression" 20)
+endif()
+
 chromascope_add_cpp_test(chromascope_unit_install_resources
     unit/test_install_resources.cpp "unit;packaging;security" 20)
 chromascope_add_cpp_test(chromascope_unit_color

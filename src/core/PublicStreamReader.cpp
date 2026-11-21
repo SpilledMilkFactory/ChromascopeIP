@@ -38,6 +38,7 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <winhttp.h>
+#include "chromascope/WindowsEnvironment.hpp"
 #else
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -575,8 +576,12 @@ private:
         // Opt-in, bounded, URL-free evidence for comparing the real GUI stream.
         // No encoded data, remote URL, credentials or per-frame payloads logged.
         static const bool timing_trace = [] {
+#if defined(_WIN32)
+            return windows_environment_enabled(L"CHROMASCOPE_HLS_PACING_TRACE");
+#else
             const char* enabled = std::getenv("CHROMASCOPE_HLS_PACING_TRACE");
             return enabled && std::strcmp(enabled, "1") == 0;
+#endif
         }();
         if (timing_trace && (++hls_paced_frames_ <= 8 || hls_paced_frames_ % 75 == 0)) {
             const char* basis = plan.basis == HlsTimingBasis::PresentationTimestamp ? "pts" :

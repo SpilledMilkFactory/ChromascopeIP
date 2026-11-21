@@ -33,6 +33,7 @@
 #ifdef _WIN32
 #  include <windows.h>
 #  include <shlobj.h>
+#  include "chromascope/WindowsEnvironment.hpp"
 #endif
 
 namespace chromascope {
@@ -63,7 +64,8 @@ fs::path videos_folder() {
         return result;
     }
     if (buffer) CoTaskMemFree(buffer);
-    if (const char* home = std::getenv("USERPROFILE")) return fs::path(home) / "Videos";
+    if (const auto home = windows_environment_path(L"USERPROFILE"))
+        return *home / "Videos";
 #else
     const char* home = std::getenv("HOME");
     if (home && *home) {

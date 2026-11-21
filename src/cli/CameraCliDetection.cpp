@@ -107,8 +107,15 @@ class ExclusiveFileBuffer final : public std::streambuf {
 public:
     explicit ExclusiveFileBuffer(const std::filesystem::path& path) {
         if (path.empty()) throw std::invalid_argument("Empty JSONL destination");
+#if defined(_WIN32)
+        // Use a Unicode-native path and the secure CRT without weakening the
+        // create-only contract. "x" must remain: never truncate camera evidence.
+        if (_wfopen_s(&file_, path.c_str(), L"wbx") != 0)
+            file_ = nullptr;
+#else
         const auto native = path.string();
         file_ = std::fopen(native.c_str(), "wbx");
+#endif
         if (!file_) throw std::runtime_error("JSONL destination must not exist; parent must exist and be writable");
     }
     ~ExclusiveFileBuffer() override { if (file_) (void)std::fclose(file_); }

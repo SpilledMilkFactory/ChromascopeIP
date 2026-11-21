@@ -50,9 +50,17 @@ def verify(source: Path, config: Path, prefix: Path) -> None:
         f = prefix / 'bin' / name
         require(f.is_file() and f.stat().st_size > 10000,
                 'Missing private FFmpeg DLL: ' + name)
-    for name in ('avcodec', 'avformat', 'avutil', 'swscale'):
-        require((prefix / 'include' / 'lib' + name).is_dir(),
+    for name, major in (('avcodec', 62), ('avformat', 62), ('avutil', 60), ('swscale', 9)):
+        require((prefix / 'include' / ('lib' + name)).is_dir(),
                 'Missing private FFmpeg C headers: ' + name)
+        # n8.1.3 win64 shared builds put import .lib files in SHLIBDIR/bin.
+        # Accept a single reviewed import in bin or lib, never a MinGW .a.
+        imports = [prefix / folder / filename
+                   for folder in ('bin', 'lib')
+                   for filename in (name + '.lib', f'{name}-{major}.lib')
+                   if (prefix / folder / filename).is_file()]
+        require(len(imports) == 1 and imports[0].stat().st_size > 0,
+                'Expected exactly one private MSVC FFmpeg import library: ' + name)
     print('Windows FFmpeg enabled components:', components)
 
 

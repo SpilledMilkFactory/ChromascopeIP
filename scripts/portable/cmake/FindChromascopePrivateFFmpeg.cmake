@@ -13,13 +13,18 @@ endif()
 set(FFMPEG_INCLUDE_DIRS "${_ffroot}/include")
 set(FFMPEG_LIBRARIES "")
 foreach(_name IN ITEMS avcodec avformat avutil swscale)
-    # FFmpeg MSVC import-library names depend on how the pinned configure
-    # generates the import libs. Each must be a regular file in this prefix.
+    # FFmpeg n8.1.3's win64 shared build installs its .lib import libraries
+    # alongside the DLLs in SHLIBDIR (normally bin), not necessarily LIBDIR.
+    # Accept either upstream bin or a deliberately staged lib layout, but
+    # reject ambiguous/duplicate imports instead of silently mixing builds.
     set(_candidates "")
-    foreach(_candidate IN ITEMS "${_name}.lib" "${_name}-62.lib" "${_name}-60.lib" "${_name}-9.lib")
-        if(EXISTS "${_ffroot}/lib/${_candidate}")
-            list(APPEND _candidates "${_ffroot}/lib/${_candidate}")
-        endif()
+    foreach(_dir IN ITEMS bin lib)
+        foreach(_candidate IN ITEMS "${_name}.lib" "${_name}-62.lib" "${_name}-60.lib" "${_name}-9.lib")
+            if(EXISTS "${_ffroot}/${_dir}/${_candidate}" AND
+               NOT IS_DIRECTORY "${_ffroot}/${_dir}/${_candidate}")
+                list(APPEND _candidates "${_ffroot}/${_dir}/${_candidate}")
+            endif()
+        endforeach()
     endforeach()
     list(LENGTH _candidates _count)
     if(NOT _count EQUAL 1)

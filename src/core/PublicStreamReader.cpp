@@ -435,9 +435,11 @@ public:
                         reader = hls_reader_;
                     }
                     // The decoder only receives bounded in-memory media data.
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(CHROMASCOPE_V101_PRIVATE_HLS_PROBE)
                     const auto api = cv::CAP_ANY;
 #else
+                    // Private v1.0.1 OpenCV has an explicit FFmpeg backend for
+                    // every custom IStreamReader, including non-HLS media.
                     const auto api = cv::CAP_FFMPEG;
 #endif
                     // The private Linux OpenCV uses a per-capture parameter, not

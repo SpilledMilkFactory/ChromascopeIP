@@ -19,6 +19,13 @@ $build=Join-Path $root 'build'
 New-Item -ItemType Directory -Path $root -Force | Out-Null
 git -c core.autocrlf=false clone --depth 1 --branch n8.1.3 -- https://github.com/FFmpeg/FFmpeg.git $source
 if ($LASTEXITCODE -ne 0) { throw 'FFmpeg clone failed' }
+# Fail early if the Windows checkout is incomplete. The MSYS2 wrapper checks
+# these paths again after translating them to its POSIX namespace.
+foreach ($required in @('Makefile', 'configure', 'libavcodec/jpegxl_parser.c')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $source $required) -PathType Leaf)) {
+        throw "Pinned FFmpeg source is incomplete: $required"
+    }
+}
 python scripts/portable/v101_p5_private_ffmpeg.py prepare --source $source
 if ($LASTEXITCODE -ne 0) { throw 'FFmpeg security backport failed' }
 $vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'

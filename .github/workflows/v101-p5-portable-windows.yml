@@ -242,8 +242,8 @@ jobs:
           path: |
             build/v101-p5-windows/Testing/Temporary/LastTest.log
             build/v101-p5-windows/CMakeFiles/CMakeConfigureLog.yaml
-            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/config.log
-            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/ffbuild/config.log
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/source/config.log
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/source/ffbuild/config.log
           if-no-files-found: ignore
           retention-days: 7
 

@@ -41,6 +41,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'P5 FFmpeg import-library contract failed' }
           python -m unittest discover -s tests/quality -p test_v101_p5_opencv_checkout.py -v
           if ($LASTEXITCODE -ne 0) { throw 'P5 pinned OpenCV checkout EOL/provenance contract failed' }
+          python -m unittest discover -s tests/quality -p test_v101_p5_cmake_paths.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'P5 OpenCV CMake path propagation regressions failed' }
+
+      # Catch Windows path quoting regressions before spending time compiling
+      # FFmpeg. Uses the same path-normalization helper as the OpenCV bootstrap.
+      - name: Preflight Windows OpenCV CMake paths and nested MSVC compiler test
+        shell: pwsh
+        run: |
+          ./scripts/portable/v101_p5_opencv_cmake_preflight.ps1 `
+            -ScratchRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-cmake-path-preflight')
+          if ($LASTEXITCODE -ne 0) { throw 'OpenCV CMake path preflight failed' }
 
       - name: Provision MSYS2 POSIX FFmpeg build tools (retain MSVC)
         shell: pwsh
@@ -261,6 +272,9 @@ jobs:
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/ffmpeg-install-console.log
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/source/config.log
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/source/ffbuild/config.log
+            ${{ runner.temp }}/chromascope-p5-cmake-path-preflight/build/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ runner.temp }}/chromascope-p5-opencv/build/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ runner.temp }}/chromascope-p5-opencv/build/CMakeCache.txt
           if-no-files-found: ignore
           retention-days: 7
 

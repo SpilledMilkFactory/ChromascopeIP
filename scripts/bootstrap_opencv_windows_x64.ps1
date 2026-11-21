@@ -14,6 +14,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $expectedCommit = 'e4f78fbcf1a773fbed69e14500e8b734963eb585'
 
+# CMake re-serializes these paths into compiler TryCompile CMakeLists files.
+# Always pass CMake-style forward slashes, not native Windows backslashes.
+. (Join-Path $PSScriptRoot 'portable/v101_p5_cmake_paths.ps1')
+
 function Invoke-Native {
     param([string]$Program, [string[]]$Arguments)
     & $Program @Arguments
@@ -65,13 +69,13 @@ if ($P5PrivateFFmpegPrefix) {
     }
     python (Join-Path $PSScriptRoot 'portable/v101_p5_prepare_opencv.py') $source
     if ($LASTEXITCODE -ne 0) { throw 'Private OpenCV HLS security source transformation failed' }
-    $modules = Join-Path $PSScriptRoot 'portable/cmake'
+    $modules = ConvertTo-CMakePath (Join-Path $PSScriptRoot 'portable/cmake')
     $p5Args = @(
         '-DWITH_FFMPEG=ON',
         '-DOPENCV_FFMPEG_SKIP_DOWNLOAD=ON',
         '-DOPENCV_FFMPEG_ENABLE_LIBAVDEVICE=OFF',
         '-DOPENCV_FFMPEG_USE_FIND_PACKAGE=ChromascopePrivateFFmpeg',
-        "-DCHROMASCOPE_PRIVATE_FFMPEG_PREFIX=$ffRoot",
+        "-DCHROMASCOPE_PRIVATE_FFMPEG_PREFIX=$(ConvertTo-CMakePath $ffRoot)",
         "-DCMAKE_MODULE_PATH=$modules"
     )
 }
@@ -79,8 +83,8 @@ if ($P5PrivateFFmpegPrefix) {
 Invoke-Native cmake ( @(
     '-S', $source, '-B', $build,
     '-G', 'Visual Studio 17 2022', '-A', 'x64',
-    "-DCMAKE_INSTALL_PREFIX=$install",
-    "-DOPENCV_CMAKE_HOOKS_DIR=$hookDir",
+    "-DCMAKE_INSTALL_PREFIX=$(ConvertTo-CMakePath $install)",
+    "-DOPENCV_CMAKE_HOOKS_DIR=$(ConvertTo-CMakePath $hookDir)",
     '-DBUILD_LIST=core,imgproc,imgcodecs,videoio,dnn',
     '-DBUILD_SHARED_LIBS=OFF',
     '-DBUILD_WITH_STATIC_CRT=OFF',

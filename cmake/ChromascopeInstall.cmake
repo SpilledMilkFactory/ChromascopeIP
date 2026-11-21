@@ -50,7 +50,12 @@ install(FILES LICENSE
     DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}")
 install(FILES docs/PACKAGED_SECURITY.md
     DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}" RENAME "SECURITY.md")
-if(CHROMASCOPE_V101_P3_PORTABLE)
+if(CHROMASCOPE_V101_P5_PORTABLE)
+    install(FILES docs/PACKAGED_README_V1_0_1_WINDOWS.md
+        DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}" RENAME "README.md")
+    install(FILES docs/PORTABLE_RELEASE_V1_0_1_WINDOWS.md
+        DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}" RENAME "PORTABLE_RELEASE_V1_0_1.md")
+elseif(CHROMASCOPE_V101_P3_PORTABLE)
     install(FILES docs/PACKAGED_README_V1_0_1.md
         DESTINATION "${CHROMASCOPE_INSTALL_DOCDIR}" RENAME "README.md")
     install(FILES docs/PORTABLE_RELEASE_V1_0_1.md
@@ -76,7 +81,7 @@ set(CHROMASCOPE_SHIPPED_USER_GUIDES
     docs/MEDIA_RIGHTS.md
     docs/RESOURCE_BUDGETS.md
 )
-if(CHROMASCOPE_V101_P3_PORTABLE)
+if(CHROMASCOPE_V101_P3_PORTABLE OR CHROMASCOPE_V101_P5_PORTABLE)
     list(REMOVE_ITEM CHROMASCOPE_SHIPPED_USER_GUIDES
         docs/INSTALLATION_1_0_0.md
         docs/RELEASE_EXAMPLES_1_0_0.md
@@ -120,6 +125,12 @@ if(UNIX AND NOT APPLE AND OpenCV_DIR)
         set(_chromascope_smoke_libdir "${_chromascope_opencv_prefix}/lib")
     endif()
 endif()
+# P5/P3 portable builds have a reviewed, checksum-pinned model and a v1.0.1
+# documentation allowlist; historical v1.0.0 remains model-free.
+set(_chromascope_v101_portable_stage OFF)
+if(CHROMASCOPE_V101_P3_PORTABLE OR CHROMASCOPE_V101_P5_PORTABLE)
+    set(_chromascope_v101_portable_stage ON)
+endif()
 # A CTest installs, moves the staged prefix, and audits the resulting tree.
 if(BUILD_TESTING AND CHROMASCOPE_BUILD_TESTS)
     add_test(NAME chromascope_install_stage
@@ -130,6 +141,7 @@ if(BUILD_TESTING AND CHROMASCOPE_BUILD_TESTS)
             "-DCHROMASCOPE_DATADIR=${CHROMASCOPE_INSTALL_DATADIR}"
             "-DCHROMASCOPE_DOCDIR=${CHROMASCOPE_INSTALL_DOCDIR}"
             "-DCHROMASCOPE_CONFIG=$<CONFIG>"
+            "-DCHROMASCOPE_V101_PORTABLE_STAGE=${_chromascope_v101_portable_stage}"
             "-DCHROMASCOPE_SMOKE_LIBDIR=${_chromascope_smoke_libdir}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyInstallStage.cmake")
     set_tests_properties(chromascope_install_stage PROPERTIES

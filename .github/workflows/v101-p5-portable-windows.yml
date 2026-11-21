@@ -1,0 +1,212 @@
+# v1.0.1 P5: engineering candidate only. Separate from historical v1.0.0 ZIP.
+name: v1.0.1 P5 — portable Windows x64 candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v101-p5-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Windows Server 2022 / MSVC / portable Windows x64 candidate
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      OPENCV_PREFIX: ${{ github.workspace }}\.ci-opencv\opencv-5.1.0
+
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify pinned model, notices, and P5 safeguards before build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -c "from scripts.third_party_notices import notice_payloads; print(len(notice_payloads()), 'verified notices')"
+          if ($LASTEXITCODE -ne 0) { throw 'Third-party notice check failed' }
+          python scripts/check_model_selection.py --artifact models/object_detection_nanodet_2022nov.onnx
+          if ($LASTEXITCODE -ne 0) { throw 'Approved model check failed' }
+          python -m unittest discover -s tests/quality -p test_v101_p5_portable_windows.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'P5 safeguards failed' }
+
+      - name: Restore pinned Windows OpenCV static install
+        id: opencv-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-opencv/opencv-5.1.0
+          key: opencv-5.1.0-win2022-msvc17-x64-static-md-dnn-proto-nopthread-${{ hashFiles('scripts/bootstrap_opencv_windows_x64.ps1', 'scripts/verify_opencv_windows_x64.ps1', 'scripts/opencv_windows_hooks/POST_DETECT_DEPENDENCIES.cmake', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp', 'tests/quality/opencv_videoio_consumer/dnn_probe.cpp') }}-m5-2-v1
+
+      - name: Rebuild pinned OpenCV on cache miss
+        if: steps.opencv-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          ./scripts/bootstrap_opencv_windows_x64.ps1 `
+            -InstallPrefix $env:OPENCV_PREFIX `
+            -BuildRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-opencv') -Jobs 2
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned OpenCV bootstrap failed' }
+
+      - name: Verify private OpenCV provenance and consumer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stamp = Join-Path $env:OPENCV_PREFIX '.chromascope-opencv-windows-build.txt'
+          $lines = Get-Content -LiteralPath $stamp -ErrorAction Stop
+          foreach ($field in @(
+            'commit=e4f78fbcf1a773fbed69e14500e8b734963eb585',
+            'opencv=5.1.0', 'architecture=x64', 'toolchain=Visual Studio 17 2022',
+            'configuration=Release', 'shared=OFF', 'static_crt=OFF',
+            'modules=core,imgproc,imgcodecs,videoio,dnn',
+            'video_backend=msmf', 'consumer_probe=PASS')) {
+            if ($lines -notcontains $field) { throw "Invalid OpenCV provenance: $field" }
+          }
+          $opencvDir = Join-Path $env:OPENCV_PREFIX 'x64/vc17/staticlib'
+          ./scripts/verify_opencv_windows_x64.ps1 `
+            -InstallPrefix $env:OPENCV_PREFIX `
+            -ScratchRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-opencv-consumer') -Jobs 2
+          if ($LASTEXITCODE -ne 0) { throw 'OpenCV consumer failed' }
+          "OpenCV_DIR=$opencvDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build pinned GLFW 3.4 x64 static library
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $src = Join-Path $env:RUNNER_TEMP 'chromascope-p5-glfw-source'
+          $build = Join-Path $env:RUNNER_TEMP 'chromascope-p5-glfw-build'
+          $prefix = Join-Path $env:RUNNER_TEMP 'chromascope-p5-glfw-install'
+          git clone --depth 1 --branch 3.4 -- https://github.com/glfw/glfw.git $src
+          if ($LASTEXITCODE -ne 0) { throw 'GLFW clone failed' }
+          $head = (& git -C $src rev-parse HEAD).Trim()
+          if ($head -ne '7b6aead9fb88b3623e3b3725ebb42670cbe4c579') { throw "Unexpected GLFW source: $head" }
+          cmake -S $src -B $build -G 'Visual Studio 17 2022' -A x64 `
+            "-DCMAKE_INSTALL_PREFIX=$prefix" '-DBUILD_SHARED_LIBS=OFF' `
+            '-DGLFW_BUILD_DOCS=OFF' '-DGLFW_BUILD_TESTS=OFF' '-DGLFW_BUILD_EXAMPLES=OFF'
+          if ($LASTEXITCODE -ne 0) { throw 'GLFW configuration failed' }
+          cmake --build $build --config Release --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'GLFW build failed' }
+          cmake --install $build --config Release
+          if ($LASTEXITCODE -ne 0) { throw 'GLFW install failed' }
+          "glfw3_DIR=$(Join-Path $prefix 'lib/cmake/glfw3')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "GLFW_LICENSE=$(Join-Path $src 'LICENSE.md')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Configure Windows v1.0.1 P5 GUI and CLI
+        shell: pwsh
+        run: |
+          cmake -S . -B build/v101-p5-windows -G 'Visual Studio 17 2022' -A x64 `
+            '-DCHROMASCOPE_BUILD_GUI=ON' '-DCHROMASCOPE_BUILD_TESTS=ON' `
+            '-DCHROMASCOPE_WARNINGS_AS_ERRORS=ON' '-DCHROMASCOPE_V101_P5_PORTABLE=ON' `
+            "-DOpenCV_DIR=$env:OpenCV_DIR" "-Dglfw3_DIR=$env:glfw3_DIR"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows P5 configure failed' }
+
+      - name: Build Windows v1.0.1 GUI CLI and tests
+        shell: pwsh
+        run: |
+          cmake --build build/v101-p5-windows --config Release --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'Windows P5 build failed' }
+
+      - name: Run native Windows P5 CTests
+        shell: pwsh
+        run: |
+          ctest --test-dir build/v101-p5-windows -C Release --parallel 2 --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw 'Windows P5 CTests failed' }
+
+      - name: Authenticate redistributable Microsoft VC143 DLL sources
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $vs = (& $vswhere -latest -products '*' -version '[17.0,18.0)' `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if ($LASTEXITCODE -ne 0 -or -not $vs) { throw 'MSVC 2022 installation not found' }
+          $versions = @(Get-ChildItem -LiteralPath (Join-Path $vs 'VC/Redist/MSVC') -Directory | Sort-Object Name -Descending)
+          $crt = $null
+          foreach ($version in $versions) {
+            $p = Join-Path $version.FullName 'x64/Microsoft.VC143.CRT'
+            if (Test-Path -LiteralPath (Join-Path $p 'vcruntime140.dll')) { $crt = $p; break }
+          }
+          if (-not $crt) { throw 'Microsoft VC143 CRT distribution files missing' }
+          foreach ($dll in @(Get-ChildItem -LiteralPath $crt -Filter '*.dll' -File)) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $dll.FullName
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft') {
+              throw "Untrusted Microsoft runtime source: $($dll.Name)"
+            }
+          }
+          "CHROMASCOPE_VC_REDIST_DIR=$crt" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build, independently inspect and hash P5 Windows candidate
+        shell: pwsh
+        run: |
+          python scripts/portable/v101_p5_package.py --build `
+            --build-dir build/v101-p5-windows --opencv-prefix $env:OPENCV_PREFIX `
+            --vc-redist-dir $env:CHROMASCOPE_VC_REDIST_DIR `
+            --glfw-license $env:GLFW_LICENSE `
+            --imgui-license 'build/v101-p5-windows/_deps/imgui-src/LICENSE.txt' `
+            --output-dir build/v101-p5-candidate
+          if ($LASTEXITCODE -ne 0) { throw 'Windows P5 packaging failed' }
+          python scripts/portable/v101_p5_package.py --inspect `
+            build/v101-p5-candidate/ChromascopeIP-1.0.1-Windows-x64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Windows P5 independent ZIP inspection failed' }
+
+      - name: Smoke-test relocated Windows ZIP without developer PATH
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dest = Join-Path $env:RUNNER_TEMP 'chromascope-v101-p5-relocated'
+          Expand-Archive -LiteralPath build/v101-p5-candidate/ChromascopeIP-1.0.1-Windows-x64.zip -DestinationPath $dest
+          $top = Join-Path $dest 'ChromascopeIP-1.0.1-Windows-x64'
+          foreach ($rel in @('bin/chromascope-cli.exe', 'bin/chromascope-gui.exe',
+                            'share/chromascopeip/models/object_detection_nanodet_2022nov.onnx',
+                            'share/chromascopeip/models/LICENSE')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $top $rel) -PathType Leaf)) {
+              throw "Portable payload missing: $rel"
+            }
+          }
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot;$env:SystemRoot\System32\Wbem"
+          $exe = Join-Path $top 'bin/chromascope-cli.exe'
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw 'Relocated CLI --version failed' }
+          & $exe --help
+          if ($LASTEXITCODE -ne 0) { throw 'Relocated CLI --help failed' }
+          & $exe --list-profiles
+          if ($LASTEXITCODE -ne 0) { throw 'Relocated CLI --list-profiles failed' }
+
+      - name: Upload Windows P5 engineering candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ChromascopeIP-v101-P5-Windows-x64-CANDIDATE
+          path: |
+            build/v101-p5-candidate/ChromascopeIP-1.0.1-Windows-x64.zip
+            build/v101-p5-candidate/P5-CANDIDATE-REPORT.json
+            build/v101-p5-candidate/P5-SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload P5 failure logs only
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: UNQUALIFIED-v101-P5-Windows-diagnostics
+          path: |
+            build/v101-p5-windows/Testing/Temporary/LastTest.log
+            build/v101-p5-windows/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Summarize candidate boundaries
+        if: success()
+        shell: pwsh
+        run: |
+          @(
+            '## ChromascopeIP v1.0.1 P5 engineering candidate',
+            '- Windows Server 2022 MSVC x64: compiled and tested',
+            '- ZIP, app-local CRT closure, license/model digests and relocated CLI: verified',
+            '- Windows 10 and 11 interactive GUI, camera, live HLS and VC143 redistribution rights: NOT APPROVED',
+            '- Current Windows static OpenCV uses MSMF without FFmpeg HLS; manual HLS verification is a release blocker',
+            '- This is NOT v1.0.1 release approval.'
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

@@ -119,3 +119,19 @@ and the original Windows ZIP packaging rules are deliberately unchanged.
 Neither archive may include other model weights, training data, third-party
 video, or sample photographs. Named credit and the model's Hugging Face link
 in the root README remain on the P6 release-preparation checklist.
+
+## P5 Windows x64 implementation (candidate, pending native run)
+
+The v1.0.1 P5 candidate uses the separate manual
+`.github/workflows/v101-p5-portable-windows.yml` and
+`scripts/portable/v101_p5_package.py`, retaining the old v1.0.0 packager
+unchanged. It builds the MSVC GUI/CLI with pinned static OpenCV + MSMF, pinned
+GLFW/ImGui, stages the approved NanoDet model and its exact license/notices,
+checks imported Microsoft VC143 DLL closure, independently inspects archive
+SHA-256 and model bytes, and runs a relocated CLI smoke test.
+
+**Windows HLS is an open functional release gate.** Linux P3/P4's qualified
+custom FFmpeg HLS decoder is not enabled by the existing Windows static OpenCV
+configuration. P5 must not claim Windows live HLS support until real Win10/11
+end-to-end validation or a separately reviewed decoder integration passes.
+Full instructions: `V1_0_1_P5_PORTABLE_WINDOWS.md`.

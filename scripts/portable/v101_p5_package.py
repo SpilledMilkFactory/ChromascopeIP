@@ -21,6 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT / 'scripts'))
 import package_windows_x64 as legacy  # noqa: E402
 from v101_model_bundle import inspect as inspect_model, MODEL_HASH, MODEL_NAME  # noqa: E402
+from v101_skittles_samples import (REQUIRED as APPROVED_SAMPLES,
+                                  inspect_payload as inspect_skittles)  # noqa: E402
 
 VERSION = '1.0.1'
 TOP = f'ChromascopeIP-{VERSION}-Windows-x64'
@@ -42,6 +44,7 @@ REQUIRED = {
     f'{MODEL_DIR}/selected_model.json',
     f'{MODEL_DIR}/model_provenance.json',
     'RUNTIME_DEPENDENCIES.md',
+    *APPROVED_SAMPLES,
 }
 MEDIA_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv', '.jpg', '.jpeg',
                     '.png', '.bmp', '.webp', '.webm', '.pth', '.pt', '.pb'}
@@ -130,6 +133,8 @@ def validate_inventory(names: set[str]) -> None:
             if rel not in EXPECTED_EXES and not legacy.CRT.fullmatch(
                     PurePosixPath(rel).name.lower()):
                 raise CandidateError('Unapproved Windows bin payload: ' + rel)
+        elif rel in APPROVED_SAMPLES:
+            pass  # Exact author-owned v1.0.1 Skittles photo allowlist.
         elif rel.startswith(MODEL_DIR + '/'):
             if rel[len(MODEL_DIR)+1:] not in approved_models:
                 raise CandidateError('Unreviewed model metadata/payload: ' + rel)
@@ -148,7 +153,7 @@ def validate_inventory(names: set[str]) -> None:
         p = PurePosixPath(rel)
         if p.suffix.lower() == '.onnx' and rel != f'{MODEL_DIR}/{MODEL_NAME}':
             raise CandidateError('Unreviewed ONNX model: ' + rel)
-        if p.suffix.lower() in MEDIA_EXTENSIONS or '/samples/' in '/' + lower + '/':
+        if (p.suffix.lower() in MEDIA_EXTENSIONS or '/samples/' in '/' + lower + '/') and rel not in APPROVED_SAMPLES:
             raise CandidateError('Unreviewed packaged media/fixture: ' + rel)
         if lower.endswith('.exe') and rel not in EXPECTED_EXES:
             raise CandidateError('Unreviewed Windows executable: ' + rel)
@@ -185,6 +190,10 @@ def verify_models_from_zip(payload: dict[str, bytes]) -> dict:
 def validate_payload(payload: dict[str, bytes]) -> dict:
     validate_inventory(set(payload))
     evidence = verify_models_from_zip(payload)
+    try:
+        inspect_skittles(payload)
+    except ValueError as exc:
+        raise CandidateError(f'Approved Skittles sample verification: {exc}') from exc
     # Compare byte-pinned legal texts independently of the archive manifest.
     if payload[f'{MODEL_DIR}/LICENSE'] != (ROOT / 'models/LICENSE').read_bytes():
         raise CandidateError('Modified NanoDet Apache license in Windows ZIP')
@@ -274,12 +283,15 @@ def inspect_archive(path: Path) -> dict:
     if meta.get('sha256') != actual:
         raise CandidateError('Windows P5 archive inventory/hash mismatch')
     evidence = validate_payload(files)
+    samples = inspect_skittles(files)
+    if meta.get('skittles_samples_sha256') != samples:
+        raise CandidateError('Skittles sample manifest mismatch')
     imports, dlls = validate_imports(files, meta.get('imported_dlls'))
     if meta.get('bundled_msvc_dlls') != dlls:
         raise CandidateError('Windows P5 CRT closure mismatch')
     return {'status': STATUS, 'sha256': digest(path.read_bytes()),
-            'members': len(files), 'model': evidence, 'crt_dlls': dlls,
-            'windows_hls_qualified': False}
+            'members': len(files), 'model': evidence, 'skittles_samples_sha256': samples,
+            'crt_dlls': dlls, 'windows_hls_qualified': False}
 
 
 def build_candidate(args) -> dict:
@@ -293,6 +305,9 @@ def build_candidate(args) -> dict:
         legacy.command('cmake', '--install', str(build), '--config', 'Release', '--prefix', str(stage))
         legacy.stage_extras(stage, args.glfw_license, args.imgui_license)
         model_evidence = inspect_model(stage)
+        # Stage input must contain precisely the four author-owned photographs.
+        from v101_skittles_samples import inspect_stage as inspect_skittles_stage
+        sample_evidence = inspect_skittles_stage(stage)
         stage_files(stage)
         # Resolve all app-local CRT dependencies to a fixed point.
         imports = {name: sorted(legacy.read_pe_imports(stage / name)) for name in EXPECTED_EXES}
@@ -325,6 +340,7 @@ def build_candidate(args) -> dict:
             'platform': 'Windows-x64', 'status': STATUS, 'release_approved': False,
             'opencv_commit': legacy.OPEN_CV_COMMIT,
             'glfw_commit': legacy.GLFW_COMMIT, 'model_sha256': MODEL_HASH,
+            'skittles_samples_sha256': sample_evidence,
             'opencv_backend': 'msmf-static-no-ffmpeg',
             'windows_hls_qualified': False,
             'imported_dlls': verified_imports, 'bundled_msvc_dlls': verified_crt,

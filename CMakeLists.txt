@@ -134,15 +134,14 @@ if(CHROMASCOPE_V101_P5_PORTABLE)
             message(FATAL_ERROR "P5 OpenCV was not built with the private FFmpeg HLS backend: ${_required}")
         endif()
     endforeach()
-    # Static OpenCV consumers must retain FFmpeg import libraries at link time.
-    foreach(_fflib IN ITEMS avcodec avformat avutil swscale)
-        file(GLOB _p5_fflibs "${_p5_ff_root}/lib/${_fflib}*.lib")
-        list(LENGTH _p5_fflibs _nff)
-        if(NOT _nff EQUAL 1)
-            message(FATAL_ERROR "P5 requires exactly one import library for ${_fflib}")
-        endif()
-        target_link_libraries(chromascope_core PUBLIC "${_p5_fflibs}")
-    endforeach()
+    # Use the *same* reviewed MSVC import-library finder as private OpenCV.
+    # FFmpeg n8.1.3 normally installs its Windows .lib imports alongside the
+    # DLLs in bin/, not lib/. The finder checks both locations, requires one
+    # exact import per component, and rejects unexpected/ambiguous layouts.
+    # Normalize any native Windows path before it reaches generated CMake files.
+    file(TO_CMAKE_PATH "${_p5_ff_root}" CHROMASCOPE_PRIVATE_FFMPEG_PREFIX)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/scripts/portable/cmake/FindChromascopePrivateFFmpeg.cmake")
+    target_link_libraries(chromascope_core PUBLIC ${FFMPEG_LIBRARIES})
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # HTTPS is a deliberate, TLS-verified libcurl transport, NEVER FFmpeg URLs.

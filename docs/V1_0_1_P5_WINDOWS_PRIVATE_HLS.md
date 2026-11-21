@@ -77,3 +77,28 @@ this integration works until the hosted P5 job compiles FFmpeg and OpenCV.
 
 Do not disable the strict FFmpeg component validation, reduce compiler warnings,
 or switch to an unreviewed prebuilt Windows FFmpeg wrapper to clear this gate.
+
+## P5 MSYS2 Make/awk dependency-generation regression (2026-11-21)
+
+After the source-directory correction, FFmpeg 8.1.3 configured successfully and
+began compilation, but Microsoft compiler include-dependency processing failed
+with malformed GNU awk syntax (`gsub(/\/, "/")`) and `make` error 2. Configure
+also printed repeated `sed` parse errors. The P5 wrapper previously checked
+only that a command named `make` existed, which does not establish the required
+POSIX MSYS2 implementation when inheriting a Visual Studio developer PATH.
+
+On GitHub Windows, P5 now **pins `/usr/bin/make`**, puts MSYS2 `/usr/bin` first
+for `awk`, `sed`, and `sh`, and forces `/usr/bin/sh` as the Make recipe shell.
+Before configuring FFmpeg, an executable preflight invokes the **real** Make,
+awk, and sed with Windows-style backslashes and asserts the exact expected
+output. It fails immediately for missing, non-GNU, or incompatible build tools.
+Linux test doubles may skip this check, but hosted MSYS2 cannot skip it. The
+preflight does not modify FFmpeg source, disable dependency generation, or relax
+codec/security checks.
+
+A green source PR still does **not** establish successful native Windows FFmpeg
+compilation. A P5 release candidate requires the complete MSVC FFmpeg/OpenCV
+build, private decoder/PTS probes, PE closure, and manual Windows 10/11 HLS
+verification. If the actual hosted build fails again, preserve the **first
+error** and record the precise MSYS2 Make/awk/sed paths and versions; do not
+substitute another Make or change the frozen HLS scheduler.

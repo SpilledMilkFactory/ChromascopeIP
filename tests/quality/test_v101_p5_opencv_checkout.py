@@ -5,6 +5,7 @@ run on Linux and Git for Windows without downloading upstream OpenCV.
 """
 
 import hashlib
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -102,7 +103,16 @@ class P5OpenCVCheckoutTests(unittest.TestCase):
         first_patch_hash = sha(self.target.read_bytes())
         self.target.write_bytes(original.replace(b'\n', b'\r\n'))
 
-        with patch.object(security, 'COMMIT', revision), \
+        # Regression for the real Windows runner failure: inside this test
+        # repository core.autocrlf=false, while a standalone temporary tree
+        # (used by verify_final_bytes) inherits a Git-for-Windows-style global
+        # core.autocrlf=true. Before the fix, Git's reverse apply silently
+        # changed all LF lines to CRLF, breaking the first-patch SHA-256 even
+        # though git apply itself returned success.
+        global_config = self.root / 'git-for-windows-global.cfg'
+        global_config.write_text('[core]\n\tautocrlf = true\n', encoding='utf-8')
+        with patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': str(global_config)}), \
+             patch.object(security, 'COMMIT', revision), \
              patch.object(security, 'SOURCE_HASH', sha(original)), \
              patch.object(security, 'PATCHED_HASH', first_patch_hash):
             prepare.normalize_approved_opencv_checkout(self.root)
@@ -113,6 +123,37 @@ class P5OpenCVCheckoutTests(unittest.TestCase):
             self.assertIn(b'AV_CODEC_CAP_HARDWARE', final)
             security.apply(self.root)  # approved final state remains idempotent
             self.assertEqual(self.target.read_bytes(), final)
+
+    def test_global_autocrlf_true_does_not_bypass_final_hash_check(self):
+        from test_opencv_patch_composition_m125 import fixture_source
+
+        original = fixture_source()
+        self.target.write_bytes(original)
+        subprocess.run(['git', '-C', str(self.root), 'add', security.RELATIVE], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'commit', '-qm', 'security fixture'],
+                       check=True)
+        revision = subprocess.check_output(['git', '-C', str(self.root),
+                                            'rev-parse', 'HEAD'], text=True).strip()
+        subprocess.run(['git', '-C', str(self.root), 'apply',
+                        str(security.PATCH)], check=True)
+        first_patch_hash = sha(self.target.read_bytes())
+        subprocess.run(['git', '-C', str(self.root), 'apply',
+                        str(security.FINAL_PATCH)], check=True)
+        final = self.target.read_bytes()
+        # Tamper with a final-state line without making the reviewed final
+        # patch unappliable; strict verification must still fail closed.
+        self.target.write_bytes(final.replace(b'// unrelated pinned OpenCV source',
+                                             b'// unapproved pinned OpenCV source', 1))
+        tampered = self.target.read_bytes()
+        global_config = self.root / 'git-for-windows-global.cfg'
+        global_config.write_text('[core]\n\tautocrlf = true\n', encoding='utf-8')
+        with patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': str(global_config)}), \
+             patch.object(security, 'COMMIT', revision), \
+             patch.object(security, 'SOURCE_HASH', sha(original)), \
+             patch.object(security, 'PATCHED_HASH', first_patch_hash), \
+             self.assertRaisesRegex(ValueError, 'Refusing modified or unexpected'):
+            security.apply(self.root)
+        self.assertEqual(self.target.read_bytes(), tampered)
 
     def test_normalization_precedes_security_patches_in_windows_pipeline(self):
         source = (ROOT / 'scripts/portable/v101_p5_prepare_opencv.py').read_text()

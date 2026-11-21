@@ -217,3 +217,52 @@ algorithms, HLS scheduler, decoder allowlist, security patch fingerprints,
 model or sample packaging, or Windows camera backends. Engineering acceptance
 still requires a complete manually initiated P5 Windows job, followed by real
 Windows 10/11 media and camera testing before P6 release qualification.
+
+## P5 verified Git-for-Windows reverse-patch EOL failure (2026-11-21)
+
+The manually dispatched P5 run archived as `logs_121487938260.zip` stopped in
+`test_crlf_checkout_reaches_both_real_reviewed_security_patches` during the
+prebuild quality step. Its traceback reaches `verify_final_bytes()` immediately
+after applying the reviewed final OpenCV security patch, then raises
+`Refusing unexpected OpenCV final security-policy source`. **No FFmpeg or
+OpenCV compilation ran in this execution**. The preceding hosted run already
+successfully compiled and verified the restricted FFmpeg 8.1.3/MSVC runtime;
+this latest early test failure does not invalidate that result.
+
+The failure is now reproduced **locally**, without downloading OpenCV or
+building MSVC. The synthetic fixture uses the real two reviewed patch files.
+Its temporary Git repository specifies `core.autocrlf=false`, as required for
+the exact approved LF content, but `verify_final_bytes()` copies the final
+bytes into a *different* temporary directory without a Git repository. When
+Git inherits `core.autocrlf=true` there, `git apply --reverse` exits 0 and
+rewrites the reverted content to CRLF. In the reproduction, **1,482** CRLFs
+appear and the computed first-patch SHA-256 no longer matches. Explicitly
+forcing `core.autocrlf=false` for the reverse command restores the correct
+first-patch bytes. A red/green regression run with the **original** security
+verifier fails with the same exception, while the corrected verifier passes.
+
+The security patcher's `run_patch()` now passes `-c core.autocrlf=false` and
+`-c core.eol=lf` **on each Git command**, both for patch checking and actual
+forward/reverse application. This makes the reviewed SHA-256 measurements
+independent of the runner's global Git line-ending configuration, including
+when the reverse verifier operates outside a repository. These process-local
+options do not change the user's Git settings, the reviewed OpenCV revision,
+the two patch files, any pinned hashes, or the fail-closed verification rules.
+The verifier now includes expected and actual reverted SHA-256 values in its
+error if an unexpected byte state is encountered.
+
+The Windows P5 checkout regression reproduces the problematic configuration
+using a temporary global Git config with `core.autocrlf=true`, while keeping
+the fixture repository at `core.autocrlf=false`. A new negative test confirms
+that a modified final-state source still fails its strict SHA-256 check under
+the same conflicting Git settings. This regression runs in the *existing*
+early P5 test step; no new workflow triggers, jobs, dependency downloads, or
+compiler changes are needed.
+
+**P5 remains exclusively `workflow_dispatch`**. To avoid unnecessarily waiting
+for unrelated PR checks, push the fix branch and manually run
+`gh workflow run v101-p5-portable-windows.yml --ref <fix-branch>` before
+merging. Source-level red/green reproduction and passing local P5 tests are
+not a substitute for a complete hosted Windows build and subsequent manual
+Windows 10/11 qualification. The previous OpenCV checkout normalization and
+the approved Linux HLS behavior remain unchanged.

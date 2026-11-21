@@ -12,7 +12,12 @@ or the historical v1.0.0 Windows dependency build.
 
 - Pinned FFmpeg `n8.1.3`, commit `1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7`.
 - FFmpeg is compiled with MSVC under the GitHub-hosted Windows 2022 runner;
-  MSYS2 provides build utilities, not application runtime dependencies.
+  MSYS2 provides build utilities, not application runtime dependencies. The
+  private FFmpeg build runs **in the pinned source directory** under MSYS2
+  to avoid an out-of-tree GNU Make include path that failed under Windows
+  `/d/...` path translation. An independent evidence directory contains the
+  generated `config_components.h` and `ffmpeg-config.mak` only after the
+  compilation and install steps succeed.
 - FFmpeg JPEG XL TOC security correction is applied with the reviewed backport,
   and the same P2 component inventory rejects unexpected codecs and protocols.
 - FFmpeg network protocols, unused decoders, JPEG XL parser, and hardware
@@ -55,3 +60,20 @@ camera error codes if the previously intermittent camera problem recurs.
 
 A green automated Windows build alone does not satisfy interactive HLS or
 camera qualification.
+
+## P5 MSVC source-directory build correction (2026-11-21)
+
+The first hosted FFmpeg 8.1.3 configure step reported success, but its
+**out-of-tree** generated Makefile contained an absolute `/d/a/_temp/.../source/Makefile`
+include that MSYS2 GNU Make could not resolve. The log also printed `sed`
+errors during configuration; those are not by themselves proof of a finished
+build. The correction invokes `./configure`, `make -r`, and `make -r install`
+from the pinned checkout itself. It verifies the source Makefile exists before
+configuration, rejects stale build products, and requires generated configuration
+files before compilation. Only after successful installation does it copy the
+generated configuration into the separate diagnostic directory for the existing
+component allowlist verifier. A CMake/GitHub Actions pass does **not** prove
+this integration works until the hosted P5 job compiles FFmpeg and OpenCV.
+
+Do not disable the strict FFmpeg component validation, reduce compiler warnings,
+or switch to an unreviewed prebuilt Windows FFmpeg wrapper to clear this gate.

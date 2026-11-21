@@ -107,6 +107,11 @@ class PortableLinuxPreflightTests(unittest.TestCase):
                      'object_detection_nanodet_2022nov.onnx', 'NANODET_NOTICES.md',
                      'LICENSE'):
             shutil.copyfile(source / name, models / name)
+        samples = stage / 'share/chromascopeip/samples/skittles'
+        samples.mkdir(parents=True)
+        for name in ('s1.jpg', 's2.jpg', 's3.jpg', 's4.jpg'):
+            shutil.copyfile(Path(__file__).resolve().parents[2] /
+                            'samples/skittles' / name, samples / name)
         for name in ('chromascope-gui', 'chromascope-cli'):
             (stage / 'bin' / name).write_bytes(b'\x7fELFfixture')
         sonames = ['libopencv_core.so.5', 'libopencv_imgproc.so.5',

@@ -29,8 +29,11 @@ The previous OPEN finding used `release_bundle_allowed=false` because authorship
 was then unknown. That historical finding is superseded by the owner's statement;
 it was not evidence that someone else owned the images. No Git history rewrite,
 source-archive exclusion, replacement images, or further owner permission is needed
-on the facts now supplied. Binary packages continue to exclude photographs under
-the existing no-media policy.
+on the facts now supplied. Historical v1.0.0 binary packages excluded photographs. The v1.0.1
+portable Linux tarball and Windows ZIP explicitly include these four owner-made
+photographs, with SHA-256-pinned contents and no other bundled media. The
+maintainer provided authorization for this first-party distribution scope;
+this does not extend the root source MIT license to the images.
 
 For other user-selected media, obtain the applicable rights and consent yourself.
 This statement covers only these four files and does not cover recordings,

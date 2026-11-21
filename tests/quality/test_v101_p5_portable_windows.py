@@ -127,7 +127,9 @@ class P5WindowsCandidateTests(unittest.TestCase):
             for rel in p5.REQUIRED:
                 target = stage / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
-                if rel.startswith(p5.MODEL_DIR + '/'):
+                if rel in p5.APPROVED_SAMPLES:
+                    shutil.copyfile(ROOT / 'samples/skittles' / Path(rel).name, target)
+                elif rel.startswith(p5.MODEL_DIR + '/'):
                     source = ROOT / 'models' / Path(rel).name
                     if source.exists():
                         shutil.copyfile(source, target)
@@ -154,6 +156,8 @@ class P5WindowsCandidateTests(unittest.TestCase):
                 'opencv_commit': p5.legacy.OPEN_CV_COMMIT,
                 'glfw_commit': p5.legacy.GLFW_COMMIT,
                 'model_sha256': p5.MODEL_HASH,
+                'skittles_samples_sha256': p5.inspect_skittles({
+                    name: (stage/name).read_bytes() for name in p5.APPROVED_SAMPLES}),
                 'imported_dlls': imports, 'bundled_msvc_dlls': crt,
                 'sha256': inventory,
             }

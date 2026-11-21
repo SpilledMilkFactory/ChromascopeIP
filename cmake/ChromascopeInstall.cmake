@@ -114,6 +114,40 @@ if(CHROMASCOPE_V101_P3_PORTABLE OR CHROMASCOPE_V101_P5_PORTABLE)
         DESTINATION "${CHROMASCOPE_INSTALL_DATADIR}/models")
 endif()
 
+# The four Skittles camera photographs are owned by the project author and
+# explicitly approved for v1.0.1 redistributions only. Do not install arbitrary
+# images or use directory-wide install rules: this is an exact byte allowlist.
+if(CHROMASCOPE_V101_P3_PORTABLE OR CHROMASCOPE_V101_P5_PORTABLE)
+    set(_skittles_names s1.jpg s2.jpg s3.jpg s4.jpg)
+    set(_skittles_hashes
+        "515454a4a2fd8625f831baea9c2ca39d614877fbfb489be3c55333c8ce56b2aa"
+        "9589016e0b67b5bfb40bf1a8bd8738651d0337a7777f20796c6ff3df53985a6e"
+        "1b928939929d46cd6dc94489c4c16c94361c77c5d72d15eec500884bdec69491"
+        "9d44d9c1b66dd748804620a610188bc1dff6ca1465cafaff1a3b06316e4f633c")
+    set(_skittles_dir "${CMAKE_CURRENT_SOURCE_DIR}/samples/skittles")
+    foreach(_index RANGE 0 3)
+        list(GET _skittles_names ${_index} _filename)
+        list(GET _skittles_hashes ${_index} _expected_sha)
+        set(_photo "${_skittles_dir}/${_filename}")
+        if(NOT EXISTS "${_photo}" OR IS_SYMLINK "${_photo}")
+            message(FATAL_ERROR "Missing or symlinked approved Skittles sample: ${_filename}")
+        endif()
+        file(SHA256 "${_photo}" _photo_sha)
+        if(NOT _photo_sha STREQUAL _expected_sha)
+            message(FATAL_ERROR "Modified Skittles sample: ${_filename}")
+        endif()
+    endforeach()
+    file(GLOB _all_skittles RELATIVE "${_skittles_dir}" "${_skittles_dir}/*")
+    list(SORT _all_skittles)
+    if(NOT "${_all_skittles}" STREQUAL "s1.jpg;s2.jpg;s3.jpg;s4.jpg")
+        message(FATAL_ERROR "Unapproved file in Skittles samples")
+    endif()
+    install(FILES
+        "${_skittles_dir}/s1.jpg" "${_skittles_dir}/s2.jpg"
+        "${_skittles_dir}/s3.jpg" "${_skittles_dir}/s4.jpg"
+        DESTINATION "${CHROMASCOPE_INSTALL_DATADIR}/samples/skittles")
+endif()
+
 # Stage in the *build* tree, so source checkouts and user media are unaffected.
 # For the relocated CLI *smoke only*, provide the build's OpenCV libdir via
 # the loader environment. This is NOT bundled into the installation tree and

@@ -19,3 +19,7 @@ Read `PORTABLE_RELEASE_V1_0_1.md`, `SECURITY.md`, the user guides under
 `docs/`, and `RUNTIME_DEPENDENCIES.md` before redistributing this build.
 
 Source: https://github.com/SpilledMilkFactory/ChromascopeIP
+
+The four original, author-owned Skittles example photographs are included at
+`share/chromascopeip/samples/skittles/s1.jpg` through `s4.jpg`. The GUI
+locates them relative to the application executable, without extra setup.

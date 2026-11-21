@@ -117,7 +117,8 @@ Windows packager must enable `CHROMASCOPE_V101_P5_PORTABLE` and call the same
 then verify the archived payload independently. Historical v1.0.0 installers
 and the original Windows ZIP packaging rules are deliberately unchanged.
 Neither archive may include other model weights, training data, third-party
-video, or sample photographs. Named credit and the model's Hugging Face link
+video, or unreviewed sample photographs. The four pinned owner-created
+Skittles photographs are an explicit v1.0.1 exception. Named credit and the model's Hugging Face link
 in the root README remain on the P6 release-preparation checklist.
 
 ## P5 Windows x64 implementation (candidate, pending native run)
@@ -135,3 +136,22 @@ custom FFmpeg HLS decoder is not enabled by the existing Windows static OpenCV
 configuration. P5 must not claim Windows live HLS support until real Win10/11
 end-to-end validation or a separately reviewed decoder integration passes.
 Full instructions: `V1_0_1_P5_PORTABLE_WINDOWS.md`.
+
+
+### Author-owned Skittles sample photographs
+
+The project author confirmed that `samples/skittles/s1.jpg` through
+`s4.jpg` were photographed by the author and approved their inclusion in the
+v1.0.1 portable Linux and Windows artifacts. The four filenames and exact
+SHA-256 checksums are fixed in `v101_skittles_samples.py`. The application
+resolves installed samples from its executable-relative data directory, so
+both GUI launch methods can use the same packaged images. Every other photo,
+video, fixture, or model remains outside this exception. Historical v1.0.0
+installations remain unchanged.
+
+**Windows streaming remains blocked:** current P5 uses MSMF without the
+FFmpeg custom-stream backend. A portable ZIP is not HLS-qualified until a
+pinned, security-reviewed Windows FFmpeg/OpenCV integration and manual HLS
+validation succeed on Windows 10 and 11. `CAP_ANY` is not a substitute for a
+supported explicit custom-stream backend; do not use a process-wide FFmpeg
+probe override or disable the secure HTTPS reader to mask this failure.

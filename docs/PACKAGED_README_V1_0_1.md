@@ -12,3 +12,7 @@ obligations are tracked separately before public redistribution.
 The portable v1.0.1 build contains the locally executed, checksum-pinned OpenCV Zoo NanoDet ONNX model and its Apache-2.0 license and attribution in `share/chromascopeip/models/`.
 
 Application source: https://github.com/SpilledMilkFactory/ChromascopeIP
+
+The four original, author-owned Skittles example photographs are included at
+`share/chromascopeip/samples/skittles/s1.jpg` through `s4.jpg`. The GUI
+locates them relative to the application executable, without extra setup.

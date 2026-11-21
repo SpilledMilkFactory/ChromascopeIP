@@ -162,7 +162,11 @@ jobs:
           $top = Join-Path $dest 'ChromascopeIP-1.0.1-Windows-x64'
           foreach ($rel in @('bin/chromascope-cli.exe', 'bin/chromascope-gui.exe',
                             'share/chromascopeip/models/object_detection_nanodet_2022nov.onnx',
-                            'share/chromascopeip/models/LICENSE')) {
+                            'share/chromascopeip/models/LICENSE',
+                            'share/chromascopeip/samples/skittles/s1.jpg',
+                            'share/chromascopeip/samples/skittles/s2.jpg',
+                            'share/chromascopeip/samples/skittles/s3.jpg',
+                            'share/chromascopeip/samples/skittles/s4.jpg')) {
             if (-not (Test-Path -LiteralPath (Join-Path $top $rel) -PathType Leaf)) {
               throw "Portable payload missing: $rel"
             }

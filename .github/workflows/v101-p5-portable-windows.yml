@@ -10,7 +10,12 @@ on:
     paths:
       - '.github/workflows/v101-p5-portable-windows.yml'
       - 'scripts/portable/v101_p5_*'
+      - 'scripts/portable/cmake/FindChromascopePrivateFFmpeg.cmake'
+      - 'tests/quality/test_v101_p5_*'
       - 'scripts/portable/v101_p2_*'
+      - 'scripts/diagnostics/m125_fixed_ffmpeg_trial.py'
+      - 'scripts/diagnostics/ffmpeg-jpegxl-toc-bounds-bc896c6.patch'
+      - 'scripts/apply_opencv_security_patch.py'
       - 'scripts/bootstrap_opencv_windows_x64.ps1'
       - 'scripts/verify_opencv_windows_x64.ps1'
       - 'src/core/PublicStreamReader.cpp'
@@ -46,6 +51,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Approved model check failed' }
           python -m unittest discover -s tests/quality -p test_v101_p5_portable_windows.py -v
           if ($LASTEXITCODE -ne 0) { throw 'P5 safeguards failed' }
+          python -m unittest discover -s tests/quality -p test_v101_p5_ffmpeg_imports.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'P5 FFmpeg import-library contract failed' }
+
+      - name: Provision MSYS2 POSIX FFmpeg build tools (retain MSVC)
+        shell: pwsh
+        run: |
+          ./scripts/portable/v101_p5_provision_msys2.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'MSYS2 POSIX tool provisioning failed' }
 
       - name: Build reviewed FFmpeg 8.1.3 for MSVC x64
         shell: pwsh
@@ -256,6 +269,8 @@ jobs:
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/msys-tools.txt
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/msys-make-preflight.log
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/ffmpeg-configure-console.log
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/ffmpeg-build-console.log
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/ffmpeg-install-console.log
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/source/config.log
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/source/ffbuild/config.log
           if-no-files-found: ignore

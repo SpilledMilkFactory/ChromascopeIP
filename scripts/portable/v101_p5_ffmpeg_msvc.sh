@@ -47,9 +47,21 @@ if [[ -e "$src/ffbuild/config.mak" || -e "$src/config_components.h" ]]; then
     exit 1
 fi
 mkdir -p "$evidence"
-printf 'P5 FFmpeg toolchain: make=%s awk=%s sed=%s sh=%s\n' \
-    "$make_bin" "$(command -v awk)" "$(command -v sed)" "$(command -v sh)" \
-    | tee "$evidence/msys-tools.txt"
+{
+    printf 'P5 FFmpeg build shell: %s\n' "$(uname -s)"
+    printf 'P5 FFmpeg toolchain: make=%s awk=%s sed=%s sh=%s\n' \
+        "$make_bin" "$(command -v awk)" "$(command -v sed)" "$(command -v sh)"
+    printf 'P5 FFmpeg MSVC tools: cl=%s lib=%s dumpbin=%s\n' \
+        "$(command -v cl.exe)" "$(command -v lib.exe || true)" \
+        "$(command -v dumpbin.exe || true)"
+    # Linux fake-tool layout tests verify command ordering; do not call their
+    # fake Make for an extra version query. Hosted MSYS2 always records versions.
+    if [[ "$(uname -s)" == MSYS_NT-* || "${CHROMASCOPE_P5_TEST_MODE:-}" != 1 ]]; then
+        "$make_bin" --version | head -n 1
+        awk --version | head -n 1
+        sed --version | head -n 1
+    fi
+} | tee "$evidence/msys-tools.txt"
 # Execute actual GNU Make + awk/sed quoting before a costly FFmpeg build.
 # This detects the malformed awk backslash substitution seen in CI.
 # Only mock-tool unit tests on non-MSYS hosts may skip the real preflight.
@@ -81,8 +93,8 @@ if [[ ! -s config_components.h || ! -s ffbuild/config.mak || ! -f Makefile ]]; t
     exit 1
 fi
 # -r disables unused make built-in rules (also recommended upstream for MSYS2).
-"$make_bin" -r -j2 SHELL=/usr/bin/sh
-"$make_bin" -r install SHELL=/usr/bin/sh
+"$make_bin" -r -j2 SHELL=/usr/bin/sh 2>&1 | tee "$evidence/ffmpeg-build-console.log"
+"$make_bin" -r install SHELL=/usr/bin/sh 2>&1 | tee "$evidence/ffmpeg-install-console.log"
 # Keep the P5 component verifier pointed at an isolated evidence file. Copy
 # only *after* successful compilation and installation; failed builds cannot
 # masquerade as complete runtime candidates.

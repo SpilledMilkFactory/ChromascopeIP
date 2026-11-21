@@ -102,3 +102,53 @@ build, private decoder/PTS probes, PE closure, and manual Windows 10/11 HLS
 verification. If the actual hosted build fails again, preserve the **first
 error** and record the precise MSYS2 Make/awk/sed paths and versions; do not
 substitute another Make or change the frozen HLS scheduler.
+
+## P5 hosted MSYS2 provisioning correction (2026-11-21, candidate)
+
+The November 21 hosted Windows run stopped **before FFmpeg configure**. The
+shell inherited a Make from `/c/mingw64/bin/make` and rejected it while requiring
+`/usr/bin/make`. `PATH` ordering alone cannot install the missing MSYS2 tool.
+The log does not prove that the discovered MinGW Make would itself fail; the
+reviewed build intentionally uses the MSYS2/POSIX GNU Make because FFmpeg's
+Makefile and its MSVC include-dependency conversion rely on POSIX shell/awk/sed
+recipes. This preserves the Visual Studio 2022 compiler and installed CRT
+architecture; build utilities are not added to the distributed application.
+
+The P5 workflow now provisions `make`, `gawk`, `sed`, and `diffutils` through the
+hosted `C:\msys64\usr\bin\pacman.exe` **before cloning and building FFmpeg**.
+It validates the expected POSIX executables, prints installed package versions,
+and leaves other Windows workflows unchanged. The following FFmpeg shell still
+requires the selected `/usr/bin` tools, runs the real Make/awk/sed quoting
+preflight, and records tool versions and MSVC binary paths. Both compilation
+and installation console output are retained as downloadable failure diagnostics
+without hiding Make's exit status (`set -o pipefail`). No runtime/security
+component restrictions, application media behavior, or Linux build paths change.
+
+Acceptance requires the P5 **pull-request** job to pass all steps on a hosted
+Windows 2022 runner: MSYS2 installation, real Make quoting preflight, FFmpeg
+configure and MSVC compilation, restricted-component/DLL verification, pinned
+OpenCV install and independent consumer, H.264 file/memory/HLS-memory plus
+source-PTS probes, application CTests, package/dependency-closure validation,
+and relocated CLI smoke tests. Do not merge based solely on Python policy
+regressions or the six ordinary PR checks. A hosted pass is still not Windows
+10/11 GUI, HLS, camera, security, or redistribution sign-off; see P6.
+
+### Reviewed upstream FFmpeg installation contract
+
+The same audit also identified an existing downstream trap: pinned FFmpeg
+`configure` sets `shlibdir_default` to `bindir_default` on win64, and
+`ffbuild/library.mak` installs MSVC `.lib` import libraries in `SHLIBDIR`
+alongside the DLLs. The previous private OpenCV CMake finder looked in
+`prefix/lib` only. It now accepts a **single** `.lib` in `prefix/bin` (the
+upstream default) or `prefix/lib` (an intentionally staged alternative) and
+rejects ambiguity. The private FFmpeg Python verifier now checks this import
+contract before writing its provenance stamp; it also corrects an erroneous
+`Path + str` header-directory expression that would otherwise raise a
+`TypeError` after the first successful FFmpeg installation. Regression tests
+exercise the real verifier and CMake finder with both positive and negative
+installed-prefix fixtures. These fixtures are not evidence of native MSVC
+compilation; hosted Windows CI remains the acceptance gate.
+
+The P5 PR path filter also explicitly covers the private FFmpeg CMake finder,
+P5 quality tests, and the reviewed FFmpeg/OpenCV security-patch scripts. Edits
+to these dependency-build inputs must trigger the hosted P5 job before merge.

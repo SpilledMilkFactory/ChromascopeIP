@@ -78,7 +78,8 @@ class P5WindowsCandidateTests(unittest.TestCase):
     def test_windows_workflow_is_manual_read_only_and_pinned(self):
         workflow = (ROOT / '.github/workflows/v101-p5-portable-windows.yml').read_text()
         self.assertIn('workflow_dispatch:', workflow)
-        self.assertNotIn('pull_request:', workflow)
+        self.assertIn('pull_request:', workflow)
+        self.assertIn("- 'scripts/portable/v101_p5_*'", workflow)
         self.assertIn('contents: read', workflow)
         self.assertIn('persist-credentials: false', workflow)
         self.assertIn('windows-2022', workflow)

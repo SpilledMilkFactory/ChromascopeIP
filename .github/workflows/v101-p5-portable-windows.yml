@@ -3,6 +3,17 @@ name: v1.0.1 P5 — portable Windows x64 candidate
 
 on:
   workflow_dispatch:
+  # P5 build-script changes must exercise the actual MSYS2/MSVC runtime before
+  # merging. This is an additional path-scoped PR check, not a required check
+  # for unrelated ChromascopeIP pull requests.
+  pull_request:
+    paths:
+      - '.github/workflows/v101-p5-portable-windows.yml'
+      - 'scripts/portable/v101_p5_*'
+      - 'scripts/portable/v101_p2_*'
+      - 'scripts/bootstrap_opencv_windows_x64.ps1'
+      - 'scripts/verify_opencv_windows_x64.ps1'
+      - 'src/core/PublicStreamReader.cpp'
 
 permissions:
   contents: read
@@ -242,6 +253,9 @@ jobs:
           path: |
             build/v101-p5-windows/Testing/Temporary/LastTest.log
             build/v101-p5-windows/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/msys-tools.txt
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/msys-make-preflight.log
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/ffmpeg-configure-console.log
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/source/config.log
             ${{ runner.temp }}/chromascope-p5-ffmpeg-build/source/ffbuild/config.log
           if-no-files-found: ignore

@@ -60,6 +60,7 @@ if [[ "${P5_TEST_MAKE_FAIL:-}" == 1 ]]; then exit 29; fi
         self.env['PATH'] = str(self.tools) + os.pathsep + self.env.get('PATH', '')
         self.env['P5_TEST_TRACE'] = str(self.trace)
         self.env['P5_TEST_SOURCE'] = str(self.src)
+        self.env['CHROMASCOPE_P5_TEST_MODE'] = '1'
 
     def run_wrapper(self, **overrides):
         return subprocess.run(['bash', str(WRAPPER), str(self.src),
@@ -72,8 +73,8 @@ if [[ "${P5_TEST_MAKE_FAIL:-}" == 1 ]]; then exit 29; fi
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = self.trace.read_text().splitlines()
         self.assertEqual(commands, [f'configure:{self.src}',
-                                    f'make:{self.src}:-r -j2',
-                                    f'make:{self.src}:-r install'])
+                                    f'make:{self.src}:-r -j2 SHELL=/usr/bin/sh',
+                                    f'make:{self.src}:-r install SHELL=/usr/bin/sh'])
         self.assertEqual((self.evidence / 'config_components.h').read_bytes(),
                          (self.src / 'config_components.h').read_bytes())
         self.assertEqual((self.evidence / 'ffmpeg-config.mak').read_bytes(),
@@ -106,7 +107,7 @@ if [[ "${P5_TEST_MAKE_FAIL:-}" == 1 ]]; then exit 29; fi
         result = self.run_wrapper(P5_TEST_MAKE_FAIL='1')
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.trace.read_text().splitlines(),
-                         [f'configure:{self.src}', f'make:{self.src}:-r -j2'])
+                         [f'configure:{self.src}', f'make:{self.src}:-r -j2 SHELL=/usr/bin/sh'])
         self.assertFalse((self.evidence / 'config_components.h').exists())
 
     def test_powershell_runner_preserves_exact_source_and_evidence_identity(self):
@@ -131,7 +132,7 @@ if [[ "${P5_TEST_MAKE_FAIL:-}" == 1 ]]; then exit 29; fi
             self.assertIn(required, shell)
         self.assertNotIn('--enable-nonfree', shell)
         self.assertNotIn('--enable-gpl', shell)
-        self.assertIn('make -r install', shell)
+        self.assertIn('\"$make_bin\" -r install SHELL=/usr/bin/sh', shell)
 
 
 if __name__ == '__main__':

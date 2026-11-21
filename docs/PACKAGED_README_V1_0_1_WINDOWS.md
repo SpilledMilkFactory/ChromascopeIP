@@ -23,3 +23,7 @@ Source: https://github.com/SpilledMilkFactory/ChromascopeIP
 The four original, author-owned Skittles example photographs are included at
 `share/chromascopeip/samples/skittles/s1.jpg` through `s4.jpg`. The GUI
 locates them relative to the application executable, without extra setup.
+
+### Windows file selection
+
+Browse in Still Images, Recorded Video, ONNX model selection, and downloaded HLS playlists uses the native Windows Explorer-style file-open dialog, independently of the archive's extraction directory. Select a file from any accessible drive or folder; the application's existing file-type and integrity checks still apply.

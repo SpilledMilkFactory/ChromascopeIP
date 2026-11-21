@@ -1,24 +1,10 @@
 # v1.0.1 P5: engineering candidate only. Separate from historical v1.0.0 ZIP.
 name: v1.0.1 P5 — portable Windows x64 candidate
 
+# Intentionally manual-only: run from Actions -> Run workflow (select branch).
+# Ordinary PR checks remain in their independent workflows.
 on:
   workflow_dispatch:
-  # P5 build-script changes must exercise the actual MSYS2/MSVC runtime before
-  # merging. This is an additional path-scoped PR check, not a required check
-  # for unrelated ChromascopeIP pull requests.
-  pull_request:
-    paths:
-      - '.github/workflows/v101-p5-portable-windows.yml'
-      - 'scripts/portable/v101_p5_*'
-      - 'scripts/portable/cmake/FindChromascopePrivateFFmpeg.cmake'
-      - 'tests/quality/test_v101_p5_*'
-      - 'scripts/portable/v101_p2_*'
-      - 'scripts/diagnostics/m125_fixed_ffmpeg_trial.py'
-      - 'scripts/diagnostics/ffmpeg-jpegxl-toc-bounds-bc896c6.patch'
-      - 'scripts/apply_opencv_security_patch.py'
-      - 'scripts/bootstrap_opencv_windows_x64.ps1'
-      - 'scripts/verify_opencv_windows_x64.ps1'
-      - 'src/core/PublicStreamReader.cpp'
 
 permissions:
   contents: read

@@ -97,9 +97,10 @@ class PrivateWindowsHlsTests(unittest.TestCase):
     def test_hosted_msvc_not_local_container_dependency(self):
         wf = W.read_text()
         self.assertIn('runs-on: windows-2022', wf)
-        self.assertIn('workflow_dispatch:', wf)
-        self.assertIn('pull_request:', wf)
-        self.assertIn("- 'scripts/portable/v101_p5_*'", wf)
+        trigger = wf.split('\non:\n', 1)[1].split('\npermissions:', 1)[0]
+        events = [line.strip() for line in trigger.splitlines()
+                  if line.strip() and not line.lstrip().startswith('#')]
+        self.assertEqual(events, ['workflow_dispatch:'])
         self.assertIn('persist-credentials: false', wf)
         self.assertNotIn('docker build', wf)
         self.assertNotIn('podman', wf)

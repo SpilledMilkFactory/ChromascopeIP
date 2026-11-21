@@ -374,8 +374,8 @@ set_tests_properties(chromascope_cli_video_error_paths PROPERTIES
     LABELS "cli;integration;regression;video;videoio;negative;security;fixtures"
     TIMEOUT 90)
 
-# M5.1 (#31): research/attribution only. Offline CMake policy gate: no
-# model binaries or optional Python/ONNX runtime are required by CTest.
+# M5.1 model identity policy, updated for v1.0.1 approved NanoDet bundling.
+# Offline CMake gate: verifies the pinned ONNX bytes; never executes a model.
 add_test(NAME chromascope_model_selection_policy COMMAND "${CMAKE_COMMAND}"
     "-DCHROMASCOPE_SOURCE_ROOT=${PROJECT_SOURCE_DIR}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_model_selection.cmake")
@@ -454,8 +454,8 @@ add_test(NAME chromascope_cli_object_error_paths COMMAND "${CMAKE_COMMAND}"
 set_tests_properties(chromascope_cli_object_error_paths PROPERTIES
     LABELS "cli;integration;model;dnn;security;negative;regression" TIMEOUT 90)
 
-# M5.7 (#37): pinned model provenance, original synthetic image/error fixtures,
-# and bounded adversarial decoder behavior. No pretrained weights needed.
+# M5.7 (#37): pinned model provenance, synthetic image/error fixtures,
+# and bounded adversarial decoder behavior. No model execution in this gate.
 add_test(NAME chromascope_model_object_fixture_provenance COMMAND "${CMAKE_COMMAND}"
     "-DCHROMASCOPE_SOURCE_ROOT=${PROJECT_SOURCE_DIR}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_object_fixtures.cmake")

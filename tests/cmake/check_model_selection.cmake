@@ -1,5 +1,5 @@
-# M5.1 (#31): offline, cross-platform model manifest/license release guard.
-# This deliberately never downloads or executes third-party model weights.
+# M5.1 model identity / license guard, updated for v1.0.1 approved bundling.
+# Offline, pure CMake. Never download or execute third-party model weights.
 if(NOT DEFINED CHROMASCOPE_SOURCE_ROOT OR CHROMASCOPE_SOURCE_ROOT STREQUAL "")
     message(FATAL_ERROR "CHROMASCOPE_SOURCE_ROOT not supplied")
 endif()
@@ -38,9 +38,12 @@ if(NOT _height STREQUAL "416" OR NOT _width STREQUAL "416" OR
    NOT _height_err STREQUAL "NOTFOUND" OR NOT _width_err STREQUAL "NOTFOUND")
     message(FATAL_ERROR "M5.1 input size must be 416x416")
 endif()
+# v1.0.1 approved exactly one pinned checkpoint. A successful policy check
+# does NOT constitute final artifact redistribution/security approval.
+model_field(release_redistribution_status "requires_artifact_notices_and_final_release_review")
 string(JSON _bundled ERROR_VARIABLE _bundle_err GET "${_json}" model_bundled)
-if(NOT _bundle_err STREQUAL "NOTFOUND" OR _bundled)
-    message(FATAL_ERROR "M5.1 must not bundle model weights")
+if(NOT _bundle_err STREQUAL "NOTFOUND" OR NOT _bundled STREQUAL "ON")
+    message(FATAL_ERROR "v1.0.1 requires explicit approved NanoDet model_bundled=true")
 endif()
 file(READ "${_license}" _license_text)
 if(NOT _license_text MATCHES "Apache License" OR
@@ -56,55 +59,69 @@ foreach(_required IN ITEMS "OpenCV" "RangiLyu" "Sri Siddarth Chakaravarthy" "Apa
         message(FATAL_ERROR "M5.1 attribution missing: ${_required}")
     endif()
 endforeach()
-# M5.6 clarification: a local, ignored and SHA-256-verified checkpoint may
-# live beside the manifest. "model_bundled=false" forbids Git-tracked weights,
-# not a developer's untracked working-copy file. Fail closed for source
-# archives that contain binaries without Git metadata.
-set(_approved_file "${CHROMASCOPE_SOURCE_ROOT}/models/object_detection_nanodet_2022nov.onnx")
+# A previously ignored, locally supplied weight is no longer sufficient:
+# the reviewed v1.0.1 checkpoint must be present, correct, and committed in
+# actual Git checkouts. Source archives without Git metadata are verified by
+# the same bytes and all required notices.
+set(_approved_rel "models/object_detection_nanodet_2022nov.onnx")
+set(_approved_file "${CHROMASCOPE_SOURCE_ROOT}/${_approved_rel}")
+set(_model_license "${CHROMASCOPE_SOURCE_ROOT}/models/LICENSE")
+if(NOT EXISTS "${_approved_file}" OR IS_SYMLINK "${_approved_file}" OR
+   IS_DIRECTORY "${_approved_file}")
+    message(FATAL_ERROR "v1.0.1 approved NanoDet ONNX missing or symlinked")
+endif()
+file(SIZE "${_approved_file}" _model_bytes)
+file(SHA256 "${_approved_file}" _model_digest)
+if(NOT _model_bytes EQUAL 3800954 OR NOT _model_digest STREQUAL
+        "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186")
+    message(FATAL_ERROR "v1.0.1 approved NanoDet ONNX size/SHA-256 mismatch")
+endif()
+if(NOT EXISTS "${_model_license}" OR IS_SYMLINK "${_model_license}")
+    message(FATAL_ERROR "v1.0.1 model-local Apache 2.0 LICENSE missing")
+endif()
+file(SHA256 "${_license}" _source_license_sha)
+file(SHA256 "${_model_license}" _model_license_sha)
+if(NOT _source_license_sha STREQUAL _model_license_sha)
+    message(FATAL_ERROR "v1.0.1 model-local LICENSE differs from reviewed Apache 2.0 text")
+endif()
 file(GLOB _weights LIST_DIRECTORIES FALSE
     "${CHROMASCOPE_SOURCE_ROOT}/models/*.onnx"
     "${CHROMASCOPE_SOURCE_ROOT}/models/*.pt"
     "${CHROMASCOPE_SOURCE_ROOT}/models/*.pth"
     "${CHROMASCOPE_SOURCE_ROOT}/models/*.bin")
-set(_git_dir "${CHROMASCOPE_SOURCE_ROOT}/.git")
-if(EXISTS "${_git_dir}")
+list(LENGTH _weights _weight_count)
+if(NOT _weight_count EQUAL 1)
+    message(FATAL_ERROR "v1.0.1 permits exactly one approved model weight")
+endif()
+foreach(_weight IN LISTS _weights)
+    if(NOT _weight STREQUAL "${_approved_file}" OR IS_SYMLINK "${_weight}")
+        message(FATAL_ERROR "v1.0.1 unapproved or symlinked model weight: ${_weight}")
+    endif()
+endforeach()
+if(EXISTS "${CHROMASCOPE_SOURCE_ROOT}/.git")
     find_program(_git_executable NAMES git)
     if(NOT _git_executable)
-        message(FATAL_ERROR "M5.1 policy cannot verify Git-tracked model files: git missing")
+        message(FATAL_ERROR "v1.0.1 requires Git to verify tracked model provenance")
     endif()
-    # Debian containers can run as root against a checkout owned by the host.
-    # Trust this exact checkout for this command only, not every directory.
     execute_process(
         COMMAND "${_git_executable}" -c "safe.directory=${CHROMASCOPE_SOURCE_ROOT}"
             -C "${CHROMASCOPE_SOURCE_ROOT}" ls-files --cached -- models
-        RESULT_VARIABLE _git_result OUTPUT_VARIABLE _tracked_files ERROR_VARIABLE _git_error)
+        RESULT_VARIABLE _git_result OUTPUT_VARIABLE _tracked_files
+        ERROR_VARIABLE _git_error)
     if(NOT _git_result EQUAL 0)
-        message(FATAL_ERROR "M5.1 cannot inspect Git-tracked model files: ${_git_error}")
+        message(FATAL_ERROR "v1.0.1 Git model provenance query failed: ${_git_error}")
     endif()
+    string(STRIP "${_tracked_files}" _tracked_files)
     string(REPLACE "\n" ";" _tracked_list "${_tracked_files}")
+    list(FIND _tracked_list "${_approved_rel}" _selected_index)
+    if(_selected_index LESS 0)
+        message(FATAL_ERROR "v1.0.1 approved NanoDet model must be Git-tracked")
+    endif()
     foreach(_tracked IN LISTS _tracked_list)
-        if(_tracked MATCHES "\\.(onnx|pt|pth|bin)$")
-            message(FATAL_ERROR "M5.1 model weights must not be Git-tracked: ${_tracked}")
+        if(_tracked MATCHES "\\.(onnx|pt|pth|bin)$" AND
+           NOT _tracked STREQUAL "${_approved_rel}")
+            message(FATAL_ERROR "v1.0.1 unapproved Git-tracked model weight: ${_tracked}")
         endif()
     endforeach()
-elseif(_weights)
-    message(FATAL_ERROR "M5.1 source archive contains model weights without Git provenance: ${_weights}")
 endif()
-foreach(_weight IN LISTS _weights)
-    if(NOT _weight STREQUAL "${_approved_file}")
-        message(FATAL_ERROR "M5.1 unapproved local model artifact: ${_weight}")
-    endif()
-    execute_process(
-        COMMAND "${_git_executable}" -c "safe.directory=${CHROMASCOPE_SOURCE_ROOT}"
-            -C "${CHROMASCOPE_SOURCE_ROOT}" check-ignore --quiet --
-            models/object_detection_nanodet_2022nov.onnx
-        RESULT_VARIABLE _ignored_result)
-    if(NOT _ignored_result EQUAL 0)
-        message(FATAL_ERROR "M5.1 local ONNX is not Git-ignored: ${_weight}")
-    endif()
-    file(SHA256 "${_weight}" _local_sha256)
-    if(NOT _local_sha256 STREQUAL "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186")
-        message(FATAL_ERROR "M5.1 local ONNX checksum mismatch: ${_weight}")
-    endif()
-endforeach()
-message(STATUS "PASS: M5.1 NanoDet identity, Apache-2.0 notices and no-bundling policy")
+message(STATUS "PASS: v1.0.1 selected NanoDet identity, pinned bytes, Apache-2.0 notices, and single-model provenance (not release approval)")

@@ -1,4 +1,4 @@
-# M5.7: offline, no Python interpreter or pretrained weights required by CTest.
+# M5.7 fixtures and approved v1.0.1 model provenance; offline, no Python runtime.
 if(NOT DEFINED CHROMASCOPE_SOURCE_ROOT OR CHROMASCOPE_SOURCE_ROOT STREQUAL "")
     message(FATAL_ERROR "M5.7 source root not provided")
 endif()
@@ -27,9 +27,20 @@ if(NOT _sha STREQUAL _attested_sha OR NOT _sha STREQUAL
 endif()
 string(JSON _bundled GET "${_model}" weights_bundled)
 string(JSON _review GET "${_model}" redistribution_review_required)
-if(_bundled OR NOT _review)
-    message(FATAL_ERROR "M5.7 cannot distribute model weights without release review")
+# Review is still required before release. The v1.0.1 source policy now
+# intentionally bundles exactly one reviewed, SHA-256-pinned checkpoint.
+if(NOT _bundled STREQUAL "ON" OR NOT _review STREQUAL "ON")
+    message(FATAL_ERROR "M5.7 v1.0.1 approved weight and release-review declarations required")
 endif()
+string(JSON _selection_bundled ERROR_VARIABLE _selection_bundled_err
+    GET "${_selection}" model_bundled)
+if(NOT _selection_bundled_err STREQUAL "NOTFOUND" OR
+   NOT _selection_bundled STREQUAL "ON")
+    message(FATAL_ERROR "M5.7 selection/provenance bundling disagreement")
+endif()
+# Share the strict offline identity, license, SHA, and Git tracking gate so the
+# fixture test can never accept an unapproved model missing from the tree.
+include("${CMAKE_CURRENT_LIST_DIR}/check_model_selection.cmake")
 file(READ "${_fixtures}/manifest.json" _json)
 string(JSON _version GET "${_json}" schema_version)
 string(JSON _count LENGTH "${_json}" fixtures)

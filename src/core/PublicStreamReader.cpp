@@ -439,7 +439,17 @@ public:
 #else
                     const auto api = cv::CAP_FFMPEG;
 #endif
-                    if (!capture_.open(reader, api, {})) {
+                    // The private Linux OpenCV uses a per-capture parameter, not
+                    // a process-wide FFmpeg environment override. The latter would
+                    // incorrectly force MPEG-TS probing on recorded MP4/AVI media.
+#if defined(CHROMASCOPE_V101_PRIVATE_HLS_PROBE)
+                    const bool opened = format_ == Format::Hls
+                        ? capture_.open(reader, cv::CAP_FFMPEG, {65017, 1})
+                        : capture_.open(reader, api, {});
+#else
+                    const bool opened = capture_.open(reader, api, {});
+#endif
+                    if (!opened) {
                         if (hls_reader_) hls_reader_->rethrow_failure();
                         if (format_ != Format::Hls)
                             throw std::runtime_error(

@@ -67,6 +67,7 @@ class P3CandidateTests(unittest.TestCase):
             script = Path(tmp, 'Launch-ChromascopeIP.sh')
             data = script.read_text()
             self.assertIn('bin/chromascope-gui', data)
+            self.assertNotIn('OPENCV_FFMPEG_CAPTURE_OPTIONS', data)
             self.assertIn('LD_LIBRARY_PATH', data)
             self.assertNotIn('export LD_LIBRARY_PATH=', data)
             self.assertTrue(script.stat().st_mode & 0o111)
@@ -111,6 +112,7 @@ class P3CandidateTests(unittest.TestCase):
         cmake = (ROOT / 'cmake/ChromascopeP3PortablePolicy.cmake').read_text()
         for marker in ('P2_PRIVATE_RUNTIME_FUNCTIONAL_PASS_NOT_RELEASE_APPROVAL',
                        '276_FRAMES_FILE_AND_MEMORY_VERIFIED',
+                       '276_FRAMES_PER_CAPTURE_HLS_OPTIONS_VERIFIED',
                        'VARIABLE_SOURCE_PTS_SPAN_VERIFIED',
                        'debian12-x86_64', 'release_approved',
                        'private/ffmpeg/lib/libavcodec.so'):

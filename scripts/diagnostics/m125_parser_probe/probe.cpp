@@ -54,8 +54,9 @@ private:
 };
 
 int main(int argc, char** argv) {
-    if (argc != 3 || (std::strcmp(argv[1], "file") && std::strcmp(argv[1], "memory"))) {
-        std::cerr << "Usage: chromascope_parser_probe file|memory /path/to/sample.ts\n";
+    if (argc != 3 || (std::strcmp(argv[1], "file") && std::strcmp(argv[1], "memory") &&
+                  std::strcmp(argv[1], "hls_memory"))) {
+        std::cerr << "Usage: chromascope_parser_probe file|memory|hls_memory /path/to/sample.ts\n";
         return 64;
     }
     try {
@@ -69,7 +70,10 @@ int main(int argc, char** argv) {
             opened = cap.open(argv[2], cv::CAP_FFMPEG);
         } else {
             reader = cv::makePtr<SequentialMemoryReader>(argv[2]);
-            opened = cap.open(reader, cv::CAP_FFMPEG, {});
+            // P3-only private OpenCV parameter: deliberately no environment variable.
+            opened = !std::strcmp(argv[1], "hls_memory")
+                ? cap.open(reader, cv::CAP_FFMPEG, {65017, 1})
+                : cap.open(reader, cv::CAP_FFMPEG, {});
         }
         std::cout << "CAPTURE_OPENED=" << (opened ? 1 : 0) << '\n';
         std::cout.flush();

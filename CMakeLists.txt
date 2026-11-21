@@ -102,6 +102,9 @@ target_include_directories(chromascope_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/
 target_include_directories(chromascope_core SYSTEM PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(chromascope_core PUBLIC ${OpenCV_LIBS} Threads::Threads)
 target_compile_features(chromascope_core PUBLIC cxx_std_20)
+if(CHROMASCOPE_V101_P3_PORTABLE)
+    target_compile_definitions(chromascope_core PRIVATE CHROMASCOPE_V101_PRIVATE_HLS_PROBE=1)
+endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # HTTPS is a deliberate, TLS-verified libcurl transport, NEVER FFmpeg URLs.
     find_package(CURL REQUIRED)

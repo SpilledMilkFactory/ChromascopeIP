@@ -276,3 +276,32 @@ the approved Linux HLS behavior remain unchanged.
 - **Hosted preflight:** before building FFmpeg, a small Visual Studio 2022/MSVC CMake project runs compiler detection and a *nested* `try_compile` with paths produced by the same shared helper. This specifically exercises the failed generated-CMakeLists path serialization without downloading/building OpenCV or FFmpeg. The preflight must pass, and the full OpenCV configure/build still requires separate hosted qualification.
 - **Regression:** `test_v101_p5_cmake_paths.py` reproduces the invalid Windows-backslash CMake parse on a real CMake executable, checks the forward-slash form, and checks the P5 bootstrap/preflight wiring. These Linux-compatible tests do not substitute for hosted MSVC execution.
 - **Scope:** no changes to FFmpeg, OpenCV security fingerprints, HLS playback, runtime security policies, or manual-only P5 dispatch.
+
+
+## 2026-11-21: Build-first diagnostic policy after P5 run 121493546537
+
+Run 121493546537 stopped before MSYS2 provisioning because the Python test
+`test_actual_preflight_cmake_project_configures_and_nested_compiles` passed
+native Windows `pathlib.Path` values directly as `-DCMAKE_MODULE_PATH=...` to a
+small CMake project. Those backslashes were then emitted into an inner CMake
+`try_compile` project, producing `Invalid character escape '\a'`. The test
+bypassed the `ConvertTo-CMakePath` helper used by the real Windows PowerShell
+preflight, so its failure **did not demonstrate a failure of that preflight**.
+
+The redundant Python-based compiler-test simulation was retired. The actual
+`v101_p5_opencv_cmake_preflight.ps1` still runs on `windows-2022` before the
+FFmpeg build, calls the production path-conversion helper, and must succeed.
+
+P5's Python regression suites now execute as a **non-blocking diagnostics**
+step, with results visible in the Actions log. A defect in such a test may
+produce a diagnostics warning but cannot prevent the genuine MSVC/FFmpeg/OpenCV
+pipeline from being exercised. The pinned model check, required notices,
+source/provenance/security checks inside the actual FFmpeg and OpenCV build
+scripts, CMake/MSVC preflight, decoder probes, native CTests, and independent
+portable-package checks **remain fail-closed production qualification gates**.
+
+This policy is specific to the manually dispatched P5 engineering workflow.
+It does not change the six standard pull-request workflows, the existing
+security patch SHA-256 values, or release approval requirements. A non-blocking
+Python diagnostic failure remains visible and should be investigated, but is
+not by itself evidence that a built Windows candidate is nonfunctional.

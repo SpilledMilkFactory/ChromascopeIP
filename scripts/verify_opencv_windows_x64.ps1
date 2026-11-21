@@ -5,7 +5,8 @@ param(
     [Parameter(Mandatory = $true)][string]$InstallPrefix,
     [Parameter(Mandatory = $true)][string]$ScratchRoot,
     [ValidateRange(1, 32)][int]$Jobs = 2,
-    [switch]$SkipStampCheck
+    [switch]$SkipStampCheck,
+    [string]$P5PrivateFFmpegPrefix = ""
 )
 
 Set-StrictMode -Version Latest
@@ -42,7 +43,7 @@ if (-not $SkipStampCheck) {
     foreach ($expected in @(
         "commit=$expectedCommit", 'opencv=5.1.0', 'architecture=x64',
         'toolchain=Visual Studio 17 2022', 'configuration=Release',
-        'shared=OFF', 'static_crt=OFF', 'modules=core,imgproc,imgcodecs,videoio,dnn', 'video_backend=msmf',
+        'shared=OFF', 'static_crt=OFF', 'modules=core,imgproc,imgcodecs,videoio,dnn', $(if ($P5PrivateFFmpegPrefix) {'video_backend=msmf+ffmpeg-private'} else {'video_backend=msmf'}),
         'protobuf=ON', 'dnn_backend=opencv_cpu', 'windows_pthread_hook=ON', 'consumer_probe=PASS'
     )) {
         if ($fields -notcontains $expected) {
@@ -70,6 +71,9 @@ Invoke-Checked cmake @('--build', $build, '--config', 'Release', '--parallel', "
 $exe = Join-Path $build 'Release\opencv_videoio_consumer.exe'
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
     throw "OpenCV consumer executable missing: $exe"
+}
+if ($P5PrivateFFmpegPrefix) {
+    $env:PATH = (Join-Path $P5PrivateFFmpegPrefix 'bin') + ';' + $env:PATH
 }
 Invoke-Checked -Program $exe -Arguments @()
 $dnnExe = Join-Path $build 'Release\opencv_dnn_consumer.exe'

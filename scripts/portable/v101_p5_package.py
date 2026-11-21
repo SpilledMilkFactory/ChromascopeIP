@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT / 'scripts'))
 import package_windows_x64 as legacy  # noqa: E402
 from v101_model_bundle import inspect as inspect_model, MODEL_HASH, MODEL_NAME  # noqa: E402
+from v101_p5_private_ffmpeg import DLL_NAMES as FFMPEG_DLL_NAMES  # noqa: E402
 from v101_skittles_samples import (REQUIRED as APPROVED_SAMPLES,
                                   inspect_payload as inspect_skittles)  # noqa: E402
 
@@ -31,10 +32,14 @@ STATUS = 'P5_WINDOWS_PORTABLE_CANDIDATE_NOT_RELEASE_APPROVAL'
 DOC = 'share/doc/chromascopeip'
 MODEL_DIR = 'share/chromascopeip/models'
 EXPECTED_EXES = {'bin/chromascope-gui.exe', 'bin/chromascope-cli.exe'}
+REQUIRED_FFMPEG = {'bin/' + name for name in FFMPEG_DLL_NAMES}
+REVIEWED_FFMPEG_COMMIT = '1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7'
 REQUIRED = {
     *EXPECTED_EXES,
+    *REQUIRED_FFMPEG,
     f'{DOC}/LICENSE', f'{DOC}/README.md',
     f'{DOC}/PORTABLE_RELEASE_V1_0_1.md', f'{DOC}/SECURITY.md',
+    f'{DOC}/licenses/FFmpeg-8.1.3-LGPL-2.1.txt',
     f'{DOC}/licenses/GLFW-3.4-Zlib.txt',
     f'{DOC}/licenses/DearImGui-1.93.0-MIT.txt',
     f'{DOC}/licenses/OpenCV-5.1.0-Apache-2.0.txt',
@@ -57,7 +62,7 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def verify_build(build: Path, opencv: Path) -> None:
+def verify_build(build: Path, opencv: Path, ffmpeg: Path) -> None:
     if sys.platform != 'win32' or platform.machine().lower() not in ('amd64', 'x86_64'):
         raise CandidateError('P5 build requires native Windows x64')
     cache = legacy.cache_values(build / 'CMakeCache.txt')
@@ -86,10 +91,22 @@ def verify_build(build: Path, opencv: Path) -> None:
         'toolchain=Visual Studio 17 2022', 'configuration=Release',
         'shared=OFF', 'static_crt=OFF',
         'modules=core,imgproc,imgcodecs,videoio,dnn',
-        'video_backend=msmf', 'consumer_probe=PASS',
+        'video_backend=msmf+ffmpeg-private', 'private_hls_capture=65017:1', 'consumer_probe=PASS',
     ):
         if requirement not in lines:
             raise CandidateError('Unverified Windows OpenCV: ' + requirement)
+    if Path(cache.get('CHROMASCOPE_P5_FFMPEG_PREFIX', '')).resolve() != ffmpeg.resolve():
+        raise CandidateError('P5 application does not reference same-job private FFmpeg')
+    ff_stamp = ffmpeg / '.chromascope-ffmpeg-windows-p5.txt'
+    if not ff_stamp.is_file() or not {
+        'ffmpeg=8.1.3', f'commit={REVIEWED_FFMPEG_COMMIT}',
+        'target=windows-x64-msvc2022', 'security_components=PASS',
+        'network=OFF', 'hardware_acceleration=OFF', 'jpegxl_parser=OFF'
+    } <= set(ff_stamp.read_text(encoding='utf-8-sig').splitlines()):
+        raise CandidateError('P5 FFmpeg security provenance mismatch')
+    for name in FFMPEG_DLL_NAMES:
+        if not (ffmpeg / 'bin' / name).is_file():
+            raise CandidateError('Missing FFmpeg DLL: ' + name)
     for filename in legacy.APP_EXES:
         if not (build / 'Release' / filename).is_file():
             raise CandidateError('Missing P5 application executable: ' + filename)
@@ -116,7 +133,7 @@ def validate_inventory(names: set[str]) -> None:
     }
     approved_licenses = (
         set(legacy.NOTICES['notice_payloads']()) |
-        {'OpenCV-5.1.0-Apache-2.0.txt', 'OpenCV-Zoo-NanoDet-Apache-2.0.txt'}
+        {'OpenCV-5.1.0-Apache-2.0.txt', 'OpenCV-Zoo-NanoDet-Apache-2.0.txt', 'FFmpeg-8.1.3-LGPL-2.1.txt'}
     )
     approved_guides = set(legacy.SHIPPED_USER_GUIDES) - {
         'INSTALLATION_1_0_0.md', 'RELEASE_EXAMPLES_1_0_0.md',
@@ -130,7 +147,7 @@ def validate_inventory(names: set[str]) -> None:
             pass
         elif rel.startswith('bin/'):
             # Only the two frontends and reviewed MSVC CRT are permitted.
-            if rel not in EXPECTED_EXES and not legacy.CRT.fullmatch(
+            if rel not in EXPECTED_EXES and rel not in REQUIRED_FFMPEG and not legacy.CRT.fullmatch(
                     PurePosixPath(rel).name.lower()):
                 raise CandidateError('Unapproved Windows bin payload: ' + rel)
         elif rel in APPROVED_SAMPLES:
@@ -158,7 +175,7 @@ def validate_inventory(names: set[str]) -> None:
         if lower.endswith('.exe') and rel not in EXPECTED_EXES:
             raise CandidateError('Unreviewed Windows executable: ' + rel)
         if lower.endswith('.dll') and (not lower.startswith('bin/') or
-                                       not legacy.CRT.fullmatch(p.name.lower())):
+                                       (rel not in REQUIRED_FFMPEG and not legacy.CRT.fullmatch(p.name.lower()))):
             raise CandidateError('Unreviewed Windows DLL: ' + rel)
         if lower.endswith(('.so', '.dylib', '.a', '.lib', '.pdb')):
             raise CandidateError('Unreviewed development/native binary: ' + rel)
@@ -206,6 +223,22 @@ def validate_payload(payload: dict[str, bytes]) -> dict:
     return evidence
 
 
+def classify_p5_imports(imports: list[str] | set[str], bundled: set[str]) -> set[str]:
+    result = set()
+    approved_ffmpeg = set(FFMPEG_DLL_NAMES)
+    for dll in imports:
+        if dll in approved_ffmpeg:
+            if dll not in bundled:
+                raise CandidateError('Missing app-local FFmpeg DLL import: ' + dll)
+            result.add(dll)
+        else:
+            try:
+                result.update(legacy.classify_imports({dll}, bundled))
+            except legacy.PackageError as exc:
+                raise CandidateError(str(exc)) from exc
+    return result
+
+
 def validate_imports(payload: dict[str, bytes], expected: dict | None = None) -> tuple[dict, list[str]]:
     pe_files = {name: content for name, content in payload.items()
                 if name.lower().endswith(('.exe', '.dll'))}
@@ -223,13 +256,13 @@ def validate_imports(payload: dict[str, bytes], expected: dict | None = None) ->
     required = set()
     todo = [imports[name] for name in EXPECTED_EXES]
     while todo:
-        for dll in legacy.classify_imports(todo.pop(), bundled):
+        for dll in classify_p5_imports(todo.pop(), bundled):
             if dll in required:
                 continue
             required.add(dll)
             todo.append(imports[f'bin/{dll}'])
-    if required != bundled:
-        raise CandidateError('Unused or missing Microsoft app-local runtime')
+    if required != bundled or not set(FFMPEG_DLL_NAMES) <= required:
+        raise CandidateError('Unused or missing app-local FFmpeg/CRT runtime')
     if expected is not None and expected != imports:
         raise CandidateError('Manifest PE import inventory mismatch')
     return imports, sorted(bundled)
@@ -280,6 +313,9 @@ def inspect_archive(path: Path) -> dict:
             meta.get('model_sha256') != MODEL_HASH):
         raise CandidateError('Untrusted Windows P5 artifact provenance')
     actual = {key: digest(value) for key, value in files.items() if key != 'manifest.json'}
+    if meta.get('ffmpeg_commit') != REVIEWED_FFMPEG_COMMIT or \
+       meta.get('ffmpeg_dll_sha256') != {name: actual['bin/' + name] for name in FFMPEG_DLL_NAMES}:
+        raise CandidateError('Unverified packaged FFmpeg runtime')
     if meta.get('sha256') != actual:
         raise CandidateError('Windows P5 archive inventory/hash mismatch')
     evidence = validate_payload(files)
@@ -291,13 +327,16 @@ def inspect_archive(path: Path) -> dict:
         raise CandidateError('Windows P5 CRT closure mismatch')
     return {'status': STATUS, 'sha256': digest(path.read_bytes()),
             'members': len(files), 'model': evidence, 'skittles_samples_sha256': samples,
-            'crt_dlls': dlls, 'windows_hls_qualified': False}
+            'crt_dlls': sorted(set(dlls) - set(FFMPEG_DLL_NAMES)),
+            'ffmpeg_dlls': sorted(set(dlls) & set(FFMPEG_DLL_NAMES)),
+            'windows_hls_qualified': False}
 
 
 def build_candidate(args) -> dict:
     build = args.build_dir.resolve(strict=True)
     opencv = args.opencv_prefix.resolve(strict=True)
-    verify_build(build, opencv)
+    ffmpeg = args.ffmpeg_prefix.resolve(strict=True)
+    verify_build(build, opencv, ffmpeg)
     available = legacy.verify_redist_path(args.vc_redist_dir)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='chromascope-p5-stage-') as td:
@@ -308,26 +347,36 @@ def build_candidate(args) -> dict:
         # Stage input must contain precisely the four author-owned photographs.
         from v101_skittles_samples import inspect_stage as inspect_skittles_stage
         sample_evidence = inspect_skittles_stage(stage)
+        # The private FFmpeg DLL closure is explicit, never sourced from PATH.
+        for name in FFMPEG_DLL_NAMES:
+            shutil.copyfile(ffmpeg / 'bin' / name, stage / 'bin' / name)
+        # Include the exact LGPL 2.1 license associated with the checked-out
+        # FFmpeg source. Corresponding-source/relinkability review remains P6.
+        license_src = ffmpeg / 'share' / 'chromascopeip' / 'COPYING.LGPLv2.1'
+        if not license_src.is_file():
+            raise CandidateError('Missing reviewed FFmpeg LGPL source license')
+        shutil.copyfile(license_src, stage / DOC / 'licenses' / 'FFmpeg-8.1.3-LGPL-2.1.txt')
         stage_files(stage)
-        # Resolve all app-local CRT dependencies to a fixed point.
-        imports = {name: sorted(legacy.read_pe_imports(stage / name)) for name in EXPECTED_EXES}
+        # Resolve app-local FFmpeg + CRT dependencies recursively to a fixed point.
+        imports = {name: sorted(legacy.read_pe_imports(stage / name)) for name in EXPECTED_EXES | REQUIRED_FFMPEG}
         required = set()
-        todo = list(imports.values())
+        todo = [imports[name] for name in EXPECTED_EXES]
         while todo:
-            for dll in legacy.classify_imports(todo.pop(), available):
+            for dll in classify_p5_imports(todo.pop(), set(available) | set(FFMPEG_DLL_NAMES)):
                 if dll in required:
                     continue
                 required.add(dll)
                 target = stage / 'bin' / dll
-                shutil.copyfile(available[dll], target)
+                if dll in available:
+                    shutil.copyfile(available[dll], target)
                 imports['bin/' + dll] = sorted(legacy.read_pe_imports(target))
                 todo.append(imports['bin/' + dll])
         runtime_note = (f'# ChromascopeIP {VERSION} Windows P5 engineering runtime\n\n'
-                        'OpenCV 5.1.0 is statically linked (MSMF video backend).\n'
+                        'OpenCV 5.1.0 is statically linked (MSMF/DirectShow + private FFmpeg for HLS).\n'
+                        'Pinned FFmpeg 8.1.3 shared DLLs are app-local, verified by PE import closure.\n'
                         'Microsoft VC143 DLLs are app-local, selected by PE import closure.\n'
                         'Windows OS DLLs remain host-provided.\n'
-                        'The Windows HLS custom-stream decoder has NOT been functionally qualified; '
-                        'MSMF may not support this input.\n'
+                        'Private FFmpeg custom stream decoder requires live Windows 10/11 testing.\n'
                         'VC143 redistribution-license clearance and Windows 10/11 client tests remain open.\n\n'
                         'Required application-local CRT: ' + ', '.join(sorted(required)) + '\n')
         (stage / 'RUNTIME_DEPENDENCIES.md').write_text(runtime_note, encoding='utf-8')
@@ -339,9 +388,11 @@ def build_candidate(args) -> dict:
             'schema': 'chromascope-v101-p5-portable-1', 'version': VERSION,
             'platform': 'Windows-x64', 'status': STATUS, 'release_approved': False,
             'opencv_commit': legacy.OPEN_CV_COMMIT,
+            'ffmpeg_commit': REVIEWED_FFMPEG_COMMIT,
+            'ffmpeg_dll_sha256': {name: digest(payload['bin/' + name]) for name in FFMPEG_DLL_NAMES},
             'glfw_commit': legacy.GLFW_COMMIT, 'model_sha256': MODEL_HASH,
             'skittles_samples_sha256': sample_evidence,
-            'opencv_backend': 'msmf-static-no-ffmpeg',
+            'opencv_backend': 'msmf+directshow+ffmpeg-private-8.1.3',
             'windows_hls_qualified': False,
             'imported_dlls': verified_imports, 'bundled_msvc_dlls': verified_crt,
             'sha256': {rel: digest(data) for rel, data in payload.items()},
@@ -365,14 +416,14 @@ def main() -> None:
     modes.add_argument('--build', action='store_true')
     modes.add_argument('--inspect', type=Path)
     for name in ('build-dir', 'opencv-prefix', 'vc-redist-dir',
-                 'glfw-license', 'imgui-license', 'output-dir'):
+                 'glfw-license', 'imgui-license', 'ffmpeg-prefix', 'output-dir'):
         parser.add_argument('--' + name, type=Path)
     args = parser.parse_args()
     if args.inspect:
         result = inspect_archive(args.inspect)
     else:
         for key in ('build_dir', 'opencv_prefix', 'vc_redist_dir',
-                    'glfw_license', 'imgui_license', 'output_dir'):
+                    'glfw_license', 'imgui_license', 'ffmpeg_prefix', 'output_dir'):
             if getattr(args, key) is None:
                 parser.error('--build requires --' + key.replace('_', '-'))
         result = build_candidate(args)

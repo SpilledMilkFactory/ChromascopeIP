@@ -136,29 +136,38 @@ class P5WindowsCandidateTests(unittest.TestCase):
                     else:
                         target.write_text('test fixture')
                 elif rel in p5.EXPECTED_EXES:
-                    target.write_bytes(pe_binary('KERNEL32.dll', 'VCRUNTIME140.dll'))
+                    target.write_bytes(pe_binary('KERNEL32.dll', 'VCRUNTIME140.dll',
+                                                 'avformat-62.dll', 'swscale-9.dll'))
+                elif rel == 'bin/avformat-62.dll':
+                    target.write_bytes(pe_binary('KERNEL32.dll', 'avcodec-62.dll', 'avutil-60.dll'))
+                elif rel == 'bin/avcodec-62.dll':
+                    target.write_bytes(pe_binary('KERNEL32.dll', 'avutil-60.dll'))
+                elif rel in ('bin/avutil-60.dll', 'bin/swscale-9.dll'):
+                    target.write_bytes(pe_binary('KERNEL32.dll', 'avutil-60.dll') if 'swscale' in rel
+                                       else pe_binary('KERNEL32.dll'))
                 elif rel.startswith(p5.DOC + '/licenses/'):
                     target.write_bytes(b'placeholder')
                 else:
                     target.write_text('P5 test fixture')
             notice_dir = stage / p5.DOC / 'licenses'
             p5.legacy.NOTICES['install_notices'](notice_dir)
-            imports, crt = p5.validate_imports({
-                name: (stage/name).read_bytes() for name in p5.EXPECTED_EXES
-            } | {'bin/vcruntime140.dll': pe_binary('KERNEL32.dll')})
             (stage / 'bin/vcruntime140.dll').write_bytes(pe_binary('KERNEL32.dll'))
-            inventory = {item.relative_to(stage).as_posix(): p5.digest(item.read_bytes())
-                         for item in stage.rglob('*') if item.is_file()}
+            payload = {item.relative_to(stage).as_posix(): item.read_bytes()
+                       for item in stage.rglob('*') if item.is_file()}
+            imports, dlls = p5.validate_imports(payload)
+            inventory = {name: p5.digest(contents) for name, contents in payload.items()}
             manifest = {
                 'schema': 'chromascope-v101-p5-portable-1',
                 'version': '1.0.1', 'platform': 'Windows-x64',
                 'status': p5.STATUS, 'release_approved': False,
                 'opencv_commit': p5.legacy.OPEN_CV_COMMIT,
+                'ffmpeg_commit': p5.REVIEWED_FFMPEG_COMMIT,
+                'ffmpeg_dll_sha256': {name: inventory['bin/' + name]
+                                       for name in p5.FFMPEG_DLL_NAMES},
                 'glfw_commit': p5.legacy.GLFW_COMMIT,
                 'model_sha256': p5.MODEL_HASH,
-                'skittles_samples_sha256': p5.inspect_skittles({
-                    name: (stage/name).read_bytes() for name in p5.APPROVED_SAMPLES}),
-                'imported_dlls': imports, 'bundled_msvc_dlls': crt,
+                'skittles_samples_sha256': p5.inspect_skittles(payload),
+                'imported_dlls': imports, 'bundled_msvc_dlls': dlls,
                 'sha256': inventory,
             }
             (stage / 'manifest.json').write_text(json.dumps(manifest))
@@ -167,6 +176,7 @@ class P5WindowsCandidateTests(unittest.TestCase):
             result = p5.inspect_archive(target)
             self.assertEqual(result['model']['sha256'], p5.MODEL_HASH)
             self.assertEqual(result['crt_dlls'], ['vcruntime140.dll'])
+            self.assertEqual(result['ffmpeg_dlls'], sorted(p5.FFMPEG_DLL_NAMES))
             self.assertFalse(result['windows_hls_qualified'])
 
     def test_windows_hls_is_not_claimed_qualified(self):
@@ -174,7 +184,7 @@ class P5WindowsCandidateTests(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/v101-p5-portable-windows.yml').read_text()
         self.assertIn("'windows_hls_qualified': False", src)
         self.assertIn('HLS', workflow)
-        self.assertIn('MSMF', workflow)
+        self.assertIn('Build reviewed FFmpeg 8.1.3', workflow)
         self.assertNotIn('OPENCV_FFMPEG_CAPTURE_OPTIONS', workflow)
 
 if __name__ == '__main__':

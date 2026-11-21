@@ -36,21 +36,25 @@ jobs:
           python -m unittest discover -s tests/quality -p test_v101_p5_portable_windows.py -v
           if ($LASTEXITCODE -ne 0) { throw 'P5 safeguards failed' }
 
-      - name: Restore pinned Windows OpenCV static install
-        id: opencv-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .ci-opencv/opencv-5.1.0
-          key: opencv-5.1.0-win2022-msvc17-x64-static-md-dnn-proto-nopthread-${{ hashFiles('scripts/bootstrap_opencv_windows_x64.ps1', 'scripts/verify_opencv_windows_x64.ps1', 'scripts/opencv_windows_hooks/POST_DETECT_DEPENDENCIES.cmake', 'tests/quality/opencv_videoio_consumer/CMakeLists.txt', 'tests/integration/test_videoio_backend.cpp', 'tests/quality/opencv_videoio_consumer/dnn_probe.cpp') }}-m5-2-v1
+      - name: Build reviewed FFmpeg 8.1.3 for MSVC x64
+        shell: pwsh
+        run: |
+          ./scripts/portable/v101_p5_build_ffmpeg.ps1 `
+            -BuildRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-ffmpeg-build') `
+            -InstallPrefix (Join-Path $env:RUNNER_TEMP 'chromascope-p5-ffmpeg-install')
+          if ($LASTEXITCODE -ne 0) { throw 'Private FFmpeg build failed' }
+          $prefix = Join-Path $env:RUNNER_TEMP 'chromascope-p5-ffmpeg-install'
+          "CHROMASCOPE_P5_FFMPEG_PREFIX=$prefix" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          (Join-Path $prefix 'bin') | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
-      - name: Rebuild pinned OpenCV on cache miss
-        if: steps.opencv-cache.outputs.cache-hit != 'true'
+      - name: Build pinned private Windows OpenCV 5.1.0 with FFmpeg HLS backend
         shell: pwsh
         run: |
           ./scripts/bootstrap_opencv_windows_x64.ps1 `
             -InstallPrefix $env:OPENCV_PREFIX `
-            -BuildRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-opencv') -Jobs 2
-          if ($LASTEXITCODE -ne 0) { throw 'Pinned OpenCV bootstrap failed' }
+            -BuildRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-opencv') -Jobs 2 `
+            -P5PrivateFFmpegPrefix $env:CHROMASCOPE_P5_FFMPEG_PREFIX
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned private FFmpeg-backed OpenCV build failed' }
 
       - name: Verify private OpenCV provenance and consumer
         shell: pwsh
@@ -63,15 +67,51 @@ jobs:
             'opencv=5.1.0', 'architecture=x64', 'toolchain=Visual Studio 17 2022',
             'configuration=Release', 'shared=OFF', 'static_crt=OFF',
             'modules=core,imgproc,imgcodecs,videoio,dnn',
-            'video_backend=msmf', 'consumer_probe=PASS')) {
+            'video_backend=msmf+ffmpeg-private', 'private_hls_capture=65017:1', 'consumer_probe=PASS')) {
             if ($lines -notcontains $field) { throw "Invalid OpenCV provenance: $field" }
           }
           $opencvDir = Join-Path $env:OPENCV_PREFIX 'x64/vc17/staticlib'
           ./scripts/verify_opencv_windows_x64.ps1 `
             -InstallPrefix $env:OPENCV_PREFIX `
-            -ScratchRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-opencv-consumer') -Jobs 2
+            -ScratchRoot (Join-Path $env:RUNNER_TEMP 'chromascope-p5-opencv-consumer') -Jobs 2 `
+            -P5PrivateFFmpegPrefix $env:CHROMASCOPE_P5_FFMPEG_PREFIX
           if ($LASTEXITCODE -ne 0) { throw 'OpenCV consumer failed' }
           "OpenCV_DIR=$opencvDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Verify private Windows FFmpeg HLS stream-reader decoding and timestamps
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $fixture = Join-Path $env:RUNNER_TEMP 'chromascope-p5-synthetic-hls.ts'
+          python scripts/portable/v101_p2_ci_fixture.py $fixture
+          if ($LASTEXITCODE -ne 0) { throw 'Synthetic H.264 HLS fixture generation failed' }
+          $probeBuild = Join-Path $env:RUNNER_TEMP 'chromascope-p5-parser-probe'
+          cmake -S scripts/diagnostics/m125_parser_probe -B $probeBuild -G 'Visual Studio 17 2022' -A x64 `
+            "-DOpenCV_DIR=$env:OpenCV_DIR"
+          if ($LASTEXITCODE -ne 0) { throw 'Private Windows HLS probe configuration failed' }
+          cmake --build $probeBuild --config Release --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'Private Windows HLS probe build failed' }
+          $probe = Join-Path $probeBuild 'Release/chromascope_parser_probe.exe'
+          foreach ($mode in @('file', 'memory', 'hls_memory')) {
+            $output = & $probe $mode $fixture 2>&1 | Out-String
+            Write-Host $output
+            if ($LASTEXITCODE -ne 0 -or $output -notmatch 'FRAMES=276') {
+              throw "Private Windows FFmpeg decoder probe failed: $mode"
+            }
+          }
+          $ptsBuild = Join-Path $env:RUNNER_TEMP 'chromascope-p5-pts-probe'
+          cmake -S scripts/portable/v101_p2_pts_probe -B $ptsBuild -G 'Visual Studio 17 2022' -A x64 `
+            "-DOpenCV_DIR=$env:OpenCV_DIR"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows PTS probe configuration failed' }
+          cmake --build $ptsBuild --config Release --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'Windows PTS probe build failed' }
+          $ptsExe = Join-Path $ptsBuild 'Release/chromascope_v101_p2_pts_probe.exe'
+          $output = & $ptsExe $fixture 2>&1 | Out-String
+          Write-Host $output
+          if ($LASTEXITCODE -ne 0 -or $output -notmatch 'FRAMES=276' -or
+              $output -notmatch 'MEDIA_SPAN_MS=18') {
+            throw 'Windows FFmpeg source presentation timestamps failed qualification'
+          }
 
       - name: Build pinned GLFW 3.4 x64 static library
         shell: pwsh
@@ -101,7 +141,8 @@ jobs:
           cmake -S . -B build/v101-p5-windows -G 'Visual Studio 17 2022' -A x64 `
             '-DCHROMASCOPE_BUILD_GUI=ON' '-DCHROMASCOPE_BUILD_TESTS=ON' `
             '-DCHROMASCOPE_WARNINGS_AS_ERRORS=ON' '-DCHROMASCOPE_V101_P5_PORTABLE=ON' `
-            "-DOpenCV_DIR=$env:OpenCV_DIR" "-Dglfw3_DIR=$env:glfw3_DIR"
+            "-DOpenCV_DIR=$env:OpenCV_DIR" "-Dglfw3_DIR=$env:glfw3_DIR" `
+            "-DCHROMASCOPE_P5_FFMPEG_PREFIX=$env:CHROMASCOPE_P5_FFMPEG_PREFIX"
           if ($LASTEXITCODE -ne 0) { throw 'Windows P5 configure failed' }
 
       - name: Build Windows v1.0.1 GUI CLI and tests
@@ -145,6 +186,7 @@ jobs:
           python scripts/portable/v101_p5_package.py --build `
             --build-dir build/v101-p5-windows --opencv-prefix $env:OPENCV_PREFIX `
             --vc-redist-dir $env:CHROMASCOPE_VC_REDIST_DIR `
+            --ffmpeg-prefix $env:CHROMASCOPE_P5_FFMPEG_PREFIX `
             --glfw-license $env:GLFW_LICENSE `
             --imgui-license 'build/v101-p5-windows/_deps/imgui-src/LICENSE.txt' `
             --output-dir build/v101-p5-candidate
@@ -163,6 +205,7 @@ jobs:
           foreach ($rel in @('bin/chromascope-cli.exe', 'bin/chromascope-gui.exe',
                             'share/chromascopeip/models/object_detection_nanodet_2022nov.onnx',
                             'share/chromascopeip/models/LICENSE',
+                            'bin/avcodec-62.dll', 'bin/avformat-62.dll', 'bin/avutil-60.dll', 'bin/swscale-9.dll',
                             'share/chromascopeip/samples/skittles/s1.jpg',
                             'share/chromascopeip/samples/skittles/s2.jpg',
                             'share/chromascopeip/samples/skittles/s3.jpg',
@@ -199,6 +242,8 @@ jobs:
           path: |
             build/v101-p5-windows/Testing/Temporary/LastTest.log
             build/v101-p5-windows/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/config.log
+            ${{ runner.temp }}/chromascope-p5-ffmpeg-build/build/ffbuild/config.log
           if-no-files-found: ignore
           retention-days: 7
 
@@ -211,6 +256,6 @@ jobs:
             '- Windows Server 2022 MSVC x64: compiled and tested',
             '- ZIP, app-local CRT closure, license/model digests and relocated CLI: verified',
             '- Windows 10 and 11 interactive GUI, camera, live HLS and VC143 redistribution rights: NOT APPROVED',
-            '- Current Windows static OpenCV uses MSMF without FFmpeg HLS; manual HLS verification is a release blocker',
+            '- Private FFmpeg HLS decoder is built and packaged; manual Windows 10/11 HLS verification remains a release blocker',
             '- This is NOT v1.0.1 release approval.'
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

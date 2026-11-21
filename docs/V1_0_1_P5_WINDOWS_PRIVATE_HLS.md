@@ -305,3 +305,37 @@ It does not change the six standard pull-request workflows, the existing
 security patch SHA-256 values, or release approval requirements. A non-blocking
 Python diagnostic failure remains visible and should be investigated, but is
 not by itself evidence that a built Windows candidate is nonfunctional.
+
+
+## P5 hosted Windows runtime succeeds; fixture generator missing (run 121495797433)
+
+The November 21 hosted P5 execution completed the real Windows CMake/MSVC
+preflight, restricted FFmpeg 8.1.3 MSVC build and verification, OpenCV 5.1.0
+build and installation, and independent OpenCV consumer compilation/link/run.
+This confirms those production dependency-build stages **passed on Windows**.
+
+The next step failed in `v101_p2_ci_fixture.py` at `subprocess.run(ffmpeg_command(...))`
+with Windows `FileNotFoundError [WinError 2]`. The helper needs standalone
+`ffmpeg`, `ffprobe`, and `libx264` **to generate test input**. The approved
+Windows FFmpeg runtime deliberately excludes those tools and encoders.
+This is a P5 workflow input-provisioning error, not an application/decoder
+failure. The old Python diagnostic step also emitted false failures while the
+real Windows/MSVC pipeline continued successfully; that step has been removed.
+
+P5 now produces the *existing* bounded, validated 276-frame variable-PTS
+H.264/MPEG-TS synthetic sample in a separate Ubuntu 24.04 GitHub Actions job.
+This uses distribution-installed FFmpeg tools only for test generation, as in
+the established P2 fixture recipe. Its transient test-only artifact contains
+only the synthetic `.ts` and generation `metadata.json` and has one-day
+retention. The Windows job explicitly depends on this job and downloads this
+artifact from the **same workflow run**, verifies recipe, H.264 codec, frame
+count, PTS span, size and SHA-256 before any expensive builds, and passes the
+file to the **unchanged** native Windows file/memory/HLS-memory decoder and
+source-PTS probes. No `ffmpeg.exe`, `ffprobe.exe`, encoder, synthetic media, or
+new runtime dependency enters the shipped Windows application archive.
+
+The P5 workflow remains **manual-only** (`workflow_dispatch`), and no new
+Python regression tests have been added. The actual security, decoder, native
+CTest, package integrity, dependency closure, and relocated-CLI gates remain
+mandatory. This targeted correction is *not* evidence that stages later than
+the failed fixture generation have yet passed on Windows.

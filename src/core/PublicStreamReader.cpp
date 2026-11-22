@@ -110,6 +110,13 @@ struct Response {
     bool jpeg_complete = false;
 };
 
+// Keep network timeouts distinct from TLS, HTTP, DNS and content-policy errors.
+// Only HLS playlist requests may perform a bounded retry on this type.
+class HttpsRequestTimeout final : public std::runtime_error {
+public:
+    explicit HttpsRequestTimeout(const std::string& message) : std::runtime_error(message) {}
+};
+
 void stop_at_jpeg(Response& response) {
     const auto& data = response.body;
     // MJPEG multipart boundary headers precede the JPEG SOI.
@@ -226,7 +233,7 @@ int curl_progress(void* pointer, curl_off_t, curl_off_t, curl_off_t, curl_off_t)
     if (cancel && cancel->load())
         throw std::runtime_error("Stream stop requested");
     if (result == CURLE_OPERATION_TIMEDOUT)
-        throw std::runtime_error("HTTPS request timed out");
+        throw HttpsRequestTimeout("HTTPS request timed out");
     if (result == CURLE_PEER_FAILED_VERIFICATION || result == CURLE_SSL_CONNECT_ERROR)
         throw std::runtime_error("HTTPS TLS verification or handshake failed");
     if (result == CURLE_COULDNT_CONNECT)
@@ -532,10 +539,34 @@ private:
         const PublicStreamUrl& url, std::size_t limit, const char* stage) const {
         try {
             return fetch_https(url, limit, false, cancel_.get(), request_profile_).body;
+        } catch (const HttpsRequestTimeout& error) {
+            // Preserve the typed timeout across the first-party stage wrapper.
+            throw HttpsRequestTimeout(std::string(stage) + ": " + error.what());
         } catch (const std::exception& error) {
             // stage is always a first-party literal, never a URL or response value.
             throw std::runtime_error(std::string(stage) + ": " + error.what());
         }
+    }
+    [[nodiscard]] std::vector<std::uint8_t> hls_playlist_resource(
+        const PublicStreamUrl& url, const char* stage,
+        const std::atomic<bool>& worker_stop) const {
+        // A single 9-second HTTPS timeout must not end an otherwise healthy
+        // live stream. Retry only playlist timeouts, never TLS, HTTP, DNS,
+        // policy, size, segment or decoder errors. Each attempt starts a new,
+        // independently DNS-validated and pinned HTTPS request.
+        constexpr unsigned kMaxAttempts = 3;
+        for (unsigned attempt = 0; attempt < kMaxAttempts; ++attempt) {
+            if ((cancel_ && cancel_->load()) || worker_stop.load())
+                throw std::runtime_error("Stream stop requested");
+            try {
+                return hls_resource(url, kMaxPlaylistBytes, stage);
+            } catch (const HttpsRequestTimeout&) {
+                if (attempt + 1 == kMaxAttempts) throw;
+                sleep_until_or_stopped(std::chrono::steady_clock::now() +
+                    std::chrono::milliseconds(250 * (attempt + 1)), &worker_stop);
+            }
+        }
+        throw std::logic_error("Unreachable HLS playlist retry state");
     }
     void sleep_until_or_stopped(std::chrono::steady_clock::time_point deadline,
                                 const std::atomic<bool>* worker_stop = nullptr) const {
@@ -637,7 +668,7 @@ private:
                 std::optional<PublicStreamPlaylist> playlist;
                 if (!resolved_hls_manifest_) {
                     const auto text = local_playlist_file_.empty() ? [&] {
-                        const auto body = hls_resource(source_, kMaxPlaylistBytes, "HLS master playlist");
+                        const auto body = hls_playlist_resource(source_, "HLS master playlist", worker_stop);
                         return std::string(body.begin(), body.end());
                     }() : read_public_stream_local_playlist(local_playlist_file_);
                     auto initial = parse_public_stream_playlist(source_, text);
@@ -651,7 +682,7 @@ private:
                     resolved_hls_manifest_ = true;
                 }
                 if (!playlist) {
-                    const auto body = hls_resource(media_source_, kMaxPlaylistBytes, "HLS media playlist");
+                    const auto body = hls_playlist_resource(media_source_, "HLS media playlist", worker_stop);
                     const std::string text(body.begin(), body.end());
                     playlist = parse_public_stream_playlist(media_source_, text);
                     if (playlist->variant_playlist)

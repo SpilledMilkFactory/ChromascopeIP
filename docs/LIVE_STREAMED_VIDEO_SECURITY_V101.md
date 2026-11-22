@@ -130,8 +130,15 @@ from a feed provider; do not paste the surrounding HTML page URL.
   never replays a failed segment, never sends a remote URL to FFmpeg, and
   bounds consecutive failed restarts to four attempts before reporting an
   explicit error. A successfully decoded frame resets the attempt budget.
-  Network, TLS, playlist-policy, cancellation and byte-window failures still
-  propagate immediately; they are not converted into decoder retries.
+  TLS, DNS, HTTP-policy, playlist-policy, cancellation and byte-window failures
+  still propagate immediately; they are not converted into decoder retries.
+  Only a timed-out HTTPS HLS **master or media playlist** is eligible for two
+  additional fetch attempts (three total). Each retains the 9-second HTTPS
+  timeout, fresh public-DNS validation and address pinning, a 256-KiB response
+  cap, and short cancellation-aware 250/500-ms waits. An exhausted timeout
+  is still reported as a stream error; segment download failures, certificate
+  failures and policy rejections are never retried. No new decoder, segment
+  replay, or change to presentation-timestamp scheduling is introduced.
   This best-effort resynchronization can briefly interrupt preview and does
   not guarantee that a segment begins with an independently decodable keyframe.
 - H.264 errors from malformed transport data or a source whose GOP cannot

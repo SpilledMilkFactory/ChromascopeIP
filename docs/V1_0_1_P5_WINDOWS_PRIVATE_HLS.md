@@ -389,3 +389,24 @@ The private FFmpeg/OpenCV HLS decoder, source-PTS scheduler and Linux baseline
 are unchanged. The hosted MSVC build plus real HTTPS/HLS playback on Windows
 10 and Windows 11 remain required acceptance evidence. No live endpoint is
 contacted automatically by this workflow.
+
+## P5 Windows private curl CMake package-version correction (21 November 2026)
+
+The new MSVC/Schannel static libcurl build completed successfully on the
+hosted Windows runner, reporting `curl version=[8.23.0-DEV]`, the expected
+value embedded in the verified `curl-8_23_0` Git tag. The application CMake
+configure then rejected its valid installed `CURLConfig.cmake` because the
+application asked for `find_package(CURL 8.23.0 EXACT ...)` while the generated
+package advertises `8.23.0-DEV`.
+
+P5 now loads CURL only through the reviewed same-job installation directory
+with `CONFIG`, `NO_DEFAULT_PATH`, and the required HTTPS component, rather than
+requesting an incompatible semantic-version equality. It explicitly verifies
+that the exported `CURL_VERSION_STRING` is `8.23.0-DEV` and that the exported
+protocol inventory is exactly `HTTP;HTTPS`. The existing pinned commit,
+Schannel/static configuration, package provenance and license checks remain
+unchanged. No curl/FFmpeg/OpenCV rebuild configuration, application stream
+logic, manual workflow trigger, or new repository tests were introduced.
+
+Actual Windows application compilation, native CTests, packaging, and laptop
+HTTPS/HLS streaming remain to be verified by the next manual P5 run.

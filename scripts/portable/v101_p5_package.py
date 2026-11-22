@@ -435,7 +435,8 @@ def main() -> None:
     modes.add_argument('--build', action='store_true')
     modes.add_argument('--inspect', type=Path)
     for name in ('build-dir', 'opencv-prefix', 'vc-redist-dir',
-                 'glfw-license', 'imgui-license', 'ffmpeg-prefix', 'output-dir'):
+                 'glfw-license', 'imgui-license', 'ffmpeg-prefix', 'curl-prefix',
+                 'output-dir'):
         parser.add_argument('--' + name, type=Path)
     args = parser.parse_args()
     if args.inspect:

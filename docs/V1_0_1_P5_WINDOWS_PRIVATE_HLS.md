@@ -410,3 +410,20 @@ logic, manual workflow trigger, or new repository tests were introduced.
 
 Actual Windows application compilation, native CTests, packaging, and laptop
 HTTPS/HLS streaming remain to be verified by the next manual P5 run.
+
+## P5 Windows package CLI missing private curl argument (run 121724768449)
+
+The hosted P5 run successfully built and linked the reviewed static
+MSVC/Schannel curl transport, configured and compiled the application, passed
+all 156 native Windows CTests, and authenticated the VC143 runtime sources.
+Packaging then stopped before staging any files: the workflow provided
+`--curl-prefix`, but `v101_p5_package.py` did not register that option with
+`argparse`. The package builder already requires `args.curl_prefix` and
+verifies the same-job installed curl provenance, source license and CMake
+cache prefix; this is a CLI parser omission, not a dependency-build failure.
+
+The argument list now includes `curl-prefix`. No workflow ordering, manually
+triggered execution policy, application code, FFmpeg/OpenCV/curl configuration,
+or security and payload validation behavior has been changed. The relocated
+portable smoke test and candidate upload remain unverified until packaging
+completes on the hosted Windows runner.

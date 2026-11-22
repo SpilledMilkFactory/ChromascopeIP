@@ -51,13 +51,13 @@ Only the reviewed checksum-pinned model is included; training data and third-par
 | --- | --- |
 | Learn the GUI and CLI | [User guide](docs/USER_GUIDE.md) · [CLI reference](docs/CLI_REFERENCE.md) |
 | Control privacy and network access | [Privacy guide](docs/PRIVACY_GUIDE.md) · [Live-stream security](docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md) |
-| Troubleshoot or build from source | [Troubleshooting](docs/TROUBLESHOOTING.md) · [Build presets](docs/BUILD_PRESETS.md) |
+| Troubleshoot or build from source | [Troubleshooting](docs/TROUBLESHOOTING.md) · [Build presets](docs/BUILD_PRESETS.md) · [Current architecture](docs/CURRENT_ARCHITECTURE.md) |
 | Review releases | [Changelog](docs/CHANGELOG.md) · [v1.0.1 release notes](docs/RELEASE_NOTES_1_0_1.md) · [v1.0.0 notes](docs/RELEASE_NOTES_1_0_0.md) |
 | Review portable release engineering | [v1.0.1 qualification and release checklist](docs/V1_0_1_P6_RELEASE_READINESS.md) |
 | Contribute and test | [Contributing](CONTRIBUTING.md) · [Testing](docs/TESTING.md) · [Documentation index](docs/DOCUMENTATION_INDEX.md) |
 
 ## Licensing, security and history
 
-ChromascopeIP's first-party source code is [MIT licensed](LICENSE). Third-party libraries, the NanoDet model and sample photographs retain their own licenses and rights. Read the [security policy](SECURITY.md), [third-party provenance](docs/THIRD_PARTY_PROVENANCE.md), and [license audit](docs/LICENSE_AUDIT.md) before redistribution. The v1.0.1 portable builds contain private FFmpeg and related dependencies, requiring a new source/notice and licensing review rather than relying on v1.0.0's system-codec assumptions.
+ChromascopeIP's first-party source code is [MIT licensed](LICENSE). Third-party libraries, the NanoDet model and sample photographs retain their own licenses and rights. Read the [security policy](SECURITY.md), [third-party provenance](docs/THIRD_PARTY_PROVENANCE.md), [license audit](docs/LICENSE_AUDIT.md), and [historical M11.9 redistribution/SBOM review](docs/M11_9_REDISTRIBUTION_SBOM.md) before redistribution. The v1.0.1 portable builds contain private FFmpeg and related dependencies, requiring a new source/notice and licensing review rather than relying on v1.0.0's system-codec assumptions.
 
 The [engineering history](docs/history/README.md) preserves earlier design decisions and may contain superseded candidate-status statements. Historical v1.0.0 release records are preserved rather than rewritten to describe v1.0.1.

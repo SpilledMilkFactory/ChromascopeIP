@@ -38,10 +38,12 @@ class WindowsAcceptanceM124Tests(unittest.TestCase):
             self.assertIn(token.lower(), self.page.lower())
 
     def test_navigable_docs_and_test_contract(self):
-        for file in ('README.md', 'docs/DOCUMENTATION_INDEX.md',
+        for file in ('docs/DOCUMENTATION_INDEX.md',
                      'docs/TESTING.md', 'docs/VERIFICATION.md'):
             self.assertIn('M12_4_WINDOWS_ZIP_ACCEPTANCE.md',
                           (ROOT / file).read_text(encoding='utf-8'))
+        self.assertIn('docs/DOCUMENTATION_INDEX.md',
+                      (ROOT / 'README.md').read_text(encoding='utf-8'))
         for target in ('M11_6_WINDOWS_PORTABLE_ZIP.md', 'CI_WINDOWS.md',
                        'M12_2_FINAL_RC_MATRIX.md',
                        'M11_8_DESKTOP_DEVICE_QUALIFICATION.md'):

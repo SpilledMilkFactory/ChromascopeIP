@@ -11,15 +11,17 @@ class DocumentationRestructureTests(unittest.TestCase):
     def test_readme_is_a_landing_page_not_a_milestone_diary(self):
         readme = (ROOT / 'README.md').read_text(encoding='utf-8')
         self.assertLess(len(readme.splitlines()), 160)
-        for heading in ('## Features', '## Get started', '## Documentation',
-                        '## Contributing, security, licensing', '## Project history'):
+        for heading in ('## Features', '## Download and first run', '## Documentation',
+                        '## Licensing, security and history'):
             self.assertIn(heading, readme)
         for path in ('CONTRIBUTING.md', 'SECURITY.md', 'docs/USER_GUIDE.md',
                      'docs/CLI_REFERENCE.md', 'docs/M11_9_REDISTRIBUTION_SBOM.md',
-                     'docs/M12_5_RELEASE_SECURITY_SIGNOFF.md',
-                     'docs/history/README.md'):
+                     'docs/DOCUMENTATION_INDEX.md', 'docs/history/README.md'):
             self.assertIn(path, readme)
-        self.assertIn('not yet published', readme)
+        self.assertIn('M12_5_RELEASE_SECURITY_SIGNOFF.md',
+                      (DOCS / 'DOCUMENTATION_INDEX.md').read_text(encoding='utf-8'))
+        self.assertIn('v1.0.0 (published)', readme)
+        self.assertIn('v1.0.1 portable edition', readme)
 
     def test_active_release_signoff_contracts_stay_at_existing_paths(self):
         for name in ('M11_9_REDISTRIBUTION_SBOM.md',

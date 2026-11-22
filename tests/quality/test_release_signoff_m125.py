@@ -76,11 +76,12 @@ class ReleaseSignoffM125Tests(unittest.TestCase):
         self.assertTrue((ROOT/'.github/workflows/release-candidate.yml').is_file())
 
     def test_docs_are_navigable_and_signoff_status_preserved(self):
-        for file in ('README.md', 'docs/DOCUMENTATION_INDEX.md',
+        for file in ('docs/DOCUMENTATION_INDEX.md',
                      'docs/TESTING.md', 'docs/VERIFICATION.md',
                      'docs/LICENSE_AUDIT.md', 'docs/THIRD_PARTY_PROVENANCE.md',
                      'docs/PRIVACY_GUIDE.md'):
             self.assertIn('M12_5_RELEASE_SECURITY_SIGNOFF.md', read(file))
+        self.assertIn('docs/DOCUMENTATION_INDEX.md', read('README.md'))
         for target in re.findall(r'\]\(([^)]+\.md)\)', self.guide):
             self.assertTrue((ROOT/'docs'/target).is_file(), target)
 

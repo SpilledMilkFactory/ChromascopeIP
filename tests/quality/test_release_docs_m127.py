@@ -108,8 +108,8 @@ class ReleaseDocsM127Tests(unittest.TestCase):
         examples = self.read('docs/RELEASE_EXAMPLES_1_0_0.md')
         self.assertIn('not the historical Skittles photographs', examples)
         self.assertIn('model weights', examples)
-        readme = self.read('README.md')
-        self.assertIn('screenshots from a real gui', readme.lower())
+        verification = self.read('docs/VERIFICATION.md')
+        self.assertIn('screenshots from a real gui', verification.lower())
 
     def test_rights_and_vulnerabilities_not_auto_approved(self):
         readiness = self.read('docs/M12_7_PUBLICATION_READINESS.md')
@@ -130,7 +130,8 @@ class ReleaseDocsM127Tests(unittest.TestCase):
                          'INSTALLATION_1_0_0.md','RELEASE_EXAMPLES_1_0_0.md',
                          'RELEASE_SCREENSHOTS_1_0_0.md','M12_7_PUBLICATION_READINESS.md'):
             self.assertIn(filename, idx)
-            self.assertIn(filename, readme)
+        self.assertIn('docs/DOCUMENTATION_INDEX.md', readme)
+        self.assertIn('docs/RELEASE_NOTES_1_0_0.md', readme)
         self.assertIn('test_release_docs_m127.py', self.read('docs/TESTING.md'))
         self.assertIn('M12.7', self.read('docs/VERIFICATION.md'))
 

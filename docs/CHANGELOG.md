@@ -1,21 +1,42 @@
 # Changelog
 
-ChromascopeIP's first public-version candidate is **1.0.0**. This changelog
-summarizes the *implemented* feature scope, not historical intermediate issue
-statuses. It is not evidence that v1.0.0 has been published.
+ChromascopeIP **v1.0.0 was published on November 19, 2026**. This changelog
+records implemented features and planned v1.0.1 portable-release changes.
+Release publication and engineering-candidate qualification are separate.
 
-## [Unreleased] — release preparation
+## [Unreleased] — v1.0.1 portable release preparation
 
-- M12.7: first-release installation, examples, screenshot instructions and
-  release notes; original synthetic demo generator; no production processing
-  changes. Screenshots captured from the actual GUI are still an operator task.
-- M12.6: exact-source five-platform staging, verified SHA256SUMS, CycloneDX
-  SBOM drafts and GitHub Sigstore build/SBOM attestations (successful hosted
-  staging run). Public release and tag creation remain separate.
-- M12.5: documented known FFmpeg decoder advisory and outstanding
-  third-party license/NOTICE and runtime obligations; no automatic clearance.
+### Added and improved
 
-## [1.0.0] — candidate; NOT YET PUBLISHED
+- Portable Linux x86-64 tarball with a Debian 12 runtime baseline and private
+  OpenCV 5.1.0/FFmpeg 8.1.3 multimedia dependencies, verified across Debian
+  12/13 and Ubuntu 24.04/26.04 during P4 candidate qualification.
+- Portable Windows x64 ZIP with private FFmpeg 8.1.3 HLS decoding, static
+  OpenCV 5.1.0, MSVC/Schannel static libcurl 8.23.0 HTTPS transport, and
+  Media Foundation/DirectShow camera support.
+- User-initiated public HTTPS/HLS playback, bounded buffering, selectable
+  playback cushions, and source-presentation-timestamp pacing.
+- Opt-in live-camera recording and live inference overlays, including person
+  and object detection.
+- Reviewed OpenCV Zoo NanoDet-Plus-M 1.5x FP32 ONNX checkpoint with SHA-256
+  integrity checks, Apache-2.0 license and attribution, and the four
+  original author-owned Skittles sample photographs.
+- Native file selection on Windows and Linux desktop helper integration.
+- Manual-only P3/P5 GitHub Actions candidate builds and target-specific
+  dependency closure, model integrity and decoder qualification.
+
+### Qualification status
+
+- P5 completed hosted MSVC build, 156 native CTests, independent package
+  inspection and relocated CLI verification. Initial laptop testing confirms
+  live HTTPS/HLS stream connectivity; sustained stability acceptance is a
+  separate operator gate.
+- P6 must review the **final** Linux and Windows release artifacts, source and
+  dependency provenance, FFmpeg LGPL obligations, applicable vulnerabilities,
+  third-party licenses, Microsoft redistributable entitlement, hashes and
+  release metadata. Engineering candidates are not release authorization.
+
+## [1.0.0] — published 2026-11-19
 
 ### Added
 
@@ -47,9 +68,9 @@ statuses. It is not evidence that v1.0.0 has been published.
   release-security review for affected configurations.
 - v1.0 is not a general video transcoder: exported MJPEG AVI intentionally
   drops audio. Device and codec support varies by operating system.
-- Third-party copyright notices, codec security, and redistribution review
-  must be resolved before publication. See
-  [release readiness](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M12_7_PUBLICATION_READINESS.md).
+- The original v1.0.0 release used system FFmpeg on Linux and did not ship the
+  selected NanoDet model or original Skittles photos; these distribution
+  choices are changed only for the separately reviewed v1.0.1 portable release.
 
-[Unreleased]: ../README.md
+[Unreleased]: RELEASE_NOTES_1_0_1.md
 [1.0.0]: RELEASE_NOTES_1_0_0.md

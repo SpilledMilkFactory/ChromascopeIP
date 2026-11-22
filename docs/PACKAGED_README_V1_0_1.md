@@ -9,7 +9,15 @@ Read `PORTABLE_RELEASE_V1_0_1.md` before first use. For details see
 `docs/MEDIA_RIGHTS.md`, and `SECURITY.md`. Additional source and license
 obligations are tracked separately before public redistribution.
 
-The portable v1.0.1 build contains the locally executed, checksum-pinned OpenCV Zoo NanoDet ONNX model and its Apache-2.0 license and attribution in `share/chromascopeip/models/`.
+The portable v1.0.1 build contains the locally executed, checksum-pinned
+**OpenCV Zoo NanoDet-Plus-M 1.5x FP32 ONNX model** and its Apache-2.0 license
+and attribution in `share/chromascopeip/models/`. Distribution credit goes to
+OpenCV Zoo (conversion/demonstration: **Sri Siddarth Chakaravarthy**), based
+on the original NanoDet project by **RangiLyu**. The selected model is
+`object_detection_nanodet_2022nov.onnx`, SHA-256
+`4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186`.
+Official model: https://huggingface.co/opencv/object_detection_nanodet.
+No model is downloaded automatically.
 
 Application source: https://github.com/SpilledMilkFactory/ChromascopeIP
 

@@ -23,13 +23,18 @@ Current, audience-focused entry points are listed first. Milestone records under
 - [Debian CI](CI_DEBIAN.md) · [Ubuntu CI](CI_UBUNTU.md) · [Windows CI](CI_WINDOWS.md)
 - [Linux package acceptance](M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md) · [Windows ZIP acceptance](M12_4_WINDOWS_ZIP_ACCEPTANCE.md)
 
-## Release preparation — 1.0.0 (not yet published)
+## v1.0.1 portable release preparation (P6)
+
+- [P6 release readiness and exact-commit publication checklist](V1_0_1_P6_RELEASE_READINESS.md)
+- [v1.0.1 release notes draft](RELEASE_NOTES_1_0_1.md) · [Portable Linux candidate guide](PORTABLE_RELEASE_V1_0_1.md) · [Portable Windows candidate guide](PORTABLE_RELEASE_V1_0_1_WINDOWS.md)
+
+## v1.0.0 historical release and engineering records (published 2026-11-19)
 
 - [Coordinated M11.9/M12.5 clearance report](M11_9_M12_5_CLEARANCE_REPORT.md)
 
 - [Changelog](CHANGELOG.md) · [Release notes](RELEASE_NOTES_1_0_0.md)
-- [Release security sign-off — BLOCKED](M12_5_RELEASE_SECURITY_SIGNOFF.md)
-- [Redistribution/SBOM review — outstanding](M11_9_REDISTRIBUTION_SBOM.md)
+- [Historical M12.5 security sign-off record](M12_5_RELEASE_SECURITY_SIGNOFF.md)
+- [Historical redistribution/SBOM review](M11_9_REDISTRIBUTION_SBOM.md)
 - [M12.7 publication readiness](M12_7_PUBLICATION_READINESS.md)
 - [M12.6 signed staging](M12_6_RELEASE_STAGING.md) · [M12.2 qualification matrix](M12_2_FINAL_RC_MATRIX.md)
 - [License audit](LICENSE_AUDIT.md) · [Third-party provenance](THIRD_PARTY_PROVENANCE.md) · [Media rights](MEDIA_RIGHTS.md)

@@ -1,22 +1,27 @@
 # ChromascopeIP
 
-**Local-first C++ computer vision** · OpenCV 5.1.0 · Dear ImGui · CLI + desktop GUI
+**Local-first computer vision in C++20** · OpenCV 5.1.0 · Dear ImGui desktop GUI · CLI
 
-ChromascopeIP is a cross-platform image and video processing application developed from the original SkittlesIP project. It provides a shared C++20 processing core with interactive and command-line interfaces. The **v1.0.0 release candidate** targets Debian 12/13, Ubuntu 24.04/26.04 (AMD64), and Windows 10/11 (x64).
+ChromascopeIP is a cross-platform image and video processing application that grew out of the original SkittlesIP project. It combines a shared C++ processing core with an interactive desktop interface and a scriptable command-line interface. Supported distribution targets are Debian 12/13, Ubuntu 24.04/26.04 (x86-64), and Windows 10/11 (x64), subject to the qualification of each release artifact.
 
-> **Release status:** v1.0.0 is staged and tested, **not yet published**. Third-party redistribution/NOTICE decisions (**M11.9**) and security-vulnerability dispositions (**M12.5**) remain open. Signed staging artifacts are *not* public release authorization.
+**Releases:** [v1.0.0](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.0) is the first published release (November 19, 2026). The v1.0.1 portable update is undergoing final qualification. Consult [GitHub Releases](https://github.com/SpilledMilkFactory/ChromascopeIP/releases) for published artifacts: a successful CI *candidate* does not itself authorize distribution.
 
 ## Features
 
-- **Images:** Skittles colour detection, grayscale/edge processing, HSV segmentation, shape overlays and image export.
-- **Recorded video:** playback, seeking, asynchronous frame analysis, JSONL results, and opt-in annotated silent MJPEG/AVI export.
-- **Local inference:** optional CPU NanoDet ONNX model for object/person detection, confidence filtering and class-aware NMS. Model weights are **not bundled**.
-- **Live camera:** explicit user activation, bounded capture, overlays and optional temporary session-local tracking; Linux V4L2 and Windows MSMF/DShow backends.
-- **Privacy:** no first-party telemetry, cloud inference, automatic camera startup or automatic upload. User-initiated exports and preferences are explicitly controlled.
+- **Still images:** Skittles colour classification, grayscale and edge processing, HSV segmentation, contours, annotations and exports.
+- **Recorded video:** playback, seeking, bounded asynchronous frame processing, JSONL results and opt-in annotated silent MJPEG/AVI export.
+- **Live cameras:** user-initiated preview, local inference and overlays, temporary session-local tracking and opt-in live-camera recording. Backends include V4L2 on Linux and Media Foundation/DirectShow on Windows.
+- **Live Streamed Video (v1.0.1):** user-initiated, permission-controlled public HTTPS/HLS playback with bounded buffering, source-presentation-timestamp-based pacing, selectable playback cushions and optional live inference.
+- **Local object/person detection:** optional CPU inference using the selected OpenCV Zoo NanoDet ONNX model. No cloud inference, automatic model download, facial recognition or persistent identity tracking.
+- **Native file selection (v1.0.1):** Windows native file dialog; KDE `kdialog` or GNOME `zenity` on Linux where available, with an in-app fallback.
+- **Privacy:** no first-party telemetry, automatic camera opening, background media uploads or cloud inference. Recording and export require user action.
 
-## Get started
+## Download and first run
 
-Start with [v1.0.0 installation](docs/INSTALLATION_1_0_0.md) for per-platform packages and verification, or build locally using the [build presets](docs/BUILD_PRESETS.md).
+- **v1.0.0 (published):** use the [existing OS-specific packages](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.0) and [v1.0.0 installation guide](docs/INSTALLATION_1_0_0.md). Its five packages do **not** include model weights or the four Skittles photographs.
+- **v1.0.1 portable edition:** the planned distribution is exactly **one Linux x86-64 tarball** (`ChromascopeIP-1.0.1-Linux-x86_64.tar.gz`) and **one Windows x64 ZIP** (`ChromascopeIP-1.0.1-Windows-x64.zip`), with independently reviewed notices and required source/compliance materials. Use these archives from GitHub Releases only after they have been published.
+
+For source builds, use the [build prerequisites and presets](docs/BUILD_PRESETS.md). A configured Linux workstation can run:
 
 ```bash
 cmake --preset linux-release
@@ -25,37 +30,34 @@ ctest --preset linux-release --output-on-failure
 ./build/presets/linux-release/chromascope-cli --help
 ```
 
-The project requires the pinned OpenCV 5.1.0 installation and optional GUI dependencies; see [build prerequisites](docs/BUILD_PRESETS.md) before configuring. Use [synthetic examples](docs/RELEASE_EXAMPLES_1_0_0.md) for a safe first run without historical media or a model.
+The source-build example expects an appropriate OpenCV installation and the configured optional GUI dependencies. The v1.0.1 **portable archives**, by contrast, carry their reviewed private OpenCV/FFmpeg multimedia dependencies rather than requiring separate installations of those libraries.
+
+## Bundled NanoDet model and attribution (v1.0.1)
+
+The v1.0.1 portable Linux and Windows distributions include **OpenCV Zoo NanoDet-Plus-M 1.5x (416 × 416, FP32)** in ONNX format for optional, local COCO-80 object/person detection:
+
+- **Checkpoint:** `object_detection_nanodet_2022nov.onnx`, installed at `share/chromascopeip/models/`.
+- **SHA-256:** `4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186`.
+- **Model distribution and demonstration:** [OpenCV Zoo](https://github.com/opencv/opencv_zoo/tree/main/models/object_detection_nanodet), Open Source Vision Foundation; the model conversion/demonstration work is credited to **Sri Siddarth Chakaravarthy**.
+- **Underlying NanoDet project:** **RangiLyu**, [NanoDet upstream](https://github.com/RangiLyu/nanodet).
+- **Official model distribution:** [OpenCV's Hugging Face NanoDet repository](https://huggingface.co/opencv/object_detection_nanodet) ([exact model file](https://huggingface.co/opencv/object_detection_nanodet/blob/main/object_detection_nanodet_2022nov.onnx)).
+- **License:** **Apache License 2.0**, separate from ChromascopeIP's MIT-licensed application code. See the [full model license](models/LICENSE), [attribution and redistribution notices](models/NANODET_NOTICES.md), and [model provenance](models/model_provenance.json).
+
+Only the reviewed checksum-pinned model is included; training data and third-party sample videos are **not** bundled. The four included Skittles sample photographs were made and authorized for distribution by the ChromascopeIP author and carry separate media rights; see [media rights](docs/MEDIA_RIGHTS.md). The published v1.0.0 packages remain model-free.
 
 ## Documentation
 
-| I want to… | Go to |
+| Task | Documentation |
 | --- | --- |
-| Learn the GUI | [User guide](docs/USER_GUIDE.md) |
-| Automate processing | [CLI reference](docs/CLI_REFERENCE.md) |
-| Understand data and privacy | [Privacy guide](docs/PRIVACY_GUIDE.md) |
-| Troubleshoot | [Troubleshooting](docs/TROUBLESHOOTING.md) |
-| Understand the architecture | [Current architecture](docs/CURRENT_ARCHITECTURE.md) |
-| Contribute and run tests | [CONTRIBUTING.md](CONTRIBUTING.md) · [Testing](docs/TESTING.md) |
-| Review release notes | [Changelog](docs/CHANGELOG.md) · [Release notes](docs/RELEASE_NOTES_1_0_0.md) |
-| View real GUI screenshots | [Screenshot capture guidance](docs/RELEASE_SCREENSHOTS_1_0_0.md) — screenshots from a real GUI are pending |
-| Review the release gates | [M12.7 publication readiness](docs/M12_7_PUBLICATION_READINESS.md) |
-| Explore the full documentation | [Documentation index](docs/DOCUMENTATION_INDEX.md) |
+| Learn the GUI and CLI | [User guide](docs/USER_GUIDE.md) · [CLI reference](docs/CLI_REFERENCE.md) |
+| Control privacy and network access | [Privacy guide](docs/PRIVACY_GUIDE.md) · [Live-stream security](docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md) |
+| Troubleshoot or build from source | [Troubleshooting](docs/TROUBLESHOOTING.md) · [Build presets](docs/BUILD_PRESETS.md) |
+| Review releases | [Changelog](docs/CHANGELOG.md) · [v1.0.1 release notes](docs/RELEASE_NOTES_1_0_1.md) · [v1.0.0 notes](docs/RELEASE_NOTES_1_0_0.md) |
+| Review portable release engineering | [v1.0.1 qualification and release checklist](docs/V1_0_1_P6_RELEASE_READINESS.md) |
+| Contribute and test | [Contributing](CONTRIBUTING.md) · [Testing](docs/TESTING.md) · [Documentation index](docs/DOCUMENTATION_INDEX.md) |
 
-## Distribution engineering references
+## Licensing, security and history
 
-Packaging maintainers can consult [M11.1 install staging](docs/M11_1_INSTALL_STAGING.md), [M11.2 Debian 12](docs/M11_2_DEBIAN12_PACKAGE.md), [M11.3 Debian 13](docs/M11_3_DEBIAN13_PACKAGE.md), [M11.4 Ubuntu 24.04](docs/M11_4_UBUNTU24_PACKAGE.md), [M11.5 Ubuntu 26.04](docs/M11_5_UBUNTU26_PACKAGE.md), and [M11.6 Windows ZIP](docs/M11_6_WINDOWS_PORTABLE_ZIP.md). For acceptance, see [M12.3 Linux clean installs](docs/M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md) and [M12.4 Windows acceptance](docs/M12_4_WINDOWS_ZIP_ACCEPTANCE.md). Reconstructing old VM evidence is **not required** to read or use these guides; this does not waive release approvals.
+ChromascopeIP's first-party source code is [MIT licensed](LICENSE). Third-party libraries, the NanoDet model and sample photographs retain their own licenses and rights. Read the [security policy](SECURITY.md), [third-party provenance](docs/THIRD_PARTY_PROVENANCE.md), and [license audit](docs/LICENSE_AUDIT.md) before redistribution. The v1.0.1 portable builds contain private FFmpeg and related dependencies, requiring a new source/notice and licensing review rather than relying on v1.0.0's system-codec assumptions.
 
-## Verification and release status
-
-CI exercises the five-platform package matrix, native CTests, sanitizers, static analysis, dependency checks and exact-source artifact staging. The hosted M12.6 workflow successfully generated package checksums and provenance/SBOM attestations. This is engineering verification, not proof of physical-device compatibility in every configuration or unrestricted third-party redistribution. See [verification](docs/VERIFICATION.md), [release security review](docs/M12_5_RELEASE_SECURITY_SIGNOFF.md), and [redistribution review](docs/M11_9_REDISTRIBUTION_SBOM.md).
-
-**Version:** 1.0.0 release candidate. **M11.9:** redistribution clearance pending. **M12.5:** security sign-off BLOCKED pending evidence-supported resolution. No signed or public release is claimed.
-
-## Contributing, security, licensing
-
-Please read [contribution guidelines](CONTRIBUTING.md) and [security reporting policy](SECURITY.md). First-party code is [MIT licensed](LICENSE); third-party libraries and sample imagery carry separate rights and obligations. The maintainer confirms authorship of the Skittles photographs; they remain separate from the source-code MIT grant. See [media rights](docs/MEDIA_RIGHTS.md), [license audit](docs/LICENSE_AUDIT.md) and [third-party provenance](docs/THIRD_PARTY_PROVENANCE.md).
-
-## Project history
-
-The [engineering-history index](docs/history/README.md) preserves individual milestone contracts and the [original detailed README milestone log](docs/history/README_MILESTONE_LOG.md). Those records explain the implementation journey and may contain outdated status descriptions; the present-day documentation and code take precedence.
+The [engineering history](docs/history/README.md) preserves earlier design decisions and may contain superseded candidate-status statements. Historical v1.0.0 release records are preserved rather than rewritten to describe v1.0.1.

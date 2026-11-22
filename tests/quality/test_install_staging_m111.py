@@ -56,8 +56,8 @@ class InstallStagingM111Tests(unittest.TestCase):
     def test_test_registration_and_documented_acceptance(self):
         tests = read('tests/CMakeLists.txt')
         self.assertIn('chromascope_unit_install_resources', tests)
-        for name in ('README.md', 'docs/TESTING.md', 'docs/VERIFICATION.md',
-                     'docs/M11_1_INSTALL_STAGING.md'):
+        for name in ('docs/TESTING.md', 'docs/VERIFICATION.md',
+                     'docs/M11_1_INSTALL_STAGING.md', 'docs/DOCUMENTATION_INDEX.md'):
             self.assertIn('M11.1', read(name))
         for token in ('DESTDIR', 'OpenCV', 'Windows', 'Skittles', '149', '158'):
             self.assertIn(token, read('docs/M11_1_INSTALL_STAGING.md'))

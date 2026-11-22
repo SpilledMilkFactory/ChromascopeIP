@@ -199,8 +199,9 @@ class LinuxCleanInstallM123Tests(unittest.TestCase):
         guide = (ROOT / 'docs' / 'M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md').read_text()
         verification = (ROOT / 'docs' / 'VERIFICATION.md').read_text()
         readme = (ROOT / 'README.md').read_text()
-        for text in (guide, verification, readme):
+        for text in (guide, verification):
             self.assertIn('not required', text.lower())
+        self.assertIn('docs/DOCUMENTATION_INDEX.md', readme)
         self.assertIn('M11.9', guide)
         self.assertIn('NOT_TESTED', guide)
         self.assertIn('release', verification.lower())

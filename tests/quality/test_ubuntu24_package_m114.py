@@ -239,7 +239,7 @@ class Ubuntu24PackagePolicyTests(unittest.TestCase):
                          'OpenCV 5.1.0', '/proc/self/exe', 'M12.1', 'M11.9',
                          'unapproved media'):
             self.assertIn(fragment, guide)
-        self.assertIn('M11_4_UBUNTU24_PACKAGE.md', (ROOT / 'README.md').read_text())
+        self.assertIn('docs/DOCUMENTATION_INDEX.md', (ROOT / 'README.md').read_text())
         self.assertIn('M11_4_UBUNTU24_PACKAGE.md',
                       (ROOT / 'docs/DOCUMENTATION_INDEX.md').read_text())
 

@@ -99,7 +99,7 @@ class Debian12PackagePolicyTests(unittest.TestCase):
         self.assertNotIn('install(DIRECTORY samples/', (ROOT / 'cmake/ChromascopeInstall.cmake').read_text())
 
     def test_documentation_explains_version_and_remaining_gates(self):
-        for name in ('README.md', 'docs/TESTING.md', 'docs/VERIFICATION.md',
+        for name in ('docs/TESTING.md', 'docs/VERIFICATION.md',
                      'docs/M11_2_DEBIAN12_PACKAGE.md', 'docs/DOCUMENTATION_INDEX.md'):
             self.assertIn('M11.2', (ROOT / name).read_text(encoding='utf-8'))
         doc = (ROOT / 'docs/M11_2_DEBIAN12_PACKAGE.md').read_text()

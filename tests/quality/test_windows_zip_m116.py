@@ -322,7 +322,7 @@ class WindowsZipM116Tests(unittest.TestCase):
             self.assertTrue((ROOT / 'scripts' / name).is_file())
 
     def test_license_and_portability_scope_documented(self):
-        for file in ('README.md', 'docs/CI_WINDOWS.md', 'docs/VERIFICATION.md',
+        for file in ('docs/CI_WINDOWS.md', 'docs/VERIFICATION.md',
                      'docs/M11_6_WINDOWS_PORTABLE_ZIP.md', 'docs/DOCUMENTATION_INDEX.md'):
             body = (ROOT / file).read_text()
             self.assertIn('M11.6', body)

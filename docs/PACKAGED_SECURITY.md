@@ -1,9 +1,16 @@
-# ChromascopeIP 1.0.0 — security information
+# ChromascopeIP 1.0.1 — security information
 
 ChromascopeIP processes potentially untrusted images, video, and locally supplied
 ONNX models through native third-party libraries. Do not run it on untrusted
-media or model files on privileged accounts. Update your operating-system codec
-libraries when vendor fixes are available.
+media or model files on privileged accounts. Keep your operating system, certificate store, and device drivers updated.
+The portable distribution includes selected private multimedia libraries;
+replacing them individually is not a supported upgrade mechanism.
+
+Live Streamed Video is an explicit public-HTTPS-only operation. It uses DNS
+and address restrictions, TLS certificate/hostname validation, limited HLS
+playlist retries, bounded buffering, and no automatic network connection.
+The included [live-stream security guide](docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md)
+explains supported feeds and limitations.
 
 ## Reporting security issues
 

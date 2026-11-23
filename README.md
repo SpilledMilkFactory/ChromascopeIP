@@ -31,6 +31,12 @@ ChromascopeIP is a cross-platform image and video processing application that gr
 - **v1.0.0 (published):** use the [existing OS-specific packages](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.0) and [v1.0.0 installation guide](docs/INSTALLATION_1_0_0.md). Its five packages do **not** include model weights or the four Skittles photographs.
 - **v1.0.1 portable edition:** choose the [Linux x86-64 tarball](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/download/v1.0.1/ChromascopeIP-1.0.1-Linux-x86_64.tar.gz) (Debian 12/13, Ubuntu 24.04/26.04) or [Windows x64 ZIP](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/download/v1.0.1/ChromascopeIP-1.0.1-Windows-x64.zip) (Windows 10/11). The links work **after** the release assets are published. Verify downloaded files against the published SHA-256 manifest. Required corresponding-source and license-compliance materials are published separately, where applicable.
 
+For the portable release, the included user documentation lives under
+`share/doc/chromascopeip/`: start with `README.md`, `docs/USER_GUIDE.md`,
+`docs/CLI_REFERENCE.md`, `docs/PRIVACY_GUIDE.md`, `docs/TROUBLESHOOTING.md`,
+`docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`, and `docs/RELEASE_NOTES_1_0_1.md`.
+These guides are included in **both** Linux and Windows v1.0.1 archives.
+
 For source builds, use the [build prerequisites and presets](docs/BUILD_PRESETS.md). A configured Linux workstation can run:
 
 ```bash
@@ -69,5 +75,10 @@ Only the reviewed checksum-pinned model is included; training data and third-par
 ## Licensing, security and history
 
 ChromascopeIP's first-party source code is [MIT licensed](LICENSE). Third-party libraries, the NanoDet model and sample photographs retain their own licenses and rights. Read the [security policy](SECURITY.md), [third-party provenance](docs/THIRD_PARTY_PROVENANCE.md), [license audit](docs/LICENSE_AUDIT.md), and [historical M11.9 redistribution/SBOM review](docs/M11_9_REDISTRIBUTION_SBOM.md) before redistribution. The v1.0.1 portable builds contain private FFmpeg and related dependencies, requiring a new source/notice and licensing review rather than relying on v1.0.0's system-codec assumptions.
+
+The [v1.0.1 P6 maintainer security and redistribution review](docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md)
+records the maintainer's authorization, review boundaries and the evidence
+required for corresponding-source availability. It is not a substitute for the
+applicable third-party licenses.
 
 The [engineering history](docs/history/README.md) preserves earlier design decisions and may contain superseded candidate-status statements. Historical v1.0.0 release records are preserved rather than rewritten to describe v1.0.1.

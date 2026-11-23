@@ -1,10 +1,10 @@
-# ChromascopeIP — Privacy, local data and consent guide (M10.8 / #74)
+# ChromascopeIP v1.0.1 — Privacy, local data and consent
 
 ChromascopeIP's **first-party processing runtime** reads user-selected local media and trusted ONNX files, performs local CPU inference/processing, and does not implement a network upload, telemetry, cloud inference, account, face recognition, biometric identity or persistent person-identity database. This describes reviewed project code, **not** every OS service, mounted filesystem, OpenCV/FFmpeg plugin, driver, shell, other software or future version. Build/bootstrap scripts can download development dependencies. It is not an air-gap certification. See [M7.6 privacy contract](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M7_6_LOCAL_PRIVACY.md), [security policy](../SECURITY.md) and [M10.5 audit](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md).
 
 ## When data is accessed
 
-- Opening **Still image** reads the selected existing media file; loading a registered classical filter does not invoke NanoDet. Explicit `object`/`person` processing requires a separately provided, integrity-checked local ONNX model.
+- Opening **Still image** reads the selected existing media file; loading a registered classical filter does not invoke NanoDet. Explicit `object`/`person` processing requires an integrity-checked local ONNX model (included with v1.0.1 portable distributions).
 - Opening **Recorded video** reads a selected local file. Source audio is not played, and annotated AVI exports intentionally **drop audio**. The original source remains where it was stored.
 - Selecting the **Live camera** workspace or calling `--camera-backends` does not open hardware. Camera Start / CLI `--camera` / `--camera-detect` **do**; you must have permission to capture people or spaces.
 - Selecting model file paths or restoring saved GUI preferences is **not** permission to load a model or activate inference/camera hardware. `--privacy-info` is a no-media-read standalone CLI command.
@@ -55,10 +55,9 @@ remains local; source audio is ignored. Camera activation, model selection,
 tracking, preferences and explicit export controls are unchanged. FFmpeg may
 write diagnostic messages to stderr for an excluded stream. This restriction
 does not sandbox native parsers or certify absence of OS/network behavior.
-The [current source clearance report](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M11_9_M12_5_CLEARANCE_REPORT.md)
-describes remaining release blockers.
+The linked M11.9/M12.5 source report is historical; v1.0.1 authorization and remaining compliance evidence are recorded in the [P6 security/redistribution sign-off](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md).
 
-## Optional local live-camera recording (v1.0.1 development)
+## Optional local live-camera recording (v1.0.1)
 
 Recording is a **separate explicit action** after camera capture starts. The Live Camera
 workspace has Start/Stop recording controls; the Export dialog selects AVI/MJPEG
@@ -76,7 +75,7 @@ or leaving the workspace requests recording finalization. Previously saved
 recordings are never deleted by session clearing. No recording starts when
 opening the camera, entering the workspace or opening the Export dialog.
 
-### Direct public HTTPS feeds (v1.0.1 development)
+## Live Streamed Video — explicitly opted-in public HTTPS
 
 **Live Streamed Video** introduces **explicit opt-in external network traffic**;
 it is not part of the offline camera/image/recorded-video paths. ChromascopeIP
@@ -85,5 +84,4 @@ host and user's resolver observe the connection after **Start stream**;
 ChromascopeIP does not provide an anonymity network. The URL is not persisted
 in Preferences or written to the application log. Scripts, tracking code,
 redirects, cookies, credentials, unsafe DNS addresses, cross-domain HLS
-resources and embedded webpages are rejected by design. The repository source document `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`
-provides the full threat model and supported-feed restrictions.
+resources and embedded webpages are rejected by design. Read the included [Live Streamed Video security guide](LIVE_STREAMED_VIDEO_SECURITY_V101.md) for DNS pinning, TLS, bounded playlist retries, and supported-feed restrictions.

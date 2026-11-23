@@ -1,9 +1,13 @@
-# ChromascopeIP — CLI reference (M10.8 / #74)
+# ChromascopeIP v1.0.1 — CLI reference
 
-This is a user-facing guide for `src/cli/main.cpp` at the **M10.7 accepted source baseline**. For the authoritative argument list and exact errors run `chromascope-cli --help`. Commands shown here assume execution from the repository root with `linux-cli-release` built. See [build presets](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/BUILD_PRESETS.md), [troubleshooting](TROUBLESHOOTING.md), and [privacy guide](PRIVACY_GUIDE.md).
+This describes the v1.0.1 CLI. Run `chromascope-cli --help` for the exact flags and error messages in the installed executable. On portable Linux use `bin/chromascope-cli`; on portable Windows use `bin\chromascope-cli.exe`. Examples below use a variable set to the executable path. The CLI does not expose the GUI's Live Streamed Video workspace. See [build presets](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/BUILD_PRESETS.md), [troubleshooting](TROUBLESHOOTING.md), and [privacy guide](PRIVACY_GUIDE.md).
 
 ```sh
-CLI=./build/presets/linux-cli-release/chromascope-cli
+# Linux portable archive (after extracting and entering its root):
+CLI=./bin/chromascope-cli
+# Linux source build alternative:
+# CLI=./build/presets/linux-cli-release/chromascope-cli
+# Windows PowerShell: .\bin\chromascope-cli.exe --help
 "$CLI" --help
 "$CLI" --version
 "$CLI" --list-profiles
@@ -37,14 +41,14 @@ Use `--json FILE|-` for schema-v1 still-image JSON; `-` sends JSON to stdout. `-
 ## Recorded video: probe, extract, detect, stream, export
 
 ```sh
-"$CLI" --video-probe --input samples/FrenchHorn.mp4 --json -
-"$CLI" --extract-frame 0 --input samples/FrenchHorn.mp4 --output first-frame.png
-"$CLI" --detect-video-frame 0 --input samples/FrenchHorn.mp4 \
+"$CLI" --video-probe --input path/to/your_video.mp4 --json -
+"$CLI" --extract-frame 0 --input path/to/your_video.mp4 --output first-frame.png
+"$CLI" --detect-video-frame 0 --input path/to/your_video.mp4 \
   --profile person --model models/object_detection_nanodet_2022nov.onnx --json -
-"$CLI" --analyze-video --input samples/FrenchHorn.mp4 --profile person \
+"$CLI" --analyze-video --input path/to/your_video.mp4 --profile person \
   --model models/object_detection_nanodet_2022nov.onnx \
   --jsonl people.jsonl --max-video-frames 60 --frame-step 1
-"$CLI" --export-annotated-video --input samples/FrenchHorn.mp4 --profile person \
+"$CLI" --export-annotated-video --input path/to/your_video.mp4 --profile person \
   --model models/object_detection_nanodet_2022nov.onnx --output people.avi \
   --video-codec mjpeg --audio-policy drop
 ```
@@ -68,7 +72,7 @@ Use `--json FILE|-` for schema-v1 still-image JSON; `-` sends JSON to stdout. `-
   --camera-max-frames 30 --camera-max-seconds 5 --jsonl -
 ```
 
-`--camera-max-frames N` accepts 1..300 (default 30); `--camera-max-seconds N` accepts 1..60 (default 5). Limits constrain the cooperative processing loop, **not native driver blocking**. `--camera-save-dir` must name a new directory and is the only opt-in PNG saving operation for camera-capture mode; it does not add general video recording. `--camera-detect` requires a model and JSONL destination. Its JSONL contains `start`, `frame`, `end`; successful finite completion returns 0, Ctrl-C graceful stop returns 130, and capture/model/processing errors return nonzero. Control-C cannot forcibly interrupt a blocked native driver or active DNN forward. See [capture CLI](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_5_CAMERA_CLI.md) and [live JSONL](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_6_CLI_LIVE_JSONL.md).
+For Windows camera examples substitute `--camera-backend msmf` (or explicitly `dshow`). `--camera-max-frames N` accepts 1..300 (default 30); `--camera-max-seconds N` accepts 1..60 (default 5). Limits constrain the cooperative processing loop, **not native driver blocking**. `--camera-save-dir` must name a new directory and is the only opt-in PNG saving operation for camera-capture mode; it does not add general video recording. `--camera-detect` requires a model and JSONL destination. Its JSONL contains `start`, `frame`, `end`; successful finite completion returns 0, Ctrl-C graceful stop returns 130, and capture/model/processing errors return nonzero. Control-C cannot forcibly interrupt a blocked native driver or active DNN forward. See [capture CLI](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_5_CAMERA_CLI.md) and [live JSONL](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_6_CLI_LIVE_JSONL.md).
 
 ## Outputs, errors, and operational safety
 

@@ -19,6 +19,7 @@ ALL_GUIDES = (
     'RELEASE_NOTES_1_0_0.md', 'CHANGELOG.md', 'IMAGE_FILTER_PROFILES.md',
     'SEGMENTATION_PROFILES.md', 'MEDIA_RIGHTS.md', 'RESOURCE_BUDGETS.md',
 )
+V101_ADD = ('RELEASE_NOTES_1_0_1.md', 'LIVE_STREAMED_VIDEO_SECURITY_V101.md')
 V101_OMIT = {'INSTALLATION_1_0_0.md', 'RELEASE_EXAMPLES_1_0_0.md',
              'RELEASE_NOTES_1_0_0.md'}
 PHOTO_NAMES = ('s1.jpg', 's2.jpg', 's3.jpg', 's4.jpg')
@@ -58,6 +59,8 @@ class InstallScriptPolicyTests(unittest.TestCase):
             if not portable or name not in V101_OMIT:
                 self._write('share/doc/chromascopeip/docs/' + name, 'fixture')
         if portable:
+            for name in V101_ADD:
+                self._write('share/doc/chromascopeip/docs/' + name, 'fixture')
             model_dir = self.payload / 'share/chromascopeip/models'
             shutil.copyfile(ROOT / 'models/object_detection_nanodet_2022nov.onnx',
                             model_dir / 'object_detection_nanodet_2022nov.onnx')

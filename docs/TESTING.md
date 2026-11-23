@@ -1,6 +1,6 @@
 # Testing ChromascopeIP
 
-This guide describes how to verify the current **v1.0.0 release candidate**. The original 1,500-line milestone-era record is preserved in the [historical testing log](history/TESTING_MILESTONE_LOG.md); its old totals and pending statuses do not supersede current CI evidence.
+This guide describes v1.0.1 source and portable-release verification. The historical v1.0.0 records remain in the source repository. The original 1,500-line milestone-era record is preserved in the [historical testing log](history/TESTING_MILESTONE_LOG.md); its old totals and pending statuses do not supersede current CI evidence.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ Use CMake/Ninja, C++20, and **OpenCV 5.1.0** from the source-pinned environment.
 ## Core local verification
 
 ```bash
-# GUI + CLI Release: native regressions (accepted v1.0.0 baseline: 150 CTests)
+# GUI + CLI Release: native regressions; counts vary with platform/build flags
 cmake --preset linux-release
 cmake --build --preset linux-release --parallel
 ctest --preset linux-release --output-on-failure
@@ -33,19 +33,19 @@ python3 scripts/check_model_selection.py
 git diff --check
 ```
 
-At the accepted M12.7 baseline, the quality suite contained **407 Python tests**, the native suite **150 CTests**, and the camera label **28 tests**. Documentation restructuring adds tests; verify actual numbers locally rather than freezing them as guarantees.
+Historical M12.7 counted 407 Python and 150 native tests. The v1.0.1 P5 Windows-hosted job passed 156 native CTests; exact counts and scope vary by platform and source commit.
 
 ## Focused development checks
 
 Use `ctest --test-dir build/presets/linux-release -L camera --output-on-failure` for camera-labeled regressions and `-L cli`, `-L regression`, or `-L packaging` for relevant subsets. `scripts/run_clang_tidy.py` provides focused first-party static analysis. Manual GUI, codec, operating-system client and real-camera verification must be reported separately from synthetic CI success.
 
-The package workflows qualify Debian 12/13, Ubuntu 24.04/26.04, and Windows x64. The complete **20 existing GitHub Actions checks** include release-candidate, matrix, and quality gates. Installation tests in minimal chroots have `/proc/self/exe` and procfs limitations; they are not substitutes for real GUI desktop observations.
+The regular CI matrix targets Debian 12/13, Ubuntu 24.04/26.04 and Windows MSVC. Manual-only P3 and P5 workflows build the v1.0.1 portable application archives; physical GUI/HLS acceptance is separately maintainer-tested. The complete **20 existing GitHub Actions checks** include release-candidate, matrix, and quality gates. Installation tests in minimal chroots have `/proc/self/exe` and procfs limitations; they are not substitutes for real GUI desktop observations.
 
 ## Release and rights gates
 
 - [M11.1 installation/staging](M11_1_INSTALL_STAGING.md), [M11.2 Debian package](M11_2_DEBIAN12_PACKAGE.md) and [M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md) document platform-specific verification.
 - [M12.4 Windows acceptance](M12_4_WINDOWS_ZIP_ACCEPTANCE.md) and [M12.3 Linux acceptance](M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md) distinguish previously reported manual checks from CI evidence.
-- [M11.9 redistribution/SBOM](M11_9_REDISTRIBUTION_SBOM.md) and [M12.5 security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md) remain unresolved before public publication. `test_release_docs_m127.py` validates release documentation. Do not replace review with a green CI badge.
+- [M11.9 redistribution/SBOM](M11_9_REDISTRIBUTION_SBOM.md) and [M12.5 security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md) are historical v1.0.0 records; consult the v1.0.1 P6 sign-off and publication checklist for current status. `test_release_docs_m127.py` validates release documentation. Do not replace review with a green CI badge.
 - [M12.6 release staging](M12_6_RELEASE_STAGING.md) produces checksums and signed attestations from exact-source artifacts but does not create a public tag or GitHub Release.
 
 ## Engineering history

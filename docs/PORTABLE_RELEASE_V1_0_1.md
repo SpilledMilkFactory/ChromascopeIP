@@ -1,9 +1,9 @@
-# ChromascopeIP 1.0.1 — portable Linux x86-64 (P3 candidate guide)
+# ChromascopeIP 1.0.1 — portable Linux x86-64
 
-The P3 tarball is a **development/engineering candidate** until its exact
-source, operating-system qualification, licenses, corresponding sources and
-package inventory receive P6 release approval. Do not publish it solely on
-the strength of the P3 GitHub Actions job.
+The manually dispatched P3 workflow produces an engineering candidate; the
+published v1.0.1 archive is the corresponding release asset only after P6
+publisher approval and checksum verification. Do not treat an arbitrary CI
+artifact download as the final release package.
 
 Extract the archive and start the application:
 
@@ -33,10 +33,12 @@ included in `share/chromascopeip/models/`. The four author-owned Skittles
 examples are under `share/chromascopeip/samples/skittles/`. No other media or
 model weights are authorized in the archive.
 
-P3 is the same-artifact Linux portability build; P4's cross-distribution
-manual tests cover Debian 12/13 and Ubuntu 24.04/26.04 for the accepted
-candidate baseline. Any final artifact rebuilt from a different commit or
-with different bytes still requires its **own** integrity verification and
-appropriate release sign-off. Publication also requires current component
-security review, FFmpeg LGPL corresponding-source/relinkability materials,
-license notices, artifact hashes, and the final P6 checklist.
+The maintainer reports successful extended GUI, inference, stream Stop/Start,
+recording and native Browse tests across Debian 12/13 and Ubuntu 24.04/26.04
+(the Debian 13 evidence was recorded previously). Check the published release
+checksums before running or redistributing the archive. The included user
+references are at `share/doc/chromascopeip/docs/`, including USER_GUIDE,
+CLI_REFERENCE, PRIVACY_GUIDE, TROUBLESHOOTING, LIVE_STREAMED_VIDEO_SECURITY_V101,
+and RELEASE_NOTES_1_0_1. Third-party licenses are under
+`share/doc/chromascopeip/licenses/`; corresponding-source instructions and
+P6 publisher sign-off are recorded in the source repository/release assets.

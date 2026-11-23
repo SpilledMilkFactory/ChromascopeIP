@@ -1,13 +1,15 @@
-# ChromascopeIP 1.0.1 — portable Linux candidate
+# ChromascopeIP 1.0.1 — portable Linux
 
 This is an extract-and-run, local-first image/video/camera/HTTPS-HLS processing
-application. The Linux candidate includes its private OpenCV and FFmpeg
+application. The Linux distribution includes its private OpenCV and FFmpeg
 libraries and selected redistributable runtime dependencies.
 
 Read `PORTABLE_RELEASE_V1_0_1.md` before first use. For details see
 `docs/USER_GUIDE.md`, `docs/CLI_REFERENCE.md`, `docs/PRIVACY_GUIDE.md`,
-`docs/MEDIA_RIGHTS.md`, and `SECURITY.md`. Additional source and license
-obligations are tracked separately before public redistribution.
+`docs/MEDIA_RIGHTS.md`, `docs/TROUBLESHOOTING.md`,
+`docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`, `docs/RELEASE_NOTES_1_0_1.md`,
+and `SECURITY.md`. Consult the published release page for corresponding-source and third-party
+license materials before redistributing this application.
 
 The portable v1.0.1 build contains the locally executed, checksum-pinned
 **OpenCV Zoo NanoDet-Plus-M 1.5x FP32 ONNX model** and its Apache-2.0 license

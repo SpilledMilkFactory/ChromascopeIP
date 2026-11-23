@@ -1,10 +1,12 @@
-# ChromascopeIP — GUI user guide (M10.8 / #74)
+# ChromascopeIP v1.0.1 — GUI user guide
 
-This is the **current workflow guide** for the C++20 desktop application at M10.8. It describes three workspaces implemented through M10.7; older milestone documentation remains historical. For commands see [CLI reference](CLI_REFERENCE.md); for data handling see [privacy guide](PRIVACY_GUIDE.md); for failures see [troubleshooting](TROUBLESHOOTING.md).
+This guide describes the four workspaces of the v1.0.1 portable Linux and Windows application. Historical milestone notes are retained in the source repository, not required to operate the portable application. For commands see [CLI reference](CLI_REFERENCE.md); for data handling see [privacy guide](PRIVACY_GUIDE.md); for failures see [troubleshooting](TROUBLESHOOTING.md).
 
 ## Start, navigation and permissions
 
-With the `linux-release` CMake preset configured and built against **OpenCV 5.1.0 including videoio and dnn**:
+For the Linux portable archive, extract the full tarball and launch `./Launch-ChromascopeIP.sh`. On Windows, extract the ZIP and run `bin/chromascope-gui.exe`. Neither portable package requires installing OpenCV or FFmpeg separately.
+
+For an independent Linux source build with the `linux-release` preset and OpenCV 5.1.0:
 
 ```sh
 ./build/presets/linux-release/chromascope-gui
@@ -12,7 +14,7 @@ With the `linux-release` CMake preset configured and built against **OpenCV 5.1.
 ./build/presets/linux-release/chromascope-gui samples/skittles/s1.jpg
 ```
 
-The window offers **Still image**, **Recorded video**, and **Live camera** workspaces. Selecting a workspace does not itself authorize opening a device, loading a neural network, or saving output. **Start** is needed for camera capture, and live inference is a separate opt-in. Camera hardware can reveal private images; obtain permission before using it. The real-time camera backend is V4L2 on Linux and MSMF on Windows by default; DShow is an explicitly selected Windows alternative, not an automatic fallback. Check [camera backends](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_1_CAMERA_BACKENDS.md) and [camera GUI behavior](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_4_CAMERA_GUI.md).
+The window offers **Still image**, **Recorded video**, **Live camera**, and **Live Streamed Video** workspaces. Selecting a workspace does not itself authorize opening a device, loading a neural network, or saving output. **Start** is needed for camera capture, and live inference is a separate opt-in. Camera hardware can reveal private images; obtain permission before using it. The real-time camera backend is V4L2 on Linux and MSMF on Windows by default; DShow is an explicitly selected Windows alternative, not an automatic fallback. Check [camera backends](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_1_CAMERA_BACKENDS.md) and [camera GUI behavior](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_4_CAMERA_GUI.md).
 
 | Shortcut | Action | Notes |
 | --- | --- | --- |
@@ -25,17 +27,17 @@ The window offers **Still image**, **Recorded video**, and **Live camera** works
 
 Shortcuts do not fire while editing text or interacting with modal dialogs. The Help button provides the same contextual assistance. In a wide window, drag the separator to resize the controls panel; on a narrow/high-DPI window, controls and preview stack vertically. Zoom and pan affect **presentation**, not stored-image coordinates. Browse now opens a **native operating-system file chooser**, including the Still Images, Recorded Video, ONNX model and downloaded HLS playlist workflows. Windows uses the Explorer-style system Open dialog. KDE Plasma uses `kdialog` and GNOME uses `zenity` when installed; the other helper is tried if the preferred one is missing. On Linux without either helper, the original bounded in-app picker remains available. Native selections receive the same file-extension, regular-file, and symlink validation as the historical picker, and selecting a model file still does not load it. Neither dialog path is saved in Preferences. See [M10.1 GUI detail](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_1_GUI_EXPERIENCE.md).
 
-**Installed-app note (M11.1):** Package staging omits the historical
-Skittles photos and ONNX model weights pending redistribution review. When
-those four samples cannot be found, the corresponding example buttons are
-disabled; use **Browse** to select a local image. Developer checkouts retain
-sample buttons when run from their root. No source-path constant is compiled
-into installed applications. See [installation and staging](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M11_1_INSTALL_STAGING.md).
+**v1.0.1 portable resources:** Both portable archives include all four author-owned
+Skittles images under `share/chromascopeip/samples/skittles/` and the reviewed
+OpenCV Zoo NanoDet ONNX model under `share/chromascopeip/models/`. The GUI
+finds the examples relative to its executable. For standalone source builds,
+resource placement depends on the source-build configuration. Neither selecting
+a model nor switching workspaces starts inference or a network connection.
 
 ## Still-image analysis
 
 1. Choose **Still image** and browse to a local JPEG, PNG, BMP, TIFF or WebP supported by the validated predecode path. In a development checkout, the four archived Skittles examples are also offered if present.
-2. Choose `skittles` for circle/HSV color classification, or choose a registered filter/segmentation profile for pixel processing. The `object` and `person` profiles use **CPU NanoDet** and require a separately supplied, SHA-256-verified ONNX model.
+2. Choose `skittles` for circle/HSV color classification, or choose a registered filter/segmentation profile for pixel processing. The `object` and `person` profiles use **CPU NanoDet** and require a SHA-256-verified ONNX model (bundled in the v1.0.1 portable archives).
 3. Change profile-specific options and select **Re-run analysis** where available. Preview controls and overlays can be changed without modifying the original source file.
 4. Export an annotated image only with the appropriate explicit Save action. Inspect output destinations before saving; exported files persist independently of the in-memory session.
 
@@ -54,11 +56,11 @@ The decoding backend, source frame index, presentation geometry and inference ou
 
 1. Select **Live camera**. The camera should show **OFF** until you explicitly start it.
 2. Choose a local camera index and backend, then select **Start**. Check the visible capture indicator and confirm that the preview changes. Permission-denied, busy-device, disconnected camera and unsupported format states must be treated as errors, not as successful capture.
-3. **Live inference is separately optional**: select `object` or `person`, provide the verified model, set confidence/FPS as appropriate and explicitly activate inference. Where supported, use Pause/Resume to stop inference work without fabricating observations.
+3. **Live inference is separately optional**: select `object` or `person`, select the included verified model or an equally verified local copy, set confidence/FPS as appropriate and explicitly activate inference. Where supported, use Pause/Resume to stop inference work without fabricating observations.
 4. Temporary numeric tracking IDs are **session-local and opt-in**, not identity recognition; they reset with the live session. Frame-drop scheduling can skip captured frames under overload. Boxes should correspond to the same capture generation/timestamp as the displayed frame.
 5. Choose **Stop**, leave the workspace or reset the session to request capture shutdown and clear previews. Physical device release can lag if an OS driver blocks a native open/read; the GUI does **not** have a hard driver-interrupt guarantee.
 
-**Optional local recording (v1.0.1 development):** After Start camera, open **Export**
+**Optional local recording (v1.0.1):** After Start camera, open **Export**
 to choose AVI (MJPEG) or MP4 (H.264/MPEG-4 when the OS codec is available) and
 optionally enter a destination filename or existing folder. Leave the field empty
 to save a timestamped `ChromascopeIP-Live-...` file in the OS Videos folder.
@@ -78,7 +80,7 @@ MP4 encoder, the application reports the failure instead of silently changing
 formats. Camera Stop, workspace switch and session clearing also stop and
 finalize recording. Previously completed files remain on disk.
 
-No automatic video recording or screenshot capture accompanies starting a live preview. [Live controls](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_5_LIVE_GUI_CONTROLS.md), [temporary tracks](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_4_TEMPORARY_TRACKING.md), [Linux smoke](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_7_LINUX_CAMERA_SMOKE.md) and [real-device qualification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_7_LIVE_DEVICE_QUALIFICATION.md) document behavior and limitations. Windows Server CI checks the **CLI/core**, not native Windows 10/11 desktop camera behavior.
+No automatic video recording or screenshot capture accompanies starting a live preview. [Live controls](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_5_LIVE_GUI_CONTROLS.md), [temporary tracks](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_4_TEMPORARY_TRACKING.md), [Linux smoke](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_7_LINUX_CAMERA_SMOKE.md) and [real-device qualification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_7_LIVE_DEVICE_QUALIFICATION.md) document behavior and limitations. Windows P5 CI builds the GUI and CLI and executes native Windows tests, but physical camera compatibility must be tested on actual client hardware.
 
 ## Local settings and session cleanup
 
@@ -90,7 +92,7 @@ In the **Preferences** dialog, **Save preferences** explicitly persists validate
 
 Verify original Skittles examples, at least one non-Skittles filter, object/person profile only with an approved model, recorded playback/seek/export, explicit camera start/stop, pause/resume, tracking reset, and manual DPI/shortcuts. Native automated CTests deliberately **cannot** certify a physical camera. Follow [verification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/VERIFICATION.md) and [M10.7 soak qualification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_7_SANITIZER_STATIC_SOAK.md).
 
-### Live Streamed Video (v1.0.1 development)
+## Live Streamed Video (v1.0.1)
 
 The new **Live Streamed Video** workspace accepts an explicitly pasted direct
 **public HTTPS media URL** and begins fetching only when you click **Start
@@ -101,6 +103,12 @@ see your public IP and connection details. HTML/iframe webpages, scripts,
 trackers and unsafe nested HLS resources are not executed. Only direct JPEG,
 PNG, MJPEG, restricted HLS MPEG-TS, and bounded MP4 inputs are candidates for
 playback; many publisher feeds legitimately will not meet those restrictions.
-The repository source document `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`
-describes the threat model, unsupported feed formats and native qualification
-requirements.
+For stream operation, select the playback-cushion profile appropriate for your
+connection, start playback explicitly, and enable local inference only when
+needed. Playlist HTTPS timeouts receive bounded retries; a persistently
+unavailable stream, invalid certificate, forbidden address or malformed feed
+still produces a stream error. Stop requests cancel cooperative work, although
+an already-running TLS operation can take time to finish. Start/Stop and inference
+toggles do not automatically persist any media. Consult the included
+[live-stream security and supported-feed guide](LIVE_STREAMED_VIDEO_SECURITY_V101.md)
+for the threat model and format restrictions.

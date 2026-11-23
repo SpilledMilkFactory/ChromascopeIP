@@ -1,4 +1,31 @@
-# ChromascopeIP — Troubleshooting and diagnostic workflows (M10.8 / #74)
+# ChromascopeIP v1.0.1 — Troubleshooting
+
+## First checks for portable users
+
+Keep the extracted archive directory intact. On Linux start `./Launch-ChromascopeIP.sh`
+or `bin/chromascope-gui`; on Windows start `bin/chromascope-gui.exe`.
+Use `bin/chromascope-cli --version` (or `bin\chromascope-cli.exe --version`)
+to confirm v1.0.1. The portable release already includes its private multimedia
+libraries and ONNX model; do not copy FFmpeg DLLs between installations or
+install private Linux libraries system-wide.
+
+- **Browse dialog does not appear:** KDE normally uses `kdialog`, GNOME uses
+  `zenity`, and the internal fallback remains available if neither helper is
+  installed. Windows uses its native file dialog. File selection alone does
+  not authorize opening a camera or connecting to a network.
+- **Live Streamed Video fails:** use a direct permitted public HTTPS media or
+  HLS URL, not a website/iframe. Check your DNS, certificate trust, remote feed,
+  and clock. Transient playlist timeouts are retried a bounded number of times;
+  persistent errors are reported and can be retried with an explicit Stop/Start.
+  See [network restrictions and supported formats](LIVE_STREAMED_VIDEO_SECURITY_V101.md).
+- **Camera unavailable or MP4 recording fails:** another process may hold the
+  camera; permissions and supported capture/encoding formats depend on the OS.
+  AVI/MJPEG is an alternative where supported. Recording begins only on Start
+  recording and ends with Stop recording or session shutdown.
+- **Inference is disabled:** select the bundled verified NanoDet ONNX model and
+  explicitly turn inference on; boxes are predictions, not identification.
+
+The remainder of this guide covers advanced source-build and diagnostic cases.
 
 Use this guide with the [GUI guide](USER_GUIDE.md), [CLI reference](CLI_REFERENCE.md), [current architecture](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/CURRENT_ARCHITECTURE.md), [build presets](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/BUILD_PRESETS.md), and [test architecture](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/TESTING.md). Prefer reproducing failures with the same input, preset, OpenCV version and explicit profile. **Never publish private camera frames or personal JSONL records in issue logs.**
 
@@ -28,11 +55,11 @@ cmake --build --preset linux-cli-release --parallel
 ctest --preset linux-cli-release --output-on-failure
 ```
 
-**GUI does not build or launch:** use `linux-release` (not `linux-cli-release`, which deliberately disables GUI). Confirm GLFW/OpenGL and Dear ImGui source dependencies. On Linux a working display server and graphics context are required; hosted Windows CI validates core/CLI only. Launch with `./build/presets/linux-release/chromascope-gui`. See [M10.1](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_1_GUI_EXPERIENCE.md).
+**GUI does not build or launch:** use `linux-release` (not `linux-cli-release`, which deliberately disables GUI). Confirm GLFW/OpenGL and Dear ImGui source dependencies. On Linux a working display server and graphics context are required; P5 hosted Windows qualification builds GUI and CLI and executes native Windows CTests; client camera behavior is manually qualified. Launch with `./build/presets/linux-release/chromascope-gui`. See [M10.1](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_1_GUI_EXPERIENCE.md).
 
 **Image fails before analysis:** check file extension/permissions and whether the JPEG/PNG/BMP/TIFF/WebP header is supported. Encoded input >32 MiB, side >8192 pixels, >24 million pixels, oversized storage or analysis workspace will be rejected. Header acceptance is not full codec validation; corrupt data may fail later. [Limits](RESOURCE_BUDGETS.md) and [malformed-media tests](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_6_MALFORMED_MEDIA_FUZZ.md) give exact boundaries.
 
-**NanoDet model unavailable, hash mismatch, or no boxes:** the model is not downloaded automatically. Select the expected pinned ONNX file; a random file merely named `.onnx` is not sufficient. Verify model provenance with `python3 scripts/check_model_selection.py`; match `--profile object|person`, class/visible confidence thresholds and COCO class 0 policy. Detection failure can be due to image content or thresholding, not necessarily model corruption. See [model security](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M5_7_MODEL_SECURITY.md) and [person evaluation](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md).
+**NanoDet model unavailable, hash mismatch, or no boxes:** the v1.0.1 portable archive already includes the reviewed ONNX checkpoint; it is not downloaded automatically. Select the expected pinned ONNX file; a random file merely named `.onnx` is not sufficient. Verify model provenance with `python3 scripts/check_model_selection.py`; match `--profile object|person`, class/visible confidence thresholds and COCO class 0 policy. Detection failure can be due to image content or thresholding, not necessarily model corruption. See [model security](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M5_7_MODEL_SECURITY.md) and [person evaluation](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md).
 
 **Recorded video fails, seek/output differs, or has no audio:** use `--video-probe --input FILE --json -`, select a supported backend/codec, and inspect CLI stderr. The player intentionally does **not** play audio; annotated export is silent MJPEG/AVI. Avoid treating a time-base/seek approximation as exact frame identity without examining result indices. See [video source](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M4_2_VIDEO_SOURCE.md), [media policy](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M4_6_VIDEO_MEDIA.md) and [AVI export](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M6_4_ANNOTATED_VIDEO_EXPORT.md).
 

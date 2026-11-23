@@ -20,7 +20,7 @@ class CurrentDocumentationTests(unittest.TestCase):
                 body = content(name)
                 self.assertGreater(len(body), 1200)
                 self.assertTrue(body.startswith('# ChromascopeIP'))
-                self.assertIn('M10.8', body)
+                self.assertTrue('v1.0.1' in body or 'M10.8' in body)
 
     def test_internal_link_targets_exist(self):
         for name in PAGES:

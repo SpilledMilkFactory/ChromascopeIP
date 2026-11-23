@@ -23,10 +23,10 @@ Current, audience-focused entry points are listed first. Milestone records under
 - [Debian CI](CI_DEBIAN.md) · [Ubuntu CI](CI_UBUNTU.md) · [Windows CI](CI_WINDOWS.md)
 - [Linux package acceptance](M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md) · [Windows ZIP acceptance](M12_4_WINDOWS_ZIP_ACCEPTANCE.md)
 
-## v1.0.1 portable release preparation (P6)
+## v1.0.1 portable release and qualification (P6)
 
 - [P6 release readiness and exact-commit publication checklist](V1_0_1_P6_RELEASE_READINESS.md)
-- [v1.0.1 release notes draft](RELEASE_NOTES_1_0_1.md) · [Portable Linux candidate guide](PORTABLE_RELEASE_V1_0_1.md) · [Portable Windows candidate guide](PORTABLE_RELEASE_V1_0_1_WINDOWS.md)
+- [v1.0.1 release notes](RELEASE_NOTES_1_0_1.md) · [Portable Linux candidate guide](PORTABLE_RELEASE_V1_0_1.md) · [Portable Windows candidate guide](PORTABLE_RELEASE_V1_0_1_WINDOWS.md)
 
 ## v1.0.0 historical release and engineering records (published 2026-11-19)
 
@@ -46,3 +46,7 @@ The [historical milestone index](history/README.md) groups pre-release architect
 ## Maintainer platform qualification references
 
 [M11.2 Debian 12](M11_2_DEBIAN12_PACKAGE.md) · [Debian 13](M11_3_DEBIAN13_PACKAGE.md) · [Ubuntu 24.04](M11_4_UBUNTU24_PACKAGE.md) · [Ubuntu 26.04](M11_5_UBUNTU26_PACKAGE.md) · [M11.6 Windows x64](M11_6_WINDOWS_PORTABLE_ZIP.md) · [M11.7 matrix](M11_7_PACKAGE_MATRIX.md) · [M11.8 desktop/device](M11_8_DESKTOP_DEVICE_QUALIFICATION.md) · [M11.1 staging](M11_1_INSTALL_STAGING.md) · [M12.1 scope](M12_1_RELEASE_SCOPE.md).
+
+## Archived v1.0.1 P5 investigations
+
+Historical MSVC/FFmpeg debugging records have been collected under [v1.0.1 P5 investigations](history/v1.0.1-p5-investigations/README.md), rather than mixed into current user-facing guidance. Other historical M11/M12 records intentionally remain at their original paths because existing release audits refer to those exact locations.

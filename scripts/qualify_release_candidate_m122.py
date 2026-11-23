@@ -15,7 +15,7 @@ import sys
 
 import audit_redistribution_m119 as audit
 import validate_package_matrix as matrix
-from release_identity import VERSION
+from release_identity import LEGACY_VERSION as VERSION
 
 MAX_JSON = 8 * 1024 * 1024
 SHA256 = re.compile(r'[0-9a-f]{64}\Z')

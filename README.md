@@ -1,10 +1,20 @@
 # ChromascopeIP
 
+[![Latest release](https://img.shields.io/github/v/release/SpilledMilkFactory/ChromascopeIP?style=for-the-badge&label=Latest%20Release&logo=github)](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/latest)
+[![Linux CI](https://img.shields.io/github/actions/workflow/status/SpilledMilkFactory/ChromascopeIP/ci-ubuntu.yml?branch=main&style=for-the-badge&logo=linux&label=Linux%20CI)](https://github.com/SpilledMilkFactory/ChromascopeIP/actions/workflows/ci-ubuntu.yml)
+[![Windows CI](https://img.shields.io/github/actions/workflow/status/SpilledMilkFactory/ChromascopeIP/ci-windows.yml?branch=main&style=for-the-badge&logo=windows&label=Windows%20CI)](https://github.com/SpilledMilkFactory/ChromascopeIP/actions/workflows/ci-windows.yml)
+[![Quality](https://img.shields.io/github/actions/workflow/status/SpilledMilkFactory/ChromascopeIP/quality.yml?branch=main&style=for-the-badge&label=Quality)](https://github.com/SpilledMilkFactory/ChromascopeIP/actions/workflows/quality.yml)
+[![MIT license](https://img.shields.io/badge/License-MIT-16a34a?style=for-the-badge)](LICENSE)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599c?style=for-the-badge&logo=cplusplus)](CMakeLists.txt)
+
+[![Download for Linux](https://img.shields.io/badge/Download-Linux%20x86--64-2563eb?style=for-the-badge&logo=linux)](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/download/v1.0.1/ChromascopeIP-1.0.1-Linux-x86_64.tar.gz)
+[![Download for Windows](https://img.shields.io/badge/Download-Windows%20x64-2563eb?style=for-the-badge&logo=windows)](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/download/v1.0.1/ChromascopeIP-1.0.1-Windows-x64.zip)
+
 **Local-first computer vision in C++20** · OpenCV 5.1.0 · Dear ImGui desktop GUI · CLI
 
 ChromascopeIP is a cross-platform image and video processing application that grew out of the original SkittlesIP project. It combines a shared C++ processing core with an interactive desktop interface and a scriptable command-line interface. Supported distribution targets are Debian 12/13, Ubuntu 24.04/26.04 (x86-64), and Windows 10/11 (x64), subject to the qualification of each release artifact.
 
-**Releases:** [v1.0.0](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.0) is the first published release (November 19, 2026). The v1.0.1 portable update is undergoing final qualification. Consult [GitHub Releases](https://github.com/SpilledMilkFactory/ChromascopeIP/releases) for published artifacts: a successful CI *candidate* does not itself authorize distribution.
+**Current source version: v1.0.1.** See the [v1.0.1 release page](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.1) and [release notes](docs/RELEASE_NOTES_1_0_1.md). The download buttons become active once those assets are published; until then, use [GitHub Releases](https://github.com/SpilledMilkFactory/ChromascopeIP/releases) for available downloads. The previous [v1.0.0 release](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.0) remains available.
 
 ## Features
 
@@ -19,7 +29,7 @@ ChromascopeIP is a cross-platform image and video processing application that gr
 ## Download and first run
 
 - **v1.0.0 (published):** use the [existing OS-specific packages](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.0) and [v1.0.0 installation guide](docs/INSTALLATION_1_0_0.md). Its five packages do **not** include model weights or the four Skittles photographs.
-- **v1.0.1 portable edition:** the planned distribution is exactly **one Linux x86-64 tarball** (`ChromascopeIP-1.0.1-Linux-x86_64.tar.gz`) and **one Windows x64 ZIP** (`ChromascopeIP-1.0.1-Windows-x64.zip`), with independently reviewed notices and required source/compliance materials. Use these archives from GitHub Releases only after they have been published.
+- **v1.0.1 portable edition:** choose the [Linux x86-64 tarball](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/download/v1.0.1/ChromascopeIP-1.0.1-Linux-x86_64.tar.gz) (Debian 12/13, Ubuntu 24.04/26.04) or [Windows x64 ZIP](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/download/v1.0.1/ChromascopeIP-1.0.1-Windows-x64.zip) (Windows 10/11). The links work **after** the release assets are published. Verify downloaded files against the published SHA-256 manifest. Required corresponding-source and license-compliance materials are published separately, where applicable.
 
 For source builds, use the [build prerequisites and presets](docs/BUILD_PRESETS.md). A configured Linux workstation can run:
 
@@ -30,7 +40,7 @@ ctest --preset linux-release --output-on-failure
 ./build/presets/linux-release/chromascope-cli --help
 ```
 
-The source-build example expects an appropriate OpenCV installation and the configured optional GUI dependencies. The v1.0.1 **portable archives**, by contrast, carry their reviewed private OpenCV/FFmpeg multimedia dependencies rather than requiring separate installations of those libraries.
+The source-build example expects an appropriate OpenCV installation and the configured optional GUI dependencies. For a local OpenCV prefix, copy [the user-presets example](CMakeUserPresets.json.example) to the Git-ignored `CMakeUserPresets.json` and edit the prefix for your machine. The v1.0.1 **portable archives**, by contrast, carry their reviewed private OpenCV/FFmpeg multimedia dependencies rather than requiring separate installations of those libraries.
 
 ## Bundled NanoDet model and attribution (v1.0.1)
 

@@ -8,11 +8,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
         "or configure with an explicit -B build directory outside the source root.")
 endif()
 
-project(ChromascopeIP VERSION 1.0.0 LANGUAGES CXX)
+project(ChromascopeIP VERSION 1.0.1 LANGUAGES CXX)
 
-# P3 keeps the historical literal project(VERSION) contract for v1.0.0
-# packagers/tests, while explicit engineering-candidate builds emit v1.0.1
-# in the generated GUI and CLI version header.
+# v1.0.1 is now the normal source version for CLI, GUI, and portable builds.
+# P3/P5 remain explicit *dependency and packaging* modes, not version toggles.
+# Historical v1.0.0 binaries and release procedures belong to the v1.0.0 tag.
 option(CHROMASCOPE_V101_P3_PORTABLE "Build v1.0.1 private-runtime portable candidate" OFF)
 option(CHROMASCOPE_V101_P5_PORTABLE "Build v1.0.1 Windows x64 portable candidate" OFF)
 if(CHROMASCOPE_V101_P3_PORTABLE AND CHROMASCOPE_V101_P5_PORTABLE)
@@ -22,17 +22,11 @@ if(CHROMASCOPE_V101_P3_PORTABLE)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
         message(FATAL_ERROR "P3 portable mode is Linux-only")
     endif()
-    set(PROJECT_VERSION "1.0.1")
-    set(ChromascopeIP_VERSION "1.0.1")
-    set(CMAKE_PROJECT_VERSION "1.0.1")
 endif()
 if(CHROMASCOPE_V101_P5_PORTABLE)
     if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8 OR NOT MSVC)
         message(FATAL_ERROR "P5 portable mode requires Windows x64 MSVC")
     endif()
-    set(PROJECT_VERSION "1.0.1")
-    set(ChromascopeIP_VERSION "1.0.1")
-    set(CMAKE_PROJECT_VERSION "1.0.1")
 endif()
 
 # M12.1: one authoritative release-candidate version for every frontend/package.

@@ -20,6 +20,19 @@ eligibility. Formal per-artifact decisions and final security approval remain
 pending. Linux OpenCV disables IPP/IW and has an explicitly identified security patch; upstream
 source pins, exact-source staging and release authorization gates are preserved.
 
+## v1.0.1 P6 maintainer authorization (2026-11-22)
+
+The publisher has explicitly approved redistribution rights for the reviewed
+portable Linux and Windows application bundles. The v1.0.1 NanoDet weight is
+included with Apache-2.0 model notices and its pinned SHA-256; the four original
+photographs are author-owned and permitted for this release. This current P6
+decision supersedes historical "unapproved photographs/models" statements
+for **v1.0.1 only**, not for old v1.0.0 package policies. The separate
+[v1.0.1 sign-off](V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md) records
+the exact scope and remaining corresponding-source/actual-dependency evidence
+needed before public publication. Permission attestation is not a replacement
+for GPL/LGPL source obligations or vendor-specific notices.
+
 ## Historical audit entries (superseded status, preserved evidence)
 
 **Issue #10 | Audit snapshot: November 9, 2026 | Status: PARTIAL — outstanding media permissions and release inventories**

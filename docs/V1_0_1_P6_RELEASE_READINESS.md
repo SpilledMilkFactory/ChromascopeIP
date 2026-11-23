@@ -1,7 +1,6 @@
 # ChromascopeIP v1.0.1 — P6 final release readiness and publication runbook
 
-**Status: preparation only — do not tag or publish until all applicable gates
-are met.** This is a new two-application-archive release, not a continuation
+**Status: functional acceptance and maintainer redistribution permission recorded; publication awaits final exact-source/compliance evidence.** This is a new two-application-archive release, not a continuation
 of the original v1.0.0 five-package distribution workflow.
 
 ## Frozen application baseline
@@ -45,8 +44,8 @@ exact final payload hashes and outstanding source/security/license materials.
 | Linux portable runtime | Same P3 candidate tested by operator on Debian 12, Ubuntu 24.04 and Ubuntu 26.04 with extended streaming, recording, inference, Browse, shutdown; prior Debian 13 evidence retained | **FUNCTIONALLY ACCEPTED; final commit/artifact parity remains** |
 | Source commit parity | Both portable archives produced from the identical final release-source commit | **PENDING** |
 | Automated qualification | Green Linux P3 and Windows P5 jobs, actual Windows CTests, runtime/PE/ELF closure, model and samples hash checks, relocated smoke | **Candidate workflows passed; release-commit parity pending** |
-| Dependency security | Final vulnerability/CVE applicability review of FFmpeg/OpenCV, curl, bundled codecs, parsers, demuxers, and embedded dependencies | **PENDING final review** |
-| Redistributable rights and notices | Exact package license/NOTICE inventory, FFmpeg LGPL obligations including corresponding source and relinking, OpenCV/modification notices, curl license, model Apache-2.0, author-owned photos, VC143 rights | **PENDING final review** |
+| Dependency security | Pinned FFmpeg/OpenCV/curl restrictions and native verification accepted; actual shipped versions and CVE applicability must match final binaries | **ENGINEERING ACCEPTED; artifact-specific vulnerability applicability pending** |
+| Redistributable rights and notices | Maintainer explicitly approved reviewed redistribution permissions; verify exact package NOTICE coverage, FFmpeg LGPL corresponding source/relinking, and Linux bundled closure | **MAINTAINER AUTHORIZED; source/notice delivery evidence pending** |
 | Provenance/SBOM | Exact FFmpeg/OpenCV/curl source revisions, build arguments, patches and applied source; two-artifact dependency inventory/SBOM with limitations stated | **PENDING** |
 | Final artifact semantics | Approved *release* manifests, not P3/P5 `release_approved:false` engineering-candidate metadata, with published checksums | **P6 promotion tooling not yet implemented** |
 | Publication | Tag and GitHub Release refer to one approved commit and include exactly two application archives, SHA256SUMS, release notes, and required source/compliance assets | **NOT STARTED** |
@@ -85,9 +84,14 @@ application builds.
    exact P3/P5 candidate hashes. Record the tested Windows laptop OS
    version/build explicitly, rather than inferring both Windows versions
    from one computer.
-2. Complete the README, NanoDet attribution, portable user docs and v1.0.1
-   changelog/release-notes updates before selecting the final commit. Avoid
-   introducing unreviewed multimedia behavior while closing P6.
+2. Complete README, NanoDet attribution, and updated **packaged user guides**
+   before selecting the final commit. Both P3/P5 now explicitly install and
+   verify `USER_GUIDE.md`, `CLI_REFERENCE.md`, `PRIVACY_GUIDE.md`,
+   `TROUBLESHOOTING.md`, `RELEASE_NOTES_1_0_1.md`, and
+   `LIVE_STREAMED_VIDEO_SECURITY_V101.md`; confirm all six are present in
+   each final application archive. Review the [P6 security and redistribution
+   sign-off](V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md). Do not modify the
+   accepted multimedia implementation as part of documentation updates.
 3. After approvals, push a dedicated release-preparation branch, e.g.
    `release/v1.0.1`, and run the existing **manual** candidate workflows
    against that branch (one exact commit):

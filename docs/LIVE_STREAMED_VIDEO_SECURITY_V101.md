@@ -1,4 +1,4 @@
-# Live Streamed Video — v1.0.1 restricted-media preview candidate
+# Live Streamed Video — v1.0.1 HTTPS/HLS security and supported feeds
 
 This is a **new, explicitly opt-in** network mode. It is not a web browser,
 website scraper, iframe renderer, anonymous VPN, or substitute for the
@@ -164,7 +164,7 @@ not saved to preferences or included in recordings. Frame rate remains that of
 the decoder; no time-stretching or skipping of reference pictures is performed.
 A larger cushion may reduce ordinary network jitter, but cannot correct a
 sustained download-rate deficit, irregular timestamps, or decoder crashes.
-The separate FFmpeg/OpenCV private runtime remains unqualified for distribution.
+The reviewed private FFmpeg/OpenCV runtime is included in the v1.0.1 portable Linux and Windows candidates. The public release requires the approved P6 corresponding-source and license materials.
 
 ## Supported input scope
 
@@ -210,13 +210,14 @@ access restrictions; obtain supported integration details when required.
 
 ### Cross-platform qualification
 
-Linux builds require the system `libcurl4-openssl-dev` development package; the
-resulting Debian/Ubuntu distributions link to the system libcurl runtime.
-Windows builds use OS WinHTTP (Windows 10 version 21H1 or newer is required for
-DNS pinning); Windows Media Foundation may not be able to decode a fetched HLS
-MPEG-TS byte stream. Both platform's network and decoder behavior must be
-qualified on real supported targets before publication; passing URL-policy
-unit tests does **not** establish live-feed compatibility.
+Linux source builds use libcurl; the Debian 12-based portable archive carries
+its reviewed runtime dependency closure. The portable Windows P5 build uses
+statically linked MSVC libcurl 8.23.0 with Schannel TLS and the same public-DNS
+pinning rules, rather than the older WinHTTP-only path. MPEG-TS playback uses
+the private FFmpeg/OpenCV custom in-memory reader on both platforms. Maintainer
+functional testing included sustained playback, inference toggling, recording,
+Stop/Start and clean shutdown on the targeted client systems; no CI test can
+certify compatibility with every remote feed or internet connection.
 
 ## Manual test checklist
 
@@ -235,5 +236,10 @@ unit tests does **not** establish live-feed compatibility.
    recorded files can contain on-screen local inference annotations when opted in.
 6. Repeat on Debian 12/13, Ubuntu 24.04/26.04, and Windows 10/11 as appropriate.
 
-**Status:** Source candidate for v1.0.1, **not release-qualified**. The
-network/privacy model is deliberately more restrictive than a web browser.
+**Release scope:** v1.0.1 portable Linux and Windows media transport. This is
+an engineering design/security description, not certification of all codec
+parsers or a guarantee of uninterrupted third-party service. P6 publisher
+authorization and applicable source/license obligations are recorded in the
+[maintainer sign-off](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md).
+
+Historical note: the earlier M12.5 source was labeled **"not release-qualified"** before P3/P5 hardware acceptance. That historical phrase does not determine the status of the subsequent v1.0.1 P6 maintainer review.

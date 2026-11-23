@@ -71,7 +71,9 @@ class DocumentationPackagingTests(unittest.TestCase):
                 resolved = (base / path).resolve()
                 rel = resolved.relative_to(ROOT)
                 self.assertIn(rel, {Path('docs') / g for g in GUIDES} |
-                              {Path('README.md'), Path('LICENSE'), Path('SECURITY.md')},
+                              {Path('README.md'), Path('LICENSE'), Path('SECURITY.md')} |
+                              {Path('docs/RELEASE_NOTES_1_0_1.md'),
+                               Path('docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md')},
                               f'{original} references unshipped file {target}')
 
     def test_historical_records_and_release_gate_remain_source_only(self):

@@ -1,9 +1,9 @@
-# ChromascopeIP 1.0.1 — portable Windows x64 (P5 candidate guide)
+# ChromascopeIP 1.0.1 — portable Windows x64
 
-This guide is included in P5 engineering candidates and describes their
-validated build design. **A successful GitHub Actions run is not authorization
-for public redistribution.** Publication requires an exact-commit P6 review,
-source and license compliance, final hardware acceptance, and artifact hashes.
+The P5 workflow builds engineering candidates. When obtained as the official
+published v1.0.1 asset, verify the checksum against the release manifest.
+Release sign-off and corresponding-source obligations are tracked separately
+from a successful CI build.
 
 ## Extract and run
 
@@ -24,10 +24,9 @@ Media Foundation, graphics and certificate trust remain host-provided.
 - HLS playback uses source presentation timestamps and bounded playback
   cushions. The decoder has passed synthetic HLS memory and timestamp probes,
   **not an automated end-to-end remote HTTPS test**.
-- An initial manual Windows laptop test successfully connected to the same
-  authorized live stream used for Linux qualification. Extended stability,
-  inference toggle, Stop/Start and shutdown acceptance must be recorded
-  separately; do not assume those observations from CI alone.
+- The maintainer subsequently verified extended authorized HTTPS/HLS playback,
+  inference toggling, recording, Stop/Start, native Browse and clean shutdown
+  on Windows laptop hardware. Such manual evidence is separate from CI.
 
 ## Bundled resources and rights
 
@@ -40,8 +39,8 @@ retrieved from a network endpoint automatically.
 The included FFmpeg DLLs, static libcurl, private OpenCV, embedded third-party
 components and selected Microsoft redistributables require release-wide
 license, vulnerability, corresponding-source, and redistribution review.
-The P5 ZIP's status/manifest are intentionally marked as a candidate. Do not
-simply rename or publish the candidate archive as an approved v1.0.1 release.
+The P5 job marks its output as an engineering candidate. Publish only the
+P6-approved payload with matching checksums and required compliance materials.
 
 ## P6 readiness
 
@@ -54,5 +53,8 @@ simply rename or publish the candidate archive as an approved v1.0.1 release.
 - Produce final release artifacts from the same approved source commit as the
   Linux portable archive, with final release metadata and independent hashes.
 
-See `docs/V1_0_1_P6_RELEASE_READINESS.md` in the source repository for the
-full publication checklist and the historical v1.0.0 release boundary.
+The user references in the application archive are under
+`share/doc/chromascopeip/docs/`, including updated USER_GUIDE, CLI_REFERENCE,
+PRIVACY_GUIDE, TROUBLESHOOTING, LIVE_STREAMED_VIDEO_SECURITY_V101 and
+RELEASE_NOTES_1_0_1. The P6 checklist and maintainer sign-off remain in the
+source repository, not the user-facing archive.

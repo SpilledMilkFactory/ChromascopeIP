@@ -5,8 +5,9 @@ Current, audience-focused entry points are listed first. Milestone records under
 ## Users
 
 - [GUI user guide](USER_GUIDE.md) · [CLI reference](CLI_REFERENCE.md) · [Privacy guide](PRIVACY_GUIDE.md)
-- [Troubleshooting](TROUBLESHOOTING.md) · [Installation](INSTALLATION_1_0_0.md)
-- [First-use examples](RELEASE_EXAMPLES_1_0_0.md) · [Screenshot capture](RELEASE_SCREENSHOTS_1_0_0.md)
+- [Troubleshooting](TROUBLESHOOTING.md) · [Live Streamed Video security](LIVE_STREAMED_VIDEO_SECURITY_V101.md)
+- [v1.0.1 portable Linux](PORTABLE_RELEASE_V1_0_1.md) · [v1.0.1 portable Windows](PORTABLE_RELEASE_V1_0_1_WINDOWS.md)
+- [Historical v1.0.0 installation](INSTALLATION_1_0_0.md) · [examples](RELEASE_EXAMPLES_1_0_0.md) · [screenshots](RELEASE_SCREENSHOTS_1_0_0.md)
 
 ## Developers and contributors
 
@@ -26,6 +27,7 @@ Current, audience-focused entry points are listed first. Milestone records under
 ## v1.0.1 portable release and qualification (P6)
 
 - [P6 release readiness and exact-commit publication checklist](V1_0_1_P6_RELEASE_READINESS.md)
+- [P6 maintainer security and redistribution sign-off](V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md)
 - [v1.0.1 release notes](RELEASE_NOTES_1_0_1.md) · [Portable Linux candidate guide](PORTABLE_RELEASE_V1_0_1.md) · [Portable Windows candidate guide](PORTABLE_RELEASE_V1_0_1_WINDOWS.md)
 
 ## v1.0.0 historical release and engineering records (published 2026-11-19)

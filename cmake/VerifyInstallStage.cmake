@@ -55,6 +55,9 @@ set(_expected_user_guides
     "RESOURCE_BUDGETS.md"
 )
 if(CHROMASCOPE_V101_PORTABLE_STAGE)
+    list(APPEND _expected_user_guides
+        "RELEASE_NOTES_1_0_1.md"
+        "LIVE_STREAMED_VIDEO_SECURITY_V101.md")
     list(REMOVE_ITEM _expected_user_guides
         "INSTALLATION_1_0_0.md" "RELEASE_EXAMPLES_1_0_0.md" "RELEASE_NOTES_1_0_0.md")
 endif()

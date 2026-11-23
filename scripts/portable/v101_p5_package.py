@@ -40,6 +40,10 @@ REQUIRED = {
     *REQUIRED_FFMPEG,
     f'{DOC}/LICENSE', f'{DOC}/README.md',
     f'{DOC}/PORTABLE_RELEASE_V1_0_1.md', f'{DOC}/SECURITY.md',
+    f'{DOC}/docs/USER_GUIDE.md', f'{DOC}/docs/CLI_REFERENCE.md',
+    f'{DOC}/docs/PRIVACY_GUIDE.md', f'{DOC}/docs/TROUBLESHOOTING.md',
+    f'{DOC}/docs/RELEASE_NOTES_1_0_1.md',
+    f'{DOC}/docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md',
     f'{DOC}/licenses/FFmpeg-8.1.3-LGPL-2.1.txt',
     f'{DOC}/licenses/curl-8.23.0-COPYING.txt',
     f'{DOC}/licenses/GLFW-3.4-Zlib.txt',
@@ -148,10 +152,10 @@ def validate_inventory(names: set[str]) -> None:
         set(legacy.NOTICES['notice_payloads']()) |
         {'OpenCV-5.1.0-Apache-2.0.txt', 'OpenCV-Zoo-NanoDet-Apache-2.0.txt', 'FFmpeg-8.1.3-LGPL-2.1.txt', 'curl-8.23.0-COPYING.txt'}
     )
-    approved_guides = set(legacy.SHIPPED_USER_GUIDES) - {
+    approved_guides = (set(legacy.SHIPPED_USER_GUIDES) - {
         'INSTALLATION_1_0_0.md', 'RELEASE_EXAMPLES_1_0_0.md',
         'RELEASE_NOTES_1_0_0.md',
-    }
+    }) | {'RELEASE_NOTES_1_0_1.md', 'LIVE_STREAMED_VIDEO_SECURITY_V101.md'}
     approved_doc_root = {'LICENSE', 'README.md', 'SECURITY.md',
                          'PORTABLE_RELEASE_V1_0_1.md'}
     for rel in names:

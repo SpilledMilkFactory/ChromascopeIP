@@ -82,6 +82,11 @@ set(CHROMASCOPE_SHIPPED_USER_GUIDES
     docs/RESOURCE_BUDGETS.md
 )
 if(CHROMASCOPE_V101_P3_PORTABLE OR CHROMASCOPE_V101_P5_PORTABLE)
+    # Reviewed v1.0.1-only user documentation; keep historical v1.0.0
+    # installation layout and its strict allowlist unchanged.
+    list(APPEND CHROMASCOPE_SHIPPED_USER_GUIDES
+        docs/RELEASE_NOTES_1_0_1.md
+        docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md)
     list(REMOVE_ITEM CHROMASCOPE_SHIPPED_USER_GUIDES
         docs/INSTALLATION_1_0_0.md
         docs/RELEASE_EXAMPLES_1_0_0.md

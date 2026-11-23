@@ -20,6 +20,17 @@ eligibility. Formal per-artifact decisions and final security approval remain
 pending. Linux OpenCV disables IPP/IW and has an explicitly identified security patch; upstream
 source pins, exact-source staging and release authorization gates are preserved.
 
+## v1.0.1 P6 release authorization (2026-11-22)
+
+The maintainer explicitly approved distribution rights for reviewed v1.0.1
+portable bundles, including NanoDet, the four author-owned photographs and
+selected Microsoft VC143 runtime files. See the [scoped v1.0.1 P6
+sign-off](V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md). The source-only
+historical entries below do not describe the present v1.0.1 package contents.
+Approval of permissions does not itself demonstrate delivery of the exact
+FFmpeg corresponding sources or the legal notices for the complete Linux
+shared-library closure; those remain documented publication checks.
+
 ## Historical audit entries (superseded status, preserved evidence)
 
 I audited the dependencies referenced by the current source and build configurations. **This is a source/development audit, not binary redistribution clearance.** Exact runtime dependency contents differ between distro-installed libraries and statically linked Windows OpenCV.

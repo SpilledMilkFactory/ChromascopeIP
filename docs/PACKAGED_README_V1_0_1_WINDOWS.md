@@ -28,8 +28,10 @@ The Windows Browse action uses the native system file-open dialog. Selecting a
 file never bypasses the application's input or access checks.
 
 Read `PORTABLE_RELEASE_V1_0_1.md`, `RUNTIME_DEPENDENCIES.md`, `SECURITY.md`,
-and the included `docs/` and `licenses/` before use or redistribution.
-The **P5 engineering candidate is not final release approval**: final
-Windows-client acceptance, source/license review, and P6 sign-off remain
-separate gates. For public release status and downloads, see:
+`docs/USER_GUIDE.md`, `docs/CLI_REFERENCE.md`, `docs/PRIVACY_GUIDE.md`,
+`docs/TROUBLESHOOTING.md`, `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`,
+`docs/RELEASE_NOTES_1_0_1.md`, and the included `licenses/` before use or
+redistribution. The GitHub Actions P5 builder creates engineering candidates;
+release approval and corresponding-source materials are recorded separately.
+For published releases and downloads, see:
 https://github.com/SpilledMilkFactory/ChromascopeIP/releases

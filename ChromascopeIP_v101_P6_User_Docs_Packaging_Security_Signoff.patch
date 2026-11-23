@@ -1,0 +1,929 @@
+diff --git a/README.md b/README.md
+index 65b35ea..fe0a74b 100644
+--- a/README.md
++++ b/README.md
+@@ -31,6 +31,12 @@ ChromascopeIP is a cross-platform image and video processing application that gr
+ - **v1.0.0 (published):** use the [existing OS-specific packages](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.0) and [v1.0.0 installation guide](docs/INSTALLATION_1_0_0.md). Its five packages do **not** include model weights or the four Skittles photographs.
+ - **v1.0.1 portable edition:** choose the [Linux x86-64 tarball](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/download/v1.0.1/ChromascopeIP-1.0.1-Linux-x86_64.tar.gz) (Debian 12/13, Ubuntu 24.04/26.04) or [Windows x64 ZIP](https://github.com/SpilledMilkFactory/ChromascopeIP/releases/download/v1.0.1/ChromascopeIP-1.0.1-Windows-x64.zip) (Windows 10/11). The links work **after** the release assets are published. Verify downloaded files against the published SHA-256 manifest. Required corresponding-source and license-compliance materials are published separately, where applicable.
+ 
++For the portable release, the included user documentation lives under
++`share/doc/chromascopeip/`: start with `README.md`, `docs/USER_GUIDE.md`,
++`docs/CLI_REFERENCE.md`, `docs/PRIVACY_GUIDE.md`, `docs/TROUBLESHOOTING.md`,
++`docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`, and `docs/RELEASE_NOTES_1_0_1.md`.
++These guides are included in **both** Linux and Windows v1.0.1 archives.
++
+ For source builds, use the [build prerequisites and presets](docs/BUILD_PRESETS.md). A configured Linux workstation can run:
+ 
+ ```bash
+@@ -70,4 +76,9 @@ Only the reviewed checksum-pinned model is included; training data and third-par
+ 
+ ChromascopeIP's first-party source code is [MIT licensed](LICENSE). Third-party libraries, the NanoDet model and sample photographs retain their own licenses and rights. Read the [security policy](SECURITY.md), [third-party provenance](docs/THIRD_PARTY_PROVENANCE.md), [license audit](docs/LICENSE_AUDIT.md), and [historical M11.9 redistribution/SBOM review](docs/M11_9_REDISTRIBUTION_SBOM.md) before redistribution. The v1.0.1 portable builds contain private FFmpeg and related dependencies, requiring a new source/notice and licensing review rather than relying on v1.0.0's system-codec assumptions.
+ 
++The [v1.0.1 P6 maintainer security and redistribution review](docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md)
++records the maintainer's authorization, review boundaries and the evidence
++required for corresponding-source availability. It is not a substitute for the
++applicable third-party licenses.
++
+ The [engineering history](docs/history/README.md) preserves earlier design decisions and may contain superseded candidate-status statements. Historical v1.0.0 release records are preserved rather than rewritten to describe v1.0.1.
+diff --git a/cmake/ChromascopeInstall.cmake b/cmake/ChromascopeInstall.cmake
+index 70e9f06..921ef02 100644
+--- a/cmake/ChromascopeInstall.cmake
++++ b/cmake/ChromascopeInstall.cmake
+@@ -82,6 +82,11 @@ set(CHROMASCOPE_SHIPPED_USER_GUIDES
+     docs/RESOURCE_BUDGETS.md
+ )
+ if(CHROMASCOPE_V101_P3_PORTABLE OR CHROMASCOPE_V101_P5_PORTABLE)
++    # Reviewed v1.0.1-only user documentation; keep historical v1.0.0
++    # installation layout and its strict allowlist unchanged.
++    list(APPEND CHROMASCOPE_SHIPPED_USER_GUIDES
++        docs/RELEASE_NOTES_1_0_1.md
++        docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md)
+     list(REMOVE_ITEM CHROMASCOPE_SHIPPED_USER_GUIDES
+         docs/INSTALLATION_1_0_0.md
+         docs/RELEASE_EXAMPLES_1_0_0.md
+diff --git a/cmake/VerifyInstallStage.cmake b/cmake/VerifyInstallStage.cmake
+index 101632e..9f40bf4 100644
+--- a/cmake/VerifyInstallStage.cmake
++++ b/cmake/VerifyInstallStage.cmake
+@@ -55,6 +55,9 @@ set(_expected_user_guides
+     "RESOURCE_BUDGETS.md"
+ )
+ if(CHROMASCOPE_V101_PORTABLE_STAGE)
++    list(APPEND _expected_user_guides
++        "RELEASE_NOTES_1_0_1.md"
++        "LIVE_STREAMED_VIDEO_SECURITY_V101.md")
+     list(REMOVE_ITEM _expected_user_guides
+         "INSTALLATION_1_0_0.md" "RELEASE_EXAMPLES_1_0_0.md" "RELEASE_NOTES_1_0_0.md")
+ endif()
+diff --git a/docs/BUILD_PRESETS.md b/docs/BUILD_PRESETS.md
+index 4613b7c..1307467 100644
+--- a/docs/BUILD_PRESETS.md
++++ b/docs/BUILD_PRESETS.md
+@@ -1,6 +1,6 @@
+-# CMake presets and repository layout (M1.2)
++# ChromascopeIP v1.0.1 — CMake presets and source builds
+ 
+-I use **CMake 3.24 or newer**, Ninja, C++20, and **OpenCV 5.1.0 exactly**. These checked-in presets standardize normal developer commands; they do not lock compilers, platform libraries, or external binary contents. Full reproducible distribution packaging and cross-platform CI are scheduled for later issues.
++I use **CMake 3.24 or newer**, Ninja, C++20, and **OpenCV 5.1.0 exactly**. These checked-in presets standardize normal developer commands; they do not lock compilers, platform libraries, or external binary contents. Portable P3/P5 distributions are built separately through manually dispatched GitHub Actions workflows; these user presets are for source development.
+ 
+ ## Preset matrix
+ 
+@@ -13,7 +13,7 @@ I use **CMake 3.24 or newer**, Ninja, C++20, and **OpenCV 5.1.0 exactly**. These
+ | `windows-cli-release` | Windows (VS2022 x64) | Release | Off | On | On | `build/presets/windows-cli-release/` |
+ | `windows-cli-debug` | Windows (VS2022 x64) | Debug | Off | On | On | `build/presets/windows-cli-debug/` |
+ 
+-Linux presets use Ninja and produce `compile_commands.json`. Windows presets now use **Visual Studio 17 2022, x64** to match M1.6 CI. Visual Studio is multi-configuration, so their build/test presets explicitly select `Release` or `Debug`. Windows presets intentionally cover **core + CLI only** until GUI support is implemented. M1.6 validates the Release preset on Windows Server 2022; the Debug preset requires a separately built OpenCV Debug library. A preset alone is not evidence of Windows 10/11 desktop compatibility.
++Linux presets use Ninja and produce `compile_commands.json`. Windows presets now use **Visual Studio 17 2022, x64** to match M1.6 CI. Visual Studio is multi-configuration, so their build/test presets explicitly select `Release` or `Debug`. The ordinary Windows source-build presets cover **core + CLI**; the independent v1.0.1 P5 release workflow builds the full Windows GUI and CLI with private dependencies. The Windows CI Release preset runs on Windows Server 2022; the Debug preset requires a separately built OpenCV Debug library. A preset alone is not evidence of Windows 10/11 desktop compatibility.
+ 
+ ## Linux quick start
+ 
+@@ -50,7 +50,7 @@ ctest --preset my-linux-release
+ 
+ `CMakeUserPresets.json` is Git-ignored, while `CMakePresets.json` and the example are tracked. CMake implicitly makes project presets available for inheritance from `CMakeUserPresets.json`. If configuring with an offline ImGui checkout, I can add `CHROMASCOPE_IMGUI_DIR` to the local preset's `cacheVariables` too.
+ 
+-On Windows, I use `-DOpenCV_DIR=<directory containing OpenCVConfig.cmake>` or a user preset inheriting `windows-cli-release`, with the VS2022 C++ tools installed. My `scripts/bootstrap_opencv_windows_x64.ps1` prepares a pinned static OpenCV 5.1.0 Release installation. I do not claim Windows 10/11 GUI or installer compatibility from this CI milestone; see [CI_WINDOWS.md](CI_WINDOWS.md).
++On Windows, I use `-DOpenCV_DIR=<directory containing OpenCVConfig.cmake>` or a user preset inheriting `windows-cli-release`, with the VS2022 C++ tools installed. My `scripts/bootstrap_opencv_windows_x64.ps1` prepares a pinned static OpenCV 5.1.0 Release installation. For the portable Windows x64 application, use the v1.0.1 P5 workflow and accompanying manual Windows-laptop qualification; see [Windows portable guide](PORTABLE_RELEASE_V1_0_1_WINDOWS.md).
+ 
+ ## Legacy commands and migration
+ 
+diff --git a/docs/CLI_REFERENCE.md b/docs/CLI_REFERENCE.md
+index 9bc6a40..79e049c 100644
+--- a/docs/CLI_REFERENCE.md
++++ b/docs/CLI_REFERENCE.md
+@@ -1,9 +1,13 @@
+-# ChromascopeIP — CLI reference (M10.8 / #74)
++# ChromascopeIP v1.0.1 — CLI reference
+ 
+-This is a user-facing guide for `src/cli/main.cpp` at the **M10.7 accepted source baseline**. For the authoritative argument list and exact errors run `chromascope-cli --help`. Commands shown here assume execution from the repository root with `linux-cli-release` built. See [build presets](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/BUILD_PRESETS.md), [troubleshooting](TROUBLESHOOTING.md), and [privacy guide](PRIVACY_GUIDE.md).
++This describes the v1.0.1 CLI. Run `chromascope-cli --help` for the exact flags and error messages in the installed executable. On portable Linux use `bin/chromascope-cli`; on portable Windows use `bin\chromascope-cli.exe`. Examples below use a variable set to the executable path. The CLI does not expose the GUI's Live Streamed Video workspace. See [build presets](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/BUILD_PRESETS.md), [troubleshooting](TROUBLESHOOTING.md), and [privacy guide](PRIVACY_GUIDE.md).
+ 
+ ```sh
+-CLI=./build/presets/linux-cli-release/chromascope-cli
++# Linux portable archive (after extracting and entering its root):
++CLI=./bin/chromascope-cli
++# Linux source build alternative:
++# CLI=./build/presets/linux-cli-release/chromascope-cli
++# Windows PowerShell: .\bin\chromascope-cli.exe --help
+ "$CLI" --help
+ "$CLI" --version
+ "$CLI" --list-profiles
+@@ -37,14 +41,14 @@ Use `--json FILE|-` for schema-v1 still-image JSON; `-` sends JSON to stdout. `-
+ ## Recorded video: probe, extract, detect, stream, export
+ 
+ ```sh
+-"$CLI" --video-probe --input samples/FrenchHorn.mp4 --json -
+-"$CLI" --extract-frame 0 --input samples/FrenchHorn.mp4 --output first-frame.png
+-"$CLI" --detect-video-frame 0 --input samples/FrenchHorn.mp4 \
++"$CLI" --video-probe --input path/to/your_video.mp4 --json -
++"$CLI" --extract-frame 0 --input path/to/your_video.mp4 --output first-frame.png
++"$CLI" --detect-video-frame 0 --input path/to/your_video.mp4 \
+   --profile person --model models/object_detection_nanodet_2022nov.onnx --json -
+-"$CLI" --analyze-video --input samples/FrenchHorn.mp4 --profile person \
++"$CLI" --analyze-video --input path/to/your_video.mp4 --profile person \
+   --model models/object_detection_nanodet_2022nov.onnx \
+   --jsonl people.jsonl --max-video-frames 60 --frame-step 1
+-"$CLI" --export-annotated-video --input samples/FrenchHorn.mp4 --profile person \
++"$CLI" --export-annotated-video --input path/to/your_video.mp4 --profile person \
+   --model models/object_detection_nanodet_2022nov.onnx --output people.avi \
+   --video-codec mjpeg --audio-policy drop
+ ```
+@@ -68,7 +72,7 @@ Use `--json FILE|-` for schema-v1 still-image JSON; `-` sends JSON to stdout. `-
+   --camera-max-frames 30 --camera-max-seconds 5 --jsonl -
+ ```
+ 
+-`--camera-max-frames N` accepts 1..300 (default 30); `--camera-max-seconds N` accepts 1..60 (default 5). Limits constrain the cooperative processing loop, **not native driver blocking**. `--camera-save-dir` must name a new directory and is the only opt-in PNG saving operation for camera-capture mode; it does not add general video recording. `--camera-detect` requires a model and JSONL destination. Its JSONL contains `start`, `frame`, `end`; successful finite completion returns 0, Ctrl-C graceful stop returns 130, and capture/model/processing errors return nonzero. Control-C cannot forcibly interrupt a blocked native driver or active DNN forward. See [capture CLI](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_5_CAMERA_CLI.md) and [live JSONL](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_6_CLI_LIVE_JSONL.md).
++For Windows camera examples substitute `--camera-backend msmf` (or explicitly `dshow`). `--camera-max-frames N` accepts 1..300 (default 30); `--camera-max-seconds N` accepts 1..60 (default 5). Limits constrain the cooperative processing loop, **not native driver blocking**. `--camera-save-dir` must name a new directory and is the only opt-in PNG saving operation for camera-capture mode; it does not add general video recording. `--camera-detect` requires a model and JSONL destination. Its JSONL contains `start`, `frame`, `end`; successful finite completion returns 0, Ctrl-C graceful stop returns 130, and capture/model/processing errors return nonzero. Control-C cannot forcibly interrupt a blocked native driver or active DNN forward. See [capture CLI](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_5_CAMERA_CLI.md) and [live JSONL](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_6_CLI_LIVE_JSONL.md).
+ 
+ ## Outputs, errors, and operational safety
+ 
+diff --git a/docs/CURRENT_ARCHITECTURE.md b/docs/CURRENT_ARCHITECTURE.md
+index ccd5e02..84a2be5 100644
+--- a/docs/CURRENT_ARCHITECTURE.md
++++ b/docs/CURRENT_ARCHITECTURE.md
+@@ -1,6 +1,6 @@
+-# ChromascopeIP — Current system architecture (v1.0.0 release candidate)
++# ChromascopeIP — Current system architecture (v1.0.1)
+ 
+-This document summarizes the **implemented v1.0.0 release-candidate architecture**. [Architecture evolution](history/ARCHITECTURE_EVOLUTION.md) preserves the historical M0–M10 decisions; older scope and CI descriptions do not supersede the current source. For operator workflows, use [GUI guide](USER_GUIDE.md), [CLI reference](CLI_REFERENCE.md), and [privacy guide](PRIVACY_GUIDE.md).
++This document summarizes the **implemented v1.0.1 architecture**, including the fourth Live Streamed Video workspace. [Architecture evolution](history/ARCHITECTURE_EVOLUTION.md) preserves the historical M0–M10 decisions; older scope and CI descriptions do not supersede the current source. For operator workflows, use [GUI guide](USER_GUIDE.md), [CLI reference](CLI_REFERENCE.md), and [privacy guide](PRIVACY_GUIDE.md).
+ 
+ ## Component ownership and boundaries
+ 
+@@ -21,6 +21,14 @@ Trusted ONNX file -> SHA-256 -> CpuDnnAdapter -> NanoDetDecoder-+  AnnotationLay
+                           (bounded queues, generation stamps)
+ ```
+ 
++**`PublicStreamReader` and HLS transport:** User-initiated public HTTPS media access
++uses bounded playlist/segment requests and per-resource DNS/address and TLS
++policy. Linux uses libcurl; Windows P5 uses statically linked MSVC libcurl with
++Schannel. Restricted FFmpeg/OpenCV performs HLS/MPEG-TS decoding, with
++source-presentation-timestamp pacing and bounded prefetch; only transient
++playlist HTTPS timeouts receive limited retries. User cancellation remains
++cooperative. The GUI does not automatically contact remote media endpoints.
++
+ **`src/core/` and `include/chromascope/`** implement owned image/geometry types, resource validation, image/recorded-video/camera adapters, CPU DNN, asynchronous queues, detection and annotation conversion. **`src/cli/`** parses opt-in commands and publishes structured outputs. **`src/gui/main.cpp`** owns Dear ImGui/GLFW presentation, UI state, preview textures, explicit navigation/Start controls and async-session orchestration. **`tests/`** isolates unit, integration, regression, CLI and synthetic hardware-free checks; **`scripts/`** houses opt-in qualification and policy guards. Production media/model/camera work is not performed by informational commands.
+ 
+ ## Core data contracts
+@@ -53,8 +61,8 @@ Input paths come from the user; image files and ONNX are subject to validation a
+ 
+ C++20 + CMake/Ninja, **OpenCV 5.1.0 exactly** with `videoio` + `dnn`, Dear ImGui 1.93.0 + GLFW/OpenGL for GUI. `linux-release` builds both front ends; `linux-cli-release` and `linux-cli-sanitize` isolate CLI/core; `windows-cli-release` is Windows Server CI's MSVC core/CLI path. CI targets Debian 12/13, Ubuntu 24.04/26.04, the Ubuntu Quality workflow, Windows Server 2022 MSVC, the five-platform package matrix and the exact-source release-candidate/staging workflows. Hosted CI does **not independently certify every physical webcam or Windows 10/11 desktop environment**; maintainer-reported client OS checks are documented separately.
+ 
+-At the accepted M12.7 baseline, reports show **150 native CTests**, **28 camera-labeled** and **407 Python quality tests**, plus lint/provenance/model checks. The historical M10.8 documentation consolidation and M10.7 test suite were smaller; optional synthetic, recorded-video and authorized live-camera soak is documented in [M10.7](history/milestones/M10_7_SANITIZER_STATIC_SOAK.md); M10.6 first-party malformed-media preflight fuzzing has limited scope. [Testing](TESTING.md), [verification](VERIFICATION.md), [quality](QUALITY.md).
++Historical M12.7 evidence recorded 150 native CTests and 407 Python checks. The later v1.0.1 P5 hosted run passed 156 native Windows CTests; current quality-suite counts should be taken from CI logs rather than frozen historical totals. The historical M10.8 documentation consolidation and M10.7 test suite were smaller; optional synthetic, recorded-video and authorized live-camera soak is documented in [M10.7](history/milestones/M10_7_SANITIZER_STATIC_SOAK.md); M10.6 first-party malformed-media preflight fuzzing has limited scope. [Testing](TESTING.md), [verification](VERIFICATION.md), [quality](QUALITY.md).
+ 
+ ## Trust and known limitations
+ 
+-Resource policy is defense in depth, **not sandboxing** of OpenCV/FFmpeg/ONNX parsers; native drivers may block. Existing M10.5 risks R-01 through R-08 remain recorded priorities, not proof of exploits. Face recognition, remote upload, audio passthrough, guaranteed device-driver cancellation and persistent identity matching are **not implemented**. Distribution rights for archived samples/models must be reviewed separately. Follow [M10.5](history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md), [media rights](MEDIA_RIGHTS.md), and [model provenance](history/milestones/M5_7_MODEL_SECURITY.md).
++Resource policy is defense in depth, **not sandboxing** of OpenCV/FFmpeg/ONNX parsers; native drivers may block. Existing M10.5 risks R-01 through R-08 remain recorded priorities, not proof of exploits. Face recognition, remote upload, audio passthrough, guaranteed device-driver cancellation and persistent identity matching are **not implemented**. The v1.0.1 portable archives contain the approved NanoDet model and four author-owned Skittles photos with separately documented licenses and redistribution authorization. Follow [M10.5](history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md), [media rights](MEDIA_RIGHTS.md), and [model provenance](history/milestones/M5_7_MODEL_SECURITY.md).
+diff --git a/docs/DOCUMENTATION_INDEX.md b/docs/DOCUMENTATION_INDEX.md
+index 00cf445..337834c 100644
+--- a/docs/DOCUMENTATION_INDEX.md
++++ b/docs/DOCUMENTATION_INDEX.md
+@@ -5,8 +5,9 @@ Current, audience-focused entry points are listed first. Milestone records under
+ ## Users
+ 
+ - [GUI user guide](USER_GUIDE.md) · [CLI reference](CLI_REFERENCE.md) · [Privacy guide](PRIVACY_GUIDE.md)
+-- [Troubleshooting](TROUBLESHOOTING.md) · [Installation](INSTALLATION_1_0_0.md)
+-- [First-use examples](RELEASE_EXAMPLES_1_0_0.md) · [Screenshot capture](RELEASE_SCREENSHOTS_1_0_0.md)
++- [Troubleshooting](TROUBLESHOOTING.md) · [Live Streamed Video security](LIVE_STREAMED_VIDEO_SECURITY_V101.md)
++- [v1.0.1 portable Linux](PORTABLE_RELEASE_V1_0_1.md) · [v1.0.1 portable Windows](PORTABLE_RELEASE_V1_0_1_WINDOWS.md)
++- [Historical v1.0.0 installation](INSTALLATION_1_0_0.md) · [examples](RELEASE_EXAMPLES_1_0_0.md) · [screenshots](RELEASE_SCREENSHOTS_1_0_0.md)
+ 
+ ## Developers and contributors
+ 
+@@ -26,6 +27,7 @@ Current, audience-focused entry points are listed first. Milestone records under
+ ## v1.0.1 portable release and qualification (P6)
+ 
+ - [P6 release readiness and exact-commit publication checklist](V1_0_1_P6_RELEASE_READINESS.md)
++- [P6 maintainer security and redistribution sign-off](V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md)
+ - [v1.0.1 release notes](RELEASE_NOTES_1_0_1.md) · [Portable Linux candidate guide](PORTABLE_RELEASE_V1_0_1.md) · [Portable Windows candidate guide](PORTABLE_RELEASE_V1_0_1_WINDOWS.md)
+ 
+ ## v1.0.0 historical release and engineering records (published 2026-11-19)
+diff --git a/docs/LICENSE_AUDIT.md b/docs/LICENSE_AUDIT.md
+index 05bc1ef..d518901 100644
+--- a/docs/LICENSE_AUDIT.md
++++ b/docs/LICENSE_AUDIT.md
+@@ -20,6 +20,19 @@ eligibility. Formal per-artifact decisions and final security approval remain
+ pending. Linux OpenCV disables IPP/IW and has an explicitly identified security patch; upstream
+ source pins, exact-source staging and release authorization gates are preserved.
+ 
++## v1.0.1 P6 maintainer authorization (2026-11-22)
++
++The publisher has explicitly approved redistribution rights for the reviewed
++portable Linux and Windows application bundles. The v1.0.1 NanoDet weight is
++included with Apache-2.0 model notices and its pinned SHA-256; the four original
++photographs are author-owned and permitted for this release. This current P6
++decision supersedes historical "unapproved photographs/models" statements
++for **v1.0.1 only**, not for old v1.0.0 package policies. The separate
++[v1.0.1 sign-off](V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md) records
++the exact scope and remaining corresponding-source/actual-dependency evidence
++needed before public publication. Permission attestation is not a replacement
++for GPL/LGPL source obligations or vendor-specific notices.
++
+ ## Historical audit entries (superseded status, preserved evidence)
+ 
+ **Issue #10 | Audit snapshot: November 9, 2026 | Status: PARTIAL — outstanding media permissions and release inventories**
+diff --git a/docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md b/docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md
+index 2be3036..65f3590 100644
+--- a/docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md
++++ b/docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md
+@@ -1,4 +1,4 @@
+-# Live Streamed Video — v1.0.1 restricted-media preview candidate
++# Live Streamed Video — v1.0.1 HTTPS/HLS security and supported feeds
+ 
+ This is a **new, explicitly opt-in** network mode. It is not a web browser,
+ website scraper, iframe renderer, anonymous VPN, or substitute for the
+@@ -164,7 +164,7 @@ not saved to preferences or included in recordings. Frame rate remains that of
+ the decoder; no time-stretching or skipping of reference pictures is performed.
+ A larger cushion may reduce ordinary network jitter, but cannot correct a
+ sustained download-rate deficit, irregular timestamps, or decoder crashes.
+-The separate FFmpeg/OpenCV private runtime remains unqualified for distribution.
++The reviewed private FFmpeg/OpenCV runtime is included in the v1.0.1 portable Linux and Windows candidates. The public release requires the approved P6 corresponding-source and license materials.
+ 
+ ## Supported input scope
+ 
+@@ -210,13 +210,14 @@ access restrictions; obtain supported integration details when required.
+ 
+ ### Cross-platform qualification
+ 
+-Linux builds require the system `libcurl4-openssl-dev` development package; the
+-resulting Debian/Ubuntu distributions link to the system libcurl runtime.
+-Windows builds use OS WinHTTP (Windows 10 version 21H1 or newer is required for
+-DNS pinning); Windows Media Foundation may not be able to decode a fetched HLS
+-MPEG-TS byte stream. Both platform's network and decoder behavior must be
+-qualified on real supported targets before publication; passing URL-policy
+-unit tests does **not** establish live-feed compatibility.
++Linux source builds use libcurl; the Debian 12-based portable archive carries
++its reviewed runtime dependency closure. The portable Windows P5 build uses
++statically linked MSVC libcurl 8.23.0 with Schannel TLS and the same public-DNS
++pinning rules, rather than the older WinHTTP-only path. MPEG-TS playback uses
++the private FFmpeg/OpenCV custom in-memory reader on both platforms. Maintainer
++functional testing included sustained playback, inference toggling, recording,
++Stop/Start and clean shutdown on the targeted client systems; no CI test can
++certify compatibility with every remote feed or internet connection.
+ 
+ ## Manual test checklist
+ 
+@@ -235,5 +236,10 @@ unit tests does **not** establish live-feed compatibility.
+    recorded files can contain on-screen local inference annotations when opted in.
+ 6. Repeat on Debian 12/13, Ubuntu 24.04/26.04, and Windows 10/11 as appropriate.
+ 
+-**Status:** Source candidate for v1.0.1, **not release-qualified**. The
+-network/privacy model is deliberately more restrictive than a web browser.
++**Release scope:** v1.0.1 portable Linux and Windows media transport. This is
++an engineering design/security description, not certification of all codec
++parsers or a guarantee of uninterrupted third-party service. P6 publisher
++authorization and applicable source/license obligations are recorded in the
++[maintainer sign-off](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md).
++
++Historical note: the earlier M12.5 source was labeled **"not release-qualified"** before P3/P5 hardware acceptance. That historical phrase does not determine the status of the subsequent v1.0.1 P6 maintainer review.
+diff --git a/docs/PACKAGED_README_V1_0_1.md b/docs/PACKAGED_README_V1_0_1.md
+index 0b55fff..b87957b 100644
+--- a/docs/PACKAGED_README_V1_0_1.md
++++ b/docs/PACKAGED_README_V1_0_1.md
+@@ -1,13 +1,15 @@
+-# ChromascopeIP 1.0.1 — portable Linux candidate
++# ChromascopeIP 1.0.1 — portable Linux
+ 
+ This is an extract-and-run, local-first image/video/camera/HTTPS-HLS processing
+-application. The Linux candidate includes its private OpenCV and FFmpeg
++application. The Linux distribution includes its private OpenCV and FFmpeg
+ libraries and selected redistributable runtime dependencies.
+ 
+ Read `PORTABLE_RELEASE_V1_0_1.md` before first use. For details see
+ `docs/USER_GUIDE.md`, `docs/CLI_REFERENCE.md`, `docs/PRIVACY_GUIDE.md`,
+-`docs/MEDIA_RIGHTS.md`, and `SECURITY.md`. Additional source and license
+-obligations are tracked separately before public redistribution.
++`docs/MEDIA_RIGHTS.md`, `docs/TROUBLESHOOTING.md`,
++`docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`, `docs/RELEASE_NOTES_1_0_1.md`,
++and `SECURITY.md`. Consult the published release page for corresponding-source and third-party
++license materials before redistributing this application.
+ 
+ The portable v1.0.1 build contains the locally executed, checksum-pinned
+ **OpenCV Zoo NanoDet-Plus-M 1.5x FP32 ONNX model** and its Apache-2.0 license
+diff --git a/docs/PACKAGED_README_V1_0_1_WINDOWS.md b/docs/PACKAGED_README_V1_0_1_WINDOWS.md
+index eaab9b6..5ea8dc9 100644
+--- a/docs/PACKAGED_README_V1_0_1_WINDOWS.md
++++ b/docs/PACKAGED_README_V1_0_1_WINDOWS.md
+@@ -28,8 +28,10 @@ The Windows Browse action uses the native system file-open dialog. Selecting a
+ file never bypasses the application's input or access checks.
+ 
+ Read `PORTABLE_RELEASE_V1_0_1.md`, `RUNTIME_DEPENDENCIES.md`, `SECURITY.md`,
+-and the included `docs/` and `licenses/` before use or redistribution.
+-The **P5 engineering candidate is not final release approval**: final
+-Windows-client acceptance, source/license review, and P6 sign-off remain
+-separate gates. For public release status and downloads, see:
++`docs/USER_GUIDE.md`, `docs/CLI_REFERENCE.md`, `docs/PRIVACY_GUIDE.md`,
++`docs/TROUBLESHOOTING.md`, `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`,
++`docs/RELEASE_NOTES_1_0_1.md`, and the included `licenses/` before use or
++redistribution. The GitHub Actions P5 builder creates engineering candidates;
++release approval and corresponding-source materials are recorded separately.
++For published releases and downloads, see:
+ https://github.com/SpilledMilkFactory/ChromascopeIP/releases
+diff --git a/docs/PACKAGED_SECURITY.md b/docs/PACKAGED_SECURITY.md
+index c84c499..034968f 100644
+--- a/docs/PACKAGED_SECURITY.md
++++ b/docs/PACKAGED_SECURITY.md
+@@ -1,9 +1,16 @@
+-# ChromascopeIP 1.0.0 — security information
++# ChromascopeIP 1.0.1 — security information
+ 
+ ChromascopeIP processes potentially untrusted images, video, and locally supplied
+ ONNX models through native third-party libraries. Do not run it on untrusted
+-media or model files on privileged accounts. Update your operating-system codec
+-libraries when vendor fixes are available.
++media or model files on privileged accounts. Keep your operating system, certificate store, and device drivers updated.
++The portable distribution includes selected private multimedia libraries;
++replacing them individually is not a supported upgrade mechanism.
++
++Live Streamed Video is an explicit public-HTTPS-only operation. It uses DNS
++and address restrictions, TLS certificate/hostname validation, limited HLS
++playlist retries, bounded buffering, and no automatic network connection.
++The included [live-stream security guide](docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md)
++explains supported feeds and limitations.
+ 
+ ## Reporting security issues
+ 
+diff --git a/docs/PORTABLE_RELEASE_V1_0_1.md b/docs/PORTABLE_RELEASE_V1_0_1.md
+index 4ecf200..5de01a6 100644
+--- a/docs/PORTABLE_RELEASE_V1_0_1.md
++++ b/docs/PORTABLE_RELEASE_V1_0_1.md
+@@ -1,9 +1,9 @@
+-# ChromascopeIP 1.0.1 — portable Linux x86-64 (P3 candidate guide)
++# ChromascopeIP 1.0.1 — portable Linux x86-64
+ 
+-The P3 tarball is a **development/engineering candidate** until its exact
+-source, operating-system qualification, licenses, corresponding sources and
+-package inventory receive P6 release approval. Do not publish it solely on
+-the strength of the P3 GitHub Actions job.
++The manually dispatched P3 workflow produces an engineering candidate; the
++published v1.0.1 archive is the corresponding release asset only after P6
++publisher approval and checksum verification. Do not treat an arbitrary CI
++artifact download as the final release package.
+ 
+ Extract the archive and start the application:
+ 
+@@ -33,10 +33,12 @@ included in `share/chromascopeip/models/`. The four author-owned Skittles
+ examples are under `share/chromascopeip/samples/skittles/`. No other media or
+ model weights are authorized in the archive.
+ 
+-P3 is the same-artifact Linux portability build; P4's cross-distribution
+-manual tests cover Debian 12/13 and Ubuntu 24.04/26.04 for the accepted
+-candidate baseline. Any final artifact rebuilt from a different commit or
+-with different bytes still requires its **own** integrity verification and
+-appropriate release sign-off. Publication also requires current component
+-security review, FFmpeg LGPL corresponding-source/relinkability materials,
+-license notices, artifact hashes, and the final P6 checklist.
++The maintainer reports successful extended GUI, inference, stream Stop/Start,
++recording and native Browse tests across Debian 12/13 and Ubuntu 24.04/26.04
++(the Debian 13 evidence was recorded previously). Check the published release
++checksums before running or redistributing the archive. The included user
++references are at `share/doc/chromascopeip/docs/`, including USER_GUIDE,
++CLI_REFERENCE, PRIVACY_GUIDE, TROUBLESHOOTING, LIVE_STREAMED_VIDEO_SECURITY_V101,
++and RELEASE_NOTES_1_0_1. Third-party licenses are under
++`share/doc/chromascopeip/licenses/`; corresponding-source instructions and
++P6 publisher sign-off are recorded in the source repository/release assets.
+diff --git a/docs/PORTABLE_RELEASE_V1_0_1_WINDOWS.md b/docs/PORTABLE_RELEASE_V1_0_1_WINDOWS.md
+index 79684ee..b905473 100644
+--- a/docs/PORTABLE_RELEASE_V1_0_1_WINDOWS.md
++++ b/docs/PORTABLE_RELEASE_V1_0_1_WINDOWS.md
+@@ -1,9 +1,9 @@
+-# ChromascopeIP 1.0.1 — portable Windows x64 (P5 candidate guide)
++# ChromascopeIP 1.0.1 — portable Windows x64
+ 
+-This guide is included in P5 engineering candidates and describes their
+-validated build design. **A successful GitHub Actions run is not authorization
+-for public redistribution.** Publication requires an exact-commit P6 review,
+-source and license compliance, final hardware acceptance, and artifact hashes.
++The P5 workflow builds engineering candidates. When obtained as the official
++published v1.0.1 asset, verify the checksum against the release manifest.
++Release sign-off and corresponding-source obligations are tracked separately
++from a successful CI build.
+ 
+ ## Extract and run
+ 
+@@ -24,10 +24,9 @@ Media Foundation, graphics and certificate trust remain host-provided.
+ - HLS playback uses source presentation timestamps and bounded playback
+   cushions. The decoder has passed synthetic HLS memory and timestamp probes,
+   **not an automated end-to-end remote HTTPS test**.
+-- An initial manual Windows laptop test successfully connected to the same
+-  authorized live stream used for Linux qualification. Extended stability,
+-  inference toggle, Stop/Start and shutdown acceptance must be recorded
+-  separately; do not assume those observations from CI alone.
++- The maintainer subsequently verified extended authorized HTTPS/HLS playback,
++  inference toggling, recording, Stop/Start, native Browse and clean shutdown
++  on Windows laptop hardware. Such manual evidence is separate from CI.
+ 
+ ## Bundled resources and rights
+ 
+@@ -40,8 +39,8 @@ retrieved from a network endpoint automatically.
+ The included FFmpeg DLLs, static libcurl, private OpenCV, embedded third-party
+ components and selected Microsoft redistributables require release-wide
+ license, vulnerability, corresponding-source, and redistribution review.
+-The P5 ZIP's status/manifest are intentionally marked as a candidate. Do not
+-simply rename or publish the candidate archive as an approved v1.0.1 release.
++The P5 job marks its output as an engineering candidate. Publish only the
++P6-approved payload with matching checksums and required compliance materials.
+ 
+ ## P6 readiness
+ 
+@@ -54,5 +53,8 @@ simply rename or publish the candidate archive as an approved v1.0.1 release.
+ - Produce final release artifacts from the same approved source commit as the
+   Linux portable archive, with final release metadata and independent hashes.
+ 
+-See `docs/V1_0_1_P6_RELEASE_READINESS.md` in the source repository for the
+-full publication checklist and the historical v1.0.0 release boundary.
++The user references in the application archive are under
++`share/doc/chromascopeip/docs/`, including updated USER_GUIDE, CLI_REFERENCE,
++PRIVACY_GUIDE, TROUBLESHOOTING, LIVE_STREAMED_VIDEO_SECURITY_V101 and
++RELEASE_NOTES_1_0_1. The P6 checklist and maintainer sign-off remain in the
++source repository, not the user-facing archive.
+diff --git a/docs/PRIVACY_GUIDE.md b/docs/PRIVACY_GUIDE.md
+index a9d3e6c..730f43b 100644
+--- a/docs/PRIVACY_GUIDE.md
++++ b/docs/PRIVACY_GUIDE.md
+@@ -1,10 +1,10 @@
+-# ChromascopeIP — Privacy, local data and consent guide (M10.8 / #74)
++# ChromascopeIP v1.0.1 — Privacy, local data and consent
+ 
+ ChromascopeIP's **first-party processing runtime** reads user-selected local media and trusted ONNX files, performs local CPU inference/processing, and does not implement a network upload, telemetry, cloud inference, account, face recognition, biometric identity or persistent person-identity database. This describes reviewed project code, **not** every OS service, mounted filesystem, OpenCV/FFmpeg plugin, driver, shell, other software or future version. Build/bootstrap scripts can download development dependencies. It is not an air-gap certification. See [M7.6 privacy contract](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M7_6_LOCAL_PRIVACY.md), [security policy](../SECURITY.md) and [M10.5 audit](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_5_THREAT_BOUNDARY_AUDIT.md).
+ 
+ ## When data is accessed
+ 
+-- Opening **Still image** reads the selected existing media file; loading a registered classical filter does not invoke NanoDet. Explicit `object`/`person` processing requires a separately provided, integrity-checked local ONNX model.
++- Opening **Still image** reads the selected existing media file; loading a registered classical filter does not invoke NanoDet. Explicit `object`/`person` processing requires an integrity-checked local ONNX model (included with v1.0.1 portable distributions).
+ - Opening **Recorded video** reads a selected local file. Source audio is not played, and annotated AVI exports intentionally **drop audio**. The original source remains where it was stored.
+ - Selecting the **Live camera** workspace or calling `--camera-backends` does not open hardware. Camera Start / CLI `--camera` / `--camera-detect` **do**; you must have permission to capture people or spaces.
+ - Selecting model file paths or restoring saved GUI preferences is **not** permission to load a model or activate inference/camera hardware. `--privacy-info` is a no-media-read standalone CLI command.
+@@ -55,10 +55,9 @@ remains local; source audio is ignored. Camera activation, model selection,
+ tracking, preferences and explicit export controls are unchanged. FFmpeg may
+ write diagnostic messages to stderr for an excluded stream. This restriction
+ does not sandbox native parsers or certify absence of OS/network behavior.
+-The [current source clearance report](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M11_9_M12_5_CLEARANCE_REPORT.md)
+-describes remaining release blockers.
++The linked M11.9/M12.5 source report is historical; v1.0.1 authorization and remaining compliance evidence are recorded in the [P6 security/redistribution sign-off](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md).
+ 
+-## Optional local live-camera recording (v1.0.1 development)
++## Optional local live-camera recording (v1.0.1)
+ 
+ Recording is a **separate explicit action** after camera capture starts. The Live Camera
+ workspace has Start/Stop recording controls; the Export dialog selects AVI/MJPEG
+@@ -76,7 +75,7 @@ or leaving the workspace requests recording finalization. Previously saved
+ recordings are never deleted by session clearing. No recording starts when
+ opening the camera, entering the workspace or opening the Export dialog.
+ 
+-### Direct public HTTPS feeds (v1.0.1 development)
++## Live Streamed Video — explicitly opted-in public HTTPS
+ 
+ **Live Streamed Video** introduces **explicit opt-in external network traffic**;
+ it is not part of the offline camera/image/recorded-video paths. ChromascopeIP
+@@ -85,5 +84,4 @@ host and user's resolver observe the connection after **Start stream**;
+ ChromascopeIP does not provide an anonymity network. The URL is not persisted
+ in Preferences or written to the application log. Scripts, tracking code,
+ redirects, cookies, credentials, unsafe DNS addresses, cross-domain HLS
+-resources and embedded webpages are rejected by design. The repository source document `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`
+-provides the full threat model and supported-feed restrictions.
++resources and embedded webpages are rejected by design. Read the included [Live Streamed Video security guide](LIVE_STREAMED_VIDEO_SECURITY_V101.md) for DNS pinning, TLS, bounded playlist retries, and supported-feed restrictions.
+diff --git a/docs/TESTING.md b/docs/TESTING.md
+index 2ed98f3..4370634 100644
+--- a/docs/TESTING.md
++++ b/docs/TESTING.md
+@@ -1,6 +1,6 @@
+ # Testing ChromascopeIP
+ 
+-This guide describes how to verify the current **v1.0.0 release candidate**. The original 1,500-line milestone-era record is preserved in the [historical testing log](history/TESTING_MILESTONE_LOG.md); its old totals and pending statuses do not supersede current CI evidence.
++This guide describes v1.0.1 source and portable-release verification. The historical v1.0.0 records remain in the source repository. The original 1,500-line milestone-era record is preserved in the [historical testing log](history/TESTING_MILESTONE_LOG.md); its old totals and pending statuses do not supersede current CI evidence.
+ 
+ ## Prerequisites
+ 
+@@ -9,7 +9,7 @@ Use CMake/Ninja, C++20, and **OpenCV 5.1.0** from the source-pinned environment.
+ ## Core local verification
+ 
+ ```bash
+-# GUI + CLI Release: native regressions (accepted v1.0.0 baseline: 150 CTests)
++# GUI + CLI Release: native regressions; counts vary with platform/build flags
+ cmake --preset linux-release
+ cmake --build --preset linux-release --parallel
+ ctest --preset linux-release --output-on-failure
+@@ -33,19 +33,19 @@ python3 scripts/check_model_selection.py
+ git diff --check
+ ```
+ 
+-At the accepted M12.7 baseline, the quality suite contained **407 Python tests**, the native suite **150 CTests**, and the camera label **28 tests**. Documentation restructuring adds tests; verify actual numbers locally rather than freezing them as guarantees.
++Historical M12.7 counted 407 Python and 150 native tests. The v1.0.1 P5 Windows-hosted job passed 156 native CTests; exact counts and scope vary by platform and source commit.
+ 
+ ## Focused development checks
+ 
+ Use `ctest --test-dir build/presets/linux-release -L camera --output-on-failure` for camera-labeled regressions and `-L cli`, `-L regression`, or `-L packaging` for relevant subsets. `scripts/run_clang_tidy.py` provides focused first-party static analysis. Manual GUI, codec, operating-system client and real-camera verification must be reported separately from synthetic CI success.
+ 
+-The package workflows qualify Debian 12/13, Ubuntu 24.04/26.04, and Windows x64. The complete **20 existing GitHub Actions checks** include release-candidate, matrix, and quality gates. Installation tests in minimal chroots have `/proc/self/exe` and procfs limitations; they are not substitutes for real GUI desktop observations.
++The regular CI matrix targets Debian 12/13, Ubuntu 24.04/26.04 and Windows MSVC. Manual-only P3 and P5 workflows build the v1.0.1 portable application archives; physical GUI/HLS acceptance is separately maintainer-tested. The complete **20 existing GitHub Actions checks** include release-candidate, matrix, and quality gates. Installation tests in minimal chroots have `/proc/self/exe` and procfs limitations; they are not substitutes for real GUI desktop observations.
+ 
+ ## Release and rights gates
+ 
+ - [M11.1 installation/staging](M11_1_INSTALL_STAGING.md), [M11.2 Debian package](M11_2_DEBIAN12_PACKAGE.md) and [M11.6 Windows ZIP](M11_6_WINDOWS_PORTABLE_ZIP.md) document platform-specific verification.
+ - [M12.4 Windows acceptance](M12_4_WINDOWS_ZIP_ACCEPTANCE.md) and [M12.3 Linux acceptance](M12_3_LINUX_CLEAN_INSTALL_ACCEPTANCE.md) distinguish previously reported manual checks from CI evidence.
+-- [M11.9 redistribution/SBOM](M11_9_REDISTRIBUTION_SBOM.md) and [M12.5 security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md) remain unresolved before public publication. `test_release_docs_m127.py` validates release documentation. Do not replace review with a green CI badge.
++- [M11.9 redistribution/SBOM](M11_9_REDISTRIBUTION_SBOM.md) and [M12.5 security sign-off](M12_5_RELEASE_SECURITY_SIGNOFF.md) are historical v1.0.0 records; consult the v1.0.1 P6 sign-off and publication checklist for current status. `test_release_docs_m127.py` validates release documentation. Do not replace review with a green CI badge.
+ - [M12.6 release staging](M12_6_RELEASE_STAGING.md) produces checksums and signed attestations from exact-source artifacts but does not create a public tag or GitHub Release.
+ 
+ ## Engineering history
+diff --git a/docs/THIRD_PARTY_PROVENANCE.md b/docs/THIRD_PARTY_PROVENANCE.md
+index fe180e0..9989a6d 100644
+--- a/docs/THIRD_PARTY_PROVENANCE.md
++++ b/docs/THIRD_PARTY_PROVENANCE.md
+@@ -20,6 +20,17 @@ eligibility. Formal per-artifact decisions and final security approval remain
+ pending. Linux OpenCV disables IPP/IW and has an explicitly identified security patch; upstream
+ source pins, exact-source staging and release authorization gates are preserved.
+ 
++## v1.0.1 P6 release authorization (2026-11-22)
++
++The maintainer explicitly approved distribution rights for reviewed v1.0.1
++portable bundles, including NanoDet, the four author-owned photographs and
++selected Microsoft VC143 runtime files. See the [scoped v1.0.1 P6
++sign-off](V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md). The source-only
++historical entries below do not describe the present v1.0.1 package contents.
++Approval of permissions does not itself demonstrate delivery of the exact
++FFmpeg corresponding sources or the legal notices for the complete Linux
++shared-library closure; those remain documented publication checks.
++
+ ## Historical audit entries (superseded status, preserved evidence)
+ 
+ I audited the dependencies referenced by the current source and build configurations. **This is a source/development audit, not binary redistribution clearance.** Exact runtime dependency contents differ between distro-installed libraries and statically linked Windows OpenCV.
+diff --git a/docs/TROUBLESHOOTING.md b/docs/TROUBLESHOOTING.md
+index 3aeed85..a6483ed 100644
+--- a/docs/TROUBLESHOOTING.md
++++ b/docs/TROUBLESHOOTING.md
+@@ -1,4 +1,31 @@
+-# ChromascopeIP — Troubleshooting and diagnostic workflows (M10.8 / #74)
++# ChromascopeIP v1.0.1 — Troubleshooting
++
++## First checks for portable users
++
++Keep the extracted archive directory intact. On Linux start `./Launch-ChromascopeIP.sh`
++or `bin/chromascope-gui`; on Windows start `bin/chromascope-gui.exe`.
++Use `bin/chromascope-cli --version` (or `bin\chromascope-cli.exe --version`)
++to confirm v1.0.1. The portable release already includes its private multimedia
++libraries and ONNX model; do not copy FFmpeg DLLs between installations or
++install private Linux libraries system-wide.
++
++- **Browse dialog does not appear:** KDE normally uses `kdialog`, GNOME uses
++  `zenity`, and the internal fallback remains available if neither helper is
++  installed. Windows uses its native file dialog. File selection alone does
++  not authorize opening a camera or connecting to a network.
++- **Live Streamed Video fails:** use a direct permitted public HTTPS media or
++  HLS URL, not a website/iframe. Check your DNS, certificate trust, remote feed,
++  and clock. Transient playlist timeouts are retried a bounded number of times;
++  persistent errors are reported and can be retried with an explicit Stop/Start.
++  See [network restrictions and supported formats](LIVE_STREAMED_VIDEO_SECURITY_V101.md).
++- **Camera unavailable or MP4 recording fails:** another process may hold the
++  camera; permissions and supported capture/encoding formats depend on the OS.
++  AVI/MJPEG is an alternative where supported. Recording begins only on Start
++  recording and ends with Stop recording or session shutdown.
++- **Inference is disabled:** select the bundled verified NanoDet ONNX model and
++  explicitly turn inference on; boxes are predictions, not identification.
++
++The remainder of this guide covers advanced source-build and diagnostic cases.
+ 
+ Use this guide with the [GUI guide](USER_GUIDE.md), [CLI reference](CLI_REFERENCE.md), [current architecture](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/CURRENT_ARCHITECTURE.md), [build presets](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/BUILD_PRESETS.md), and [test architecture](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/TESTING.md). Prefer reproducing failures with the same input, preset, OpenCV version and explicit profile. **Never publish private camera frames or personal JSONL records in issue logs.**
+ 
+@@ -28,11 +55,11 @@ cmake --build --preset linux-cli-release --parallel
+ ctest --preset linux-cli-release --output-on-failure
+ ```
+ 
+-**GUI does not build or launch:** use `linux-release` (not `linux-cli-release`, which deliberately disables GUI). Confirm GLFW/OpenGL and Dear ImGui source dependencies. On Linux a working display server and graphics context are required; hosted Windows CI validates core/CLI only. Launch with `./build/presets/linux-release/chromascope-gui`. See [M10.1](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_1_GUI_EXPERIENCE.md).
++**GUI does not build or launch:** use `linux-release` (not `linux-cli-release`, which deliberately disables GUI). Confirm GLFW/OpenGL and Dear ImGui source dependencies. On Linux a working display server and graphics context are required; P5 hosted Windows qualification builds GUI and CLI and executes native Windows CTests; client camera behavior is manually qualified. Launch with `./build/presets/linux-release/chromascope-gui`. See [M10.1](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_1_GUI_EXPERIENCE.md).
+ 
+ **Image fails before analysis:** check file extension/permissions and whether the JPEG/PNG/BMP/TIFF/WebP header is supported. Encoded input >32 MiB, side >8192 pixels, >24 million pixels, oversized storage or analysis workspace will be rejected. Header acceptance is not full codec validation; corrupt data may fail later. [Limits](RESOURCE_BUDGETS.md) and [malformed-media tests](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_6_MALFORMED_MEDIA_FUZZ.md) give exact boundaries.
+ 
+-**NanoDet model unavailable, hash mismatch, or no boxes:** the model is not downloaded automatically. Select the expected pinned ONNX file; a random file merely named `.onnx` is not sufficient. Verify model provenance with `python3 scripts/check_model_selection.py`; match `--profile object|person`, class/visible confidence thresholds and COCO class 0 policy. Detection failure can be due to image content or thresholding, not necessarily model corruption. See [model security](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M5_7_MODEL_SECURITY.md) and [person evaluation](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md).
++**NanoDet model unavailable, hash mismatch, or no boxes:** the v1.0.1 portable archive already includes the reviewed ONNX checkpoint; it is not downloaded automatically. Select the expected pinned ONNX file; a random file merely named `.onnx` is not sufficient. Verify model provenance with `python3 scripts/check_model_selection.py`; match `--profile object|person`, class/visible confidence thresholds and COCO class 0 policy. Detection failure can be due to image content or thresholding, not necessarily model corruption. See [model security](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M5_7_MODEL_SECURITY.md) and [person evaluation](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M7_1_PERSON_MODEL_EVALUATION.md).
+ 
+ **Recorded video fails, seek/output differs, or has no audio:** use `--video-probe --input FILE --json -`, select a supported backend/codec, and inspect CLI stderr. The player intentionally does **not** play audio; annotated export is silent MJPEG/AVI. Avoid treating a time-base/seek approximation as exact frame identity without examining result indices. See [video source](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M4_2_VIDEO_SOURCE.md), [media policy](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M4_6_VIDEO_MEDIA.md) and [AVI export](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M6_4_ANNOTATED_VIDEO_EXPORT.md).
+ 
+diff --git a/docs/USER_GUIDE.md b/docs/USER_GUIDE.md
+index 8918fdb..ebba341 100644
+--- a/docs/USER_GUIDE.md
++++ b/docs/USER_GUIDE.md
+@@ -1,10 +1,12 @@
+-# ChromascopeIP — GUI user guide (M10.8 / #74)
++# ChromascopeIP v1.0.1 — GUI user guide
+ 
+-This is the **current workflow guide** for the C++20 desktop application at M10.8. It describes three workspaces implemented through M10.7; older milestone documentation remains historical. For commands see [CLI reference](CLI_REFERENCE.md); for data handling see [privacy guide](PRIVACY_GUIDE.md); for failures see [troubleshooting](TROUBLESHOOTING.md).
++This guide describes the four workspaces of the v1.0.1 portable Linux and Windows application. Historical milestone notes are retained in the source repository, not required to operate the portable application. For commands see [CLI reference](CLI_REFERENCE.md); for data handling see [privacy guide](PRIVACY_GUIDE.md); for failures see [troubleshooting](TROUBLESHOOTING.md).
+ 
+ ## Start, navigation and permissions
+ 
+-With the `linux-release` CMake preset configured and built against **OpenCV 5.1.0 including videoio and dnn**:
++For the Linux portable archive, extract the full tarball and launch `./Launch-ChromascopeIP.sh`. On Windows, extract the ZIP and run `bin/chromascope-gui.exe`. Neither portable package requires installing OpenCV or FFmpeg separately.
++
++For an independent Linux source build with the `linux-release` preset and OpenCV 5.1.0:
+ 
+ ```sh
+ ./build/presets/linux-release/chromascope-gui
+@@ -12,7 +14,7 @@ With the `linux-release` CMake preset configured and built against **OpenCV 5.1.
+ ./build/presets/linux-release/chromascope-gui samples/skittles/s1.jpg
+ ```
+ 
+-The window offers **Still image**, **Recorded video**, and **Live camera** workspaces. Selecting a workspace does not itself authorize opening a device, loading a neural network, or saving output. **Start** is needed for camera capture, and live inference is a separate opt-in. Camera hardware can reveal private images; obtain permission before using it. The real-time camera backend is V4L2 on Linux and MSMF on Windows by default; DShow is an explicitly selected Windows alternative, not an automatic fallback. Check [camera backends](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_1_CAMERA_BACKENDS.md) and [camera GUI behavior](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_4_CAMERA_GUI.md).
++The window offers **Still image**, **Recorded video**, **Live camera**, and **Live Streamed Video** workspaces. Selecting a workspace does not itself authorize opening a device, loading a neural network, or saving output. **Start** is needed for camera capture, and live inference is a separate opt-in. Camera hardware can reveal private images; obtain permission before using it. The real-time camera backend is V4L2 on Linux and MSMF on Windows by default; DShow is an explicitly selected Windows alternative, not an automatic fallback. Check [camera backends](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_1_CAMERA_BACKENDS.md) and [camera GUI behavior](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_4_CAMERA_GUI.md).
+ 
+ | Shortcut | Action | Notes |
+ | --- | --- | --- |
+@@ -25,17 +27,17 @@ The window offers **Still image**, **Recorded video**, and **Live camera** works
+ 
+ Shortcuts do not fire while editing text or interacting with modal dialogs. The Help button provides the same contextual assistance. In a wide window, drag the separator to resize the controls panel; on a narrow/high-DPI window, controls and preview stack vertically. Zoom and pan affect **presentation**, not stored-image coordinates. Browse now opens a **native operating-system file chooser**, including the Still Images, Recorded Video, ONNX model and downloaded HLS playlist workflows. Windows uses the Explorer-style system Open dialog. KDE Plasma uses `kdialog` and GNOME uses `zenity` when installed; the other helper is tried if the preferred one is missing. On Linux without either helper, the original bounded in-app picker remains available. Native selections receive the same file-extension, regular-file, and symlink validation as the historical picker, and selecting a model file still does not load it. Neither dialog path is saved in Preferences. See [M10.1 GUI detail](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_1_GUI_EXPERIENCE.md).
+ 
+-**Installed-app note (M11.1):** Package staging omits the historical
+-Skittles photos and ONNX model weights pending redistribution review. When
+-those four samples cannot be found, the corresponding example buttons are
+-disabled; use **Browse** to select a local image. Developer checkouts retain
+-sample buttons when run from their root. No source-path constant is compiled
+-into installed applications. See [installation and staging](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/M11_1_INSTALL_STAGING.md).
++**v1.0.1 portable resources:** Both portable archives include all four author-owned
++Skittles images under `share/chromascopeip/samples/skittles/` and the reviewed
++OpenCV Zoo NanoDet ONNX model under `share/chromascopeip/models/`. The GUI
++finds the examples relative to its executable. For standalone source builds,
++resource placement depends on the source-build configuration. Neither selecting
++a model nor switching workspaces starts inference or a network connection.
+ 
+ ## Still-image analysis
+ 
+ 1. Choose **Still image** and browse to a local JPEG, PNG, BMP, TIFF or WebP supported by the validated predecode path. In a development checkout, the four archived Skittles examples are also offered if present.
+-2. Choose `skittles` for circle/HSV color classification, or choose a registered filter/segmentation profile for pixel processing. The `object` and `person` profiles use **CPU NanoDet** and require a separately supplied, SHA-256-verified ONNX model.
++2. Choose `skittles` for circle/HSV color classification, or choose a registered filter/segmentation profile for pixel processing. The `object` and `person` profiles use **CPU NanoDet** and require a SHA-256-verified ONNX model (bundled in the v1.0.1 portable archives).
+ 3. Change profile-specific options and select **Re-run analysis** where available. Preview controls and overlays can be changed without modifying the original source file.
+ 4. Export an annotated image only with the appropriate explicit Save action. Inspect output destinations before saving; exported files persist independently of the in-memory session.
+ 
+@@ -54,11 +56,11 @@ The decoding backend, source frame index, presentation geometry and inference ou
+ 
+ 1. Select **Live camera**. The camera should show **OFF** until you explicitly start it.
+ 2. Choose a local camera index and backend, then select **Start**. Check the visible capture indicator and confirm that the preview changes. Permission-denied, busy-device, disconnected camera and unsupported format states must be treated as errors, not as successful capture.
+-3. **Live inference is separately optional**: select `object` or `person`, provide the verified model, set confidence/FPS as appropriate and explicitly activate inference. Where supported, use Pause/Resume to stop inference work without fabricating observations.
++3. **Live inference is separately optional**: select `object` or `person`, select the included verified model or an equally verified local copy, set confidence/FPS as appropriate and explicitly activate inference. Where supported, use Pause/Resume to stop inference work without fabricating observations.
+ 4. Temporary numeric tracking IDs are **session-local and opt-in**, not identity recognition; they reset with the live session. Frame-drop scheduling can skip captured frames under overload. Boxes should correspond to the same capture generation/timestamp as the displayed frame.
+ 5. Choose **Stop**, leave the workspace or reset the session to request capture shutdown and clear previews. Physical device release can lag if an OS driver blocks a native open/read; the GUI does **not** have a hard driver-interrupt guarantee.
+ 
+-**Optional local recording (v1.0.1 development):** After Start camera, open **Export**
++**Optional local recording (v1.0.1):** After Start camera, open **Export**
+ to choose AVI (MJPEG) or MP4 (H.264/MPEG-4 when the OS codec is available) and
+ optionally enter a destination filename or existing folder. Leave the field empty
+ to save a timestamped `ChromascopeIP-Live-...` file in the OS Videos folder.
+@@ -78,7 +80,7 @@ MP4 encoder, the application reports the failure instead of silently changing
+ formats. Camera Stop, workspace switch and session clearing also stop and
+ finalize recording. Previously completed files remain on disk.
+ 
+-No automatic video recording or screenshot capture accompanies starting a live preview. [Live controls](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_5_LIVE_GUI_CONTROLS.md), [temporary tracks](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_4_TEMPORARY_TRACKING.md), [Linux smoke](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_7_LINUX_CAMERA_SMOKE.md) and [real-device qualification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_7_LIVE_DEVICE_QUALIFICATION.md) document behavior and limitations. Windows Server CI checks the **CLI/core**, not native Windows 10/11 desktop camera behavior.
++No automatic video recording or screenshot capture accompanies starting a live preview. [Live controls](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_5_LIVE_GUI_CONTROLS.md), [temporary tracks](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_4_TEMPORARY_TRACKING.md), [Linux smoke](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M8_7_LINUX_CAMERA_SMOKE.md) and [real-device qualification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M9_7_LIVE_DEVICE_QUALIFICATION.md) document behavior and limitations. Windows P5 CI builds the GUI and CLI and executes native Windows tests, but physical camera compatibility must be tested on actual client hardware.
+ 
+ ## Local settings and session cleanup
+ 
+@@ -90,7 +92,7 @@ In the **Preferences** dialog, **Save preferences** explicitly persists validate
+ 
+ Verify original Skittles examples, at least one non-Skittles filter, object/person profile only with an approved model, recorded playback/seek/export, explicit camera start/stop, pause/resume, tracking reset, and manual DPI/shortcuts. Native automated CTests deliberately **cannot** certify a physical camera. Follow [verification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/VERIFICATION.md) and [M10.7 soak qualification](https://github.com/SpilledMilkFactory/ChromascopeIP/blob/main/docs/history/milestones/M10_7_SANITIZER_STATIC_SOAK.md).
+ 
+-### Live Streamed Video (v1.0.1 development)
++## Live Streamed Video (v1.0.1)
+ 
+ The new **Live Streamed Video** workspace accepts an explicitly pasted direct
+ **public HTTPS media URL** and begins fetching only when you click **Start
+@@ -101,6 +103,12 @@ see your public IP and connection details. HTML/iframe webpages, scripts,
+ trackers and unsafe nested HLS resources are not executed. Only direct JPEG,
+ PNG, MJPEG, restricted HLS MPEG-TS, and bounded MP4 inputs are candidates for
+ playback; many publisher feeds legitimately will not meet those restrictions.
+-The repository source document `docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md`
+-describes the threat model, unsupported feed formats and native qualification
+-requirements.
++For stream operation, select the playback-cushion profile appropriate for your
++connection, start playback explicitly, and enable local inference only when
++needed. Playlist HTTPS timeouts receive bounded retries; a persistently
++unavailable stream, invalid certificate, forbidden address or malformed feed
++still produces a stream error. Stop requests cancel cooperative work, although
++an already-running TLS operation can take time to finish. Start/Stop and inference
++toggles do not automatically persist any media. Consult the included
++[live-stream security and supported-feed guide](LIVE_STREAMED_VIDEO_SECURITY_V101.md)
++for the threat model and format restrictions.
+diff --git a/docs/V1_0_1_P6_RELEASE_READINESS.md b/docs/V1_0_1_P6_RELEASE_READINESS.md
+index d2b2ec7..320aea0 100644
+--- a/docs/V1_0_1_P6_RELEASE_READINESS.md
++++ b/docs/V1_0_1_P6_RELEASE_READINESS.md
+@@ -1,7 +1,6 @@
+ # ChromascopeIP v1.0.1 — P6 final release readiness and publication runbook
+ 
+-**Status: preparation only — do not tag or publish until all applicable gates
+-are met.** This is a new two-application-archive release, not a continuation
++**Status: functional acceptance and maintainer redistribution permission recorded; publication awaits final exact-source/compliance evidence.** This is a new two-application-archive release, not a continuation
+ of the original v1.0.0 five-package distribution workflow.
+ 
+ ## Frozen application baseline
+@@ -45,8 +44,8 @@ exact final payload hashes and outstanding source/security/license materials.
+ | Linux portable runtime | Same P3 candidate tested by operator on Debian 12, Ubuntu 24.04 and Ubuntu 26.04 with extended streaming, recording, inference, Browse, shutdown; prior Debian 13 evidence retained | **FUNCTIONALLY ACCEPTED; final commit/artifact parity remains** |
+ | Source commit parity | Both portable archives produced from the identical final release-source commit | **PENDING** |
+ | Automated qualification | Green Linux P3 and Windows P5 jobs, actual Windows CTests, runtime/PE/ELF closure, model and samples hash checks, relocated smoke | **Candidate workflows passed; release-commit parity pending** |
+-| Dependency security | Final vulnerability/CVE applicability review of FFmpeg/OpenCV, curl, bundled codecs, parsers, demuxers, and embedded dependencies | **PENDING final review** |
+-| Redistributable rights and notices | Exact package license/NOTICE inventory, FFmpeg LGPL obligations including corresponding source and relinking, OpenCV/modification notices, curl license, model Apache-2.0, author-owned photos, VC143 rights | **PENDING final review** |
++| Dependency security | Pinned FFmpeg/OpenCV/curl restrictions and native verification accepted; actual shipped versions and CVE applicability must match final binaries | **ENGINEERING ACCEPTED; artifact-specific vulnerability applicability pending** |
++| Redistributable rights and notices | Maintainer explicitly approved reviewed redistribution permissions; verify exact package NOTICE coverage, FFmpeg LGPL corresponding source/relinking, and Linux bundled closure | **MAINTAINER AUTHORIZED; source/notice delivery evidence pending** |
+ | Provenance/SBOM | Exact FFmpeg/OpenCV/curl source revisions, build arguments, patches and applied source; two-artifact dependency inventory/SBOM with limitations stated | **PENDING** |
+ | Final artifact semantics | Approved *release* manifests, not P3/P5 `release_approved:false` engineering-candidate metadata, with published checksums | **P6 promotion tooling not yet implemented** |
+ | Publication | Tag and GitHub Release refer to one approved commit and include exactly two application archives, SHA256SUMS, release notes, and required source/compliance assets | **NOT STARTED** |
+@@ -85,9 +84,14 @@ application builds.
+    exact P3/P5 candidate hashes. Record the tested Windows laptop OS
+    version/build explicitly, rather than inferring both Windows versions
+    from one computer.
+-2. Complete the README, NanoDet attribution, portable user docs and v1.0.1
+-   changelog/release-notes updates before selecting the final commit. Avoid
+-   introducing unreviewed multimedia behavior while closing P6.
++2. Complete README, NanoDet attribution, and updated **packaged user guides**
++   before selecting the final commit. Both P3/P5 now explicitly install and
++   verify `USER_GUIDE.md`, `CLI_REFERENCE.md`, `PRIVACY_GUIDE.md`,
++   `TROUBLESHOOTING.md`, `RELEASE_NOTES_1_0_1.md`, and
++   `LIVE_STREAMED_VIDEO_SECURITY_V101.md`; confirm all six are present in
++   each final application archive. Review the [P6 security and redistribution
++   sign-off](V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md). Do not modify the
++   accepted multimedia implementation as part of documentation updates.
+ 3. After approvals, push a dedicated release-preparation branch, e.g.
+    `release/v1.0.1`, and run the existing **manual** candidate workflows
+    against that branch (one exact commit):
+diff --git a/docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md b/docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md
+new file mode 100644
+index 0000000..fb71176
+--- /dev/null
++++ b/docs/V1_0_1_P6_SECURITY_REDISTRIBUTION_SIGNOFF.md
+@@ -0,0 +1,99 @@
++# ChromascopeIP v1.0.1 — P6 security and redistribution authorization
++
++**Decision recorded:** Maintainer has explicitly approved redistribution of the
++reviewed bundled resources and authorized the v1.0.1 release-preparation stage
++(2026-11-22). This is a **scoped maintainer security/engineering acceptance**,
++not a claim that every security advisory has been eliminated, a legal opinion,
++or an assertion that missing corresponding-source materials have been published.
++
++## Scope of authorization
++
++- Two portable application downloads only: `ChromascopeIP-1.0.1-Linux-x86_64.tar.gz`
++  and `ChromascopeIP-1.0.1-Windows-x64.zip`, from a common, approved source commit.
++- Private FFmpeg 8.1.3 (commit `1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7`)
++  and OpenCV 5.1.0 (commit `e4f78fbcf1a773fbed69e14500e8b734963eb585`)
++  with the reviewed patches and restricted component profiles.
++- Windows static libcurl 8.23.0 Git revision
++  `3163ec065643ba20709f190111f42c3e1fe95273` using Schannel, plus
++  reviewed VC143 runtime DLLs. Linux uses the Debian 12 ABI baseline and its
++  recorded portable shared-library closure.
++- Approved OpenCV Zoo NanoDet checkpoint
++  `object_detection_nanodet_2022nov.onnx` (SHA-256
++  `4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186`),
++  licensed under Apache-2.0, with the full notice and license.
++- Exactly four author-owned Skittles example images, already authorized by
++  the maintainer for distribution; this does **not** relicense them under MIT.
++
++The maintainer has separately confirmed that required third-party and Microsoft
++redistribution permissions have been reviewed. This statement records that
++**publisher attestation**; it cannot independently establish eligibility under
++agreements whose terms or evidence were not supplied to this review.
++
++## Reviewed engineering security controls — ACCEPTED for this scope
++
++The P2/P3/P5 candidate build scripts and project documentation implement pinned
++source revisions, exact input/model hashes, reviewed OpenCV/FFmpeg security
++patches, restricted FFmpeg protocols/codecs, negative-path input checks,
++Windows PE and Linux ELF dependency closure, license/NOTICE inventories and
++checksum-bearing package reports. Windows P5 passed 156 native CTests and the
++synthetic file/memory/HLS-memory decoding and PTS probes; Linux P3/P4 and
++Windows P5 received operator-reported multi-platform real-device acceptance.
++
++Remote streaming is **opt-in** and public HTTPS only, with strict URL, DNS and
++address policy, pinned connections, TLS certificate/hostname checks, bounded
++response sizes and a three-attempt cap on HTTPS playlist timeouts. Inference is
++local; recording and media exports require explicit user action. The application
++makes no blanket promise to be an isolation sandbox or to eliminate all native
++codec/parser risks. Third-party server availability, future CVEs and OS driver
++behavior remain outside the scope of this sign-off.
++
++## Redistribution and corresponding-source release conditions
++
++**Maintainer permission: APPROVED.** The following are *objective* publication
++checks and must still have concrete evidence; an affirmative rights statement
++cannot substitute for missing bytes or license notices:
++
++1. Preserve and publish the exact private FFmpeg corresponding source, reviewed
++   changes and build configuration for **both** Linux and Windows binaries.
++   The P3 candidate's `private-runtime-build-evidence/` directory contains
++   patch/configuration evidence but is **not a complete source distribution**.
++   Confirm LGPLv2.1 shared-library replacement/relinkability requirements and
++   provide a working public source link or eligible written offer, as applicable.
++2. Review the **actual** Linux portable dependency closure and provide required
++   notices, exact patched distro-source package identifiers and corresponding
++   source access. A SONAME or upstream version alone cannot prove which Debian
++   security backports are present. Record current vulnerability applicability
++   for shipped inputs rather than claiming zero CVEs.
++3. Keep the full NanoDet/OpenCV/GLFW/ImGui/curl/FFmpeg licenses and notices and
++   the Microsoft runtime licensing evidence associated with the two archives.
++4. Rebuild P3 and P5 from one new tagged/approved commit after the bundled
++   documentation change. Require successful workflow conclusions, matching
++   `headSha`, independent archive SHA-256, package inventory verification and
++   review of any changes relative to the manually qualified functionality.
++5. Create the two-archive release manifest and sign-off record for the actual
++   published bytes; do not alter P3/P5 `release_approved:false` engineering
++   candidate flags without an explicitly audited P6 promotion step.
++
++**Engineering security review:** ACCEPTED within the fixed v1.0.1 functional
++scope, based on existing CI, provenance guards and maintainer testing.
++
++**Third-party redistribution permission:** AUTHORIZED BY MAINTAINER, as stated
++in this conversation; exact external agreement evidence is not independently
++certified here.
++
++**Public publication status:** CONDITIONAL — require documentary completion of
++corresponding-source, actual runtime closure/notice review, and final exact
++artifact sign-off. This document deliberately does not certify missing source
++materials as delivered. It does not alter release-gate code or waive checks.
++
++## Evidence locations
++
++- [`V1_0_1_P6_RELEASE_READINESS.md`](V1_0_1_P6_RELEASE_READINESS.md)
++- [`LIVE_STREAMED_VIDEO_SECURITY_V101.md`](LIVE_STREAMED_VIDEO_SECURITY_V101.md)
++- [`M11_9_M12_5_CLEARANCE_REPORT.md`](M11_9_M12_5_CLEARANCE_REPORT.md) (historical)
++- [`M12_5_RELEASE_SECURITY_SIGNOFF.md`](M12_5_RELEASE_SECURITY_SIGNOFF.md) (historical)
++- [`THIRD_PARTY_PROVENANCE.md`](THIRD_PARTY_PROVENANCE.md)
++- [`LICENSE_AUDIT.md`](LICENSE_AUDIT.md)
++- Release candidate manifest and build log of each exact P3/P5 workflow run
++
++All previous milestone-specific approval records are preserved as history.
+diff --git a/scripts/portable/v101_p5_package.py b/scripts/portable/v101_p5_package.py
+index 9fabd1b..4b74813 100644
+--- a/scripts/portable/v101_p5_package.py
++++ b/scripts/portable/v101_p5_package.py
+@@ -40,6 +40,10 @@ REQUIRED = {
+     *REQUIRED_FFMPEG,
+     f'{DOC}/LICENSE', f'{DOC}/README.md',
+     f'{DOC}/PORTABLE_RELEASE_V1_0_1.md', f'{DOC}/SECURITY.md',
++    f'{DOC}/docs/USER_GUIDE.md', f'{DOC}/docs/CLI_REFERENCE.md',
++    f'{DOC}/docs/PRIVACY_GUIDE.md', f'{DOC}/docs/TROUBLESHOOTING.md',
++    f'{DOC}/docs/RELEASE_NOTES_1_0_1.md',
++    f'{DOC}/docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md',
+     f'{DOC}/licenses/FFmpeg-8.1.3-LGPL-2.1.txt',
+     f'{DOC}/licenses/curl-8.23.0-COPYING.txt',
+     f'{DOC}/licenses/GLFW-3.4-Zlib.txt',
+@@ -148,10 +152,10 @@ def validate_inventory(names: set[str]) -> None:
+         set(legacy.NOTICES['notice_payloads']()) |
+         {'OpenCV-5.1.0-Apache-2.0.txt', 'OpenCV-Zoo-NanoDet-Apache-2.0.txt', 'FFmpeg-8.1.3-LGPL-2.1.txt', 'curl-8.23.0-COPYING.txt'}
+     )
+-    approved_guides = set(legacy.SHIPPED_USER_GUIDES) - {
++    approved_guides = (set(legacy.SHIPPED_USER_GUIDES) - {
+         'INSTALLATION_1_0_0.md', 'RELEASE_EXAMPLES_1_0_0.md',
+         'RELEASE_NOTES_1_0_0.md',
+-    }
++    }) | {'RELEASE_NOTES_1_0_1.md', 'LIVE_STREAMED_VIDEO_SECURITY_V101.md'}
+     approved_doc_root = {'LICENSE', 'README.md', 'SECURITY.md',
+                          'PORTABLE_RELEASE_V1_0_1.md'}
+     for rel in names:
+diff --git a/tests/quality/test_documentation_m108.py b/tests/quality/test_documentation_m108.py
+index c9cd94c..f708528 100644
+--- a/tests/quality/test_documentation_m108.py
++++ b/tests/quality/test_documentation_m108.py
+@@ -20,7 +20,7 @@ class CurrentDocumentationTests(unittest.TestCase):
+                 body = content(name)
+                 self.assertGreater(len(body), 1200)
+                 self.assertTrue(body.startswith('# ChromascopeIP'))
+-                self.assertIn('M10.8', body)
++                self.assertTrue('v1.0.1' in body or 'M10.8' in body)
+ 
+     def test_internal_link_targets_exist(self):
+         for name in PAGES:
+diff --git a/tests/quality/test_documentation_packaging.py b/tests/quality/test_documentation_packaging.py
+index 60829a4..7786af4 100644
+--- a/tests/quality/test_documentation_packaging.py
++++ b/tests/quality/test_documentation_packaging.py
+@@ -71,7 +71,9 @@ class DocumentationPackagingTests(unittest.TestCase):
+                 resolved = (base / path).resolve()
+                 rel = resolved.relative_to(ROOT)
+                 self.assertIn(rel, {Path('docs') / g for g in GUIDES} |
+-                              {Path('README.md'), Path('LICENSE'), Path('SECURITY.md')},
++                              {Path('README.md'), Path('LICENSE'), Path('SECURITY.md')} |
++                              {Path('docs/RELEASE_NOTES_1_0_1.md'),
++                               Path('docs/LIVE_STREAMED_VIDEO_SECURITY_V101.md')},
+                               f'{original} references unshipped file {target}')
+ 
+     def test_historical_records_and_release_gate_remain_source_only(self):
+diff --git a/tests/quality/test_v101_install_stage_script_policy.py b/tests/quality/test_v101_install_stage_script_policy.py
+index 8d57e14..5d88772 100644
+--- a/tests/quality/test_v101_install_stage_script_policy.py
++++ b/tests/quality/test_v101_install_stage_script_policy.py
+@@ -19,6 +19,7 @@ ALL_GUIDES = (
+     'RELEASE_NOTES_1_0_0.md', 'CHANGELOG.md', 'IMAGE_FILTER_PROFILES.md',
+     'SEGMENTATION_PROFILES.md', 'MEDIA_RIGHTS.md', 'RESOURCE_BUDGETS.md',
+ )
++V101_ADD = ('RELEASE_NOTES_1_0_1.md', 'LIVE_STREAMED_VIDEO_SECURITY_V101.md')
+ V101_OMIT = {'INSTALLATION_1_0_0.md', 'RELEASE_EXAMPLES_1_0_0.md',
+              'RELEASE_NOTES_1_0_0.md'}
+ PHOTO_NAMES = ('s1.jpg', 's2.jpg', 's3.jpg', 's4.jpg')
+@@ -58,6 +59,8 @@ class InstallScriptPolicyTests(unittest.TestCase):
+             if not portable or name not in V101_OMIT:
+                 self._write('share/doc/chromascopeip/docs/' + name, 'fixture')
+         if portable:
++            for name in V101_ADD:
++                self._write('share/doc/chromascopeip/docs/' + name, 'fixture')
+             model_dir = self.payload / 'share/chromascopeip/models'
+             shutil.copyfile(ROOT / 'models/object_detection_nanodet_2022nov.onnx',
+                             model_dir / 'object_detection_nanodet_2022nov.onnx')

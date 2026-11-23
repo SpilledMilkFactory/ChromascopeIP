@@ -1,6 +1,6 @@
-# CMake presets and repository layout (M1.2)
+# ChromascopeIP v1.0.1 — CMake presets and source builds
 
-I use **CMake 3.24 or newer**, Ninja, C++20, and **OpenCV 5.1.0 exactly**. These checked-in presets standardize normal developer commands; they do not lock compilers, platform libraries, or external binary contents. Full reproducible distribution packaging and cross-platform CI are scheduled for later issues.
+I use **CMake 3.24 or newer**, Ninja, C++20, and **OpenCV 5.1.0 exactly**. These checked-in presets standardize normal developer commands; they do not lock compilers, platform libraries, or external binary contents. Portable P3/P5 distributions are built separately through manually dispatched GitHub Actions workflows; these user presets are for source development.
 
 ## Preset matrix
 
@@ -13,7 +13,7 @@ I use **CMake 3.24 or newer**, Ninja, C++20, and **OpenCV 5.1.0 exactly**. These
 | `windows-cli-release` | Windows (VS2022 x64) | Release | Off | On | On | `build/presets/windows-cli-release/` |
 | `windows-cli-debug` | Windows (VS2022 x64) | Debug | Off | On | On | `build/presets/windows-cli-debug/` |
 
-Linux presets use Ninja and produce `compile_commands.json`. Windows presets now use **Visual Studio 17 2022, x64** to match M1.6 CI. Visual Studio is multi-configuration, so their build/test presets explicitly select `Release` or `Debug`. Windows presets intentionally cover **core + CLI only** until GUI support is implemented. M1.6 validates the Release preset on Windows Server 2022; the Debug preset requires a separately built OpenCV Debug library. A preset alone is not evidence of Windows 10/11 desktop compatibility.
+Linux presets use Ninja and produce `compile_commands.json`. Windows presets now use **Visual Studio 17 2022, x64** to match M1.6 CI. Visual Studio is multi-configuration, so their build/test presets explicitly select `Release` or `Debug`. The ordinary Windows source-build presets cover **core + CLI**; the independent v1.0.1 P5 release workflow builds the full Windows GUI and CLI with private dependencies. The Windows CI Release preset runs on Windows Server 2022; the Debug preset requires a separately built OpenCV Debug library. A preset alone is not evidence of Windows 10/11 desktop compatibility.
 
 ## Linux quick start
 
@@ -50,7 +50,7 @@ ctest --preset my-linux-release
 
 `CMakeUserPresets.json` is Git-ignored, while `CMakePresets.json` and the example are tracked. CMake implicitly makes project presets available for inheritance from `CMakeUserPresets.json`. If configuring with an offline ImGui checkout, I can add `CHROMASCOPE_IMGUI_DIR` to the local preset's `cacheVariables` too.
 
-On Windows, I use `-DOpenCV_DIR=<directory containing OpenCVConfig.cmake>` or a user preset inheriting `windows-cli-release`, with the VS2022 C++ tools installed. My `scripts/bootstrap_opencv_windows_x64.ps1` prepares a pinned static OpenCV 5.1.0 Release installation. I do not claim Windows 10/11 GUI or installer compatibility from this CI milestone; see [CI_WINDOWS.md](CI_WINDOWS.md).
+On Windows, I use `-DOpenCV_DIR=<directory containing OpenCVConfig.cmake>` or a user preset inheriting `windows-cli-release`, with the VS2022 C++ tools installed. My `scripts/bootstrap_opencv_windows_x64.ps1` prepares a pinned static OpenCV 5.1.0 Release installation. For the portable Windows x64 application, use the v1.0.1 P5 workflow and accompanying manual Windows-laptop qualification; see [Windows portable guide](PORTABLE_RELEASE_V1_0_1_WINDOWS.md).
 
 ## Legacy commands and migration
 

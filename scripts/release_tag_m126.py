@@ -13,7 +13,7 @@ import sys
 import audit_redistribution_m119 as audit
 import qualify_release_candidate_m122 as rc
 import stage_release_m126 as stage
-from release_identity import VERSION
+from release_identity import LEGACY_VERSION as VERSION
 
 
 class TagError(RuntimeError):

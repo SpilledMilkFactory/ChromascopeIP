@@ -1,10 +1,10 @@
 # Changelog
 
 ChromascopeIP **v1.0.0 was published on November 19, 2026**. This changelog
-records implemented features and planned v1.0.1 portable-release changes.
+records implemented features and the v1.0.1 portable release.
 Release publication and engineering-candidate qualification are separate.
 
-## [Unreleased] — v1.0.1 portable release preparation
+## [1.0.1] — portable Linux and Windows update
 
 ### Added and improved
 
@@ -28,10 +28,10 @@ Release publication and engineering-candidate qualification are separate.
 ### Qualification status
 
 - P5 completed hosted MSVC build, 156 native CTests, independent package
-  inspection and relocated CLI verification. Initial laptop testing confirms
-  live HTTPS/HLS stream connectivity; sustained stability acceptance is a
-  separate operator gate.
-- P6 must review the **final** Linux and Windows release artifacts, source and
+  inspection and relocated CLI verification. End-to-end laptop testing also
+  confirmed live HTTPS/HLS, inference toggling, recording, Stop/Start, native
+  Browse and clean shutdown.
+- P6 must approve the **final** Linux and Windows release artifacts, source and
   dependency provenance, FFmpeg LGPL obligations, applicable vulnerabilities,
   third-party licenses, Microsoft redistributable entitlement, hashes and
   release metadata. Engineering candidates are not release authorization.
@@ -72,5 +72,5 @@ Release publication and engineering-candidate qualification are separate.
   selected NanoDet model or original Skittles photos; these distribution
   choices are changed only for the separately reviewed v1.0.1 portable release.
 
-[Unreleased]: RELEASE_NOTES_1_0_1.md
+[1.0.1]: RELEASE_NOTES_1_0_1.md
 [1.0.0]: RELEASE_NOTES_1_0_0.md

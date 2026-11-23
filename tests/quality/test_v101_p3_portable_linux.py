@@ -102,8 +102,8 @@ class P3CandidateTests(unittest.TestCase):
     def test_cmake_only_enables_p3_explicitly(self):
         src = (ROOT / 'CMakeLists.txt').read_text()
         self.assertIn('option(CHROMASCOPE_V101_P3_PORTABLE', src)
-        self.assertIn('project(ChromascopeIP VERSION 1.0.0 LANGUAGES CXX)', src)
-        self.assertIn('set(PROJECT_VERSION "1.0.1")', src)
+        self.assertIn('project(ChromascopeIP VERSION 1.0.1 LANGUAGES CXX)', src)
+        self.assertNotIn('set(PROJECT_VERSION "1.0.1")', src)
         self.assertIn('chromascope_require_linux_opencv_policy', src)
         self.assertIn('chromascope_require_p3_private_runtime',
                       (ROOT / 'cmake/ChromascopeOpenCVPolicy.cmake').read_text())
@@ -142,9 +142,9 @@ class P3CandidateTests(unittest.TestCase):
         self.assertIn('model_evidence = inspect_model(stage)', script)
         self.assertIn('approved_nanodet', script)
 
-    def test_build_default_remains_v100(self):
+    def test_build_default_is_v101(self):
         source = (ROOT / 'CMakeLists.txt').read_text()
-        self.assertIn('project(ChromascopeIP VERSION 1.0.0 LANGUAGES CXX)', source)
+        self.assertIn('project(ChromascopeIP VERSION 1.0.1 LANGUAGES CXX)', source)
         self.assertIn('option(CHROMASCOPE_V101_P3_PORTABLE', source)
 
 

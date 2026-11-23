@@ -15,7 +15,7 @@ import sys
 
 import qualify_release_candidate_m122 as rc
 import validate_package_matrix as matrix
-from release_identity import VERSION
+from release_identity import LEGACY_VERSION as VERSION
 
 
 class StagingError(RuntimeError):

@@ -15,7 +15,7 @@ import re
 import stat
 import sys
 
-from release_identity import VERSION
+from release_identity import LEGACY_VERSION as VERSION
 
 SCHEMA = 'chromascope.m12.3.linux-clean-install.v1'
 TARGETS = ('Debian12-amd64', 'Debian13-amd64',

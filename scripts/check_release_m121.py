@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Offline M12.1 candidate version/feature-scope freeze audit; never publishes.
+"""Offline audit of current version and historical M12.1 v1.0.0 artifacts.
 
-Check the actual producer/consumer workflow contract and both frontend version
-sources. Old milestone history is deliberately NOT rewritten or checked.
+Validate the active CMake/GUI/CLI version, retain historical five-package
+workflow identity, and never tag or publish.
 """
 from pathlib import Path
 import re
@@ -31,9 +31,9 @@ def verify(root=ROOT):
         return file.read_text(encoding='utf-8')
 
     cmake = source('CMakeLists.txt')
-    literal = 'project(ChromascopeIP VERSION 1.0.0 LANGUAGES CXX)'
+    literal = 'project(ChromascopeIP VERSION 1.0.1 LANGUAGES CXX)'
     if cmake.splitlines().count(literal) != 1:
-        issues.append('CMake project VERSION differs from frozen 1.0.0')
+        issues.append('CMake project VERSION differs from current 1.0.1')
     for token in ('configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ReleaseVersion.hpp.in"',
                   'target_include_directories(chromascope-cli PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")',
                   'target_include_directories(chromascope-gui PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")'):
@@ -99,7 +99,7 @@ def main():
         print('FAIL M12.1: ' + problem, file=sys.stderr)
     if problems:
         return 1
-    print('PASS M12.1: v1.0.0 frozen CMake/GUI/CLI/packaging/artifact identity; release NOT authorized')
+    print('PASS: current v1.0.1 CMake/GUI/CLI identity and historical v1.0.0 matrix identities; publication separate')
     return 0
 
 

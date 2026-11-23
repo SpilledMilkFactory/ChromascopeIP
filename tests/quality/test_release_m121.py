@@ -1,4 +1,4 @@
-"""M12.1 version freeze: both frontends and every artifact share one version."""
+"""Current CMake/GUI/CLI version plus the frozen historical M12.1 matrix identity."""
 from pathlib import Path
 import importlib.util
 import shutil
@@ -18,7 +18,7 @@ class ReleaseM121Tests(unittest.TestCase):
 
     def test_single_version_from_cmake(self):
         import runpy
-        self.assertEqual('1.0.0', runpy.run_path(str(ROOT / 'scripts/release_identity.py'))['VERSION'])
+        self.assertEqual('1.0.1', runpy.run_path(str(ROOT / 'scripts/release_identity.py'))['VERSION'])
 
     def test_no_automatic_release_or_tag_creation(self):
         content = (ROOT / '.github/workflows/package-matrix.yml').read_text()
@@ -43,11 +43,11 @@ class ReleaseM121Tests(unittest.TestCase):
             root = Path(temp)
             target = root / 'ReleaseVersion.hpp'
             script = root / 'configure.cmake'
-            script.write_text(f'set(PROJECT_VERSION 1.0.0)\n'
+            script.write_text(f'set(PROJECT_VERSION 1.0.1)\n'
                               f'configure_file("{ROOT / "cmake/ReleaseVersion.hpp.in"}" '
                               f'"{target}" @ONLY)\n')
             subprocess.run(['cmake', '-P', str(script)], check=True, capture_output=True)
-            self.assertIn('#define CHROMASCOPE_RELEASE_VERSION "1.0.0"', target.read_text())
+            self.assertIn('#define CHROMASCOPE_RELEASE_VERSION "1.0.1"', target.read_text())
 
     def clone_contract(self):
         folder = tempfile.TemporaryDirectory()
@@ -72,7 +72,7 @@ class ReleaseM121Tests(unittest.TestCase):
 
     def test_detects_cmake_version_drift(self):
         root = self.clone_contract()
-        self.change(root, 'CMakeLists.txt', 'VERSION 1.0.0', 'VERSION 1.0.1')
+        self.change(root, 'CMakeLists.txt', 'VERSION 1.0.1', 'VERSION 0.1.3')
         self.assertTrue(any('CMake project VERSION' in issue for issue in release.verify(root)))
 
     def test_detects_gui_version_drift(self):

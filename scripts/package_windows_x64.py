@@ -20,7 +20,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 from runpy import run_path
-VERSION = run_path(str(Path(__file__).resolve().parent / 'release_identity.py'))['VERSION']
+VERSION = run_path(str(Path(__file__).resolve().parent / 'release_identity.py'))['LEGACY_VERSION']
 NOTICES = run_path(str(ROOT / 'scripts/third_party_notices.py'))
 ARCHIVE = f'ChromascopeIP-{VERSION}-Windows-x64.zip'
 TOP = f'ChromascopeIP-{VERSION}-Windows-x64'

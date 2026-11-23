@@ -33,7 +33,7 @@ class Debian12PackagePolicyTests(unittest.TestCase):
                 'CMAKE_BUILD_TYPE:STRING=Release\nCHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                 'CMAKE_INSTALL_PREFIX:PATH=/usr/local\n'
                 'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n', encoding='utf-8')
+                'CMAKE_PROJECT_VERSION:STATIC=1.0.1\n', encoding='utf-8')
             with self.assertRaisesRegex(pack.PackageError, 'CMAKE_INSTALL_PREFIX'):
                 pack.validate_source(build, prefix)
 
@@ -45,7 +45,7 @@ class Debian12PackagePolicyTests(unittest.TestCase):
                 'CMAKE_BUILD_TYPE:STRING=Release\nCHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                 'CMAKE_INSTALL_PREFIX:PATH=/usr\n'
                 'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n', encoding='utf-8')
+                'CMAKE_PROJECT_VERSION:STATIC=1.0.1\n', encoding='utf-8')
             for binary in ('chromascope-cli', 'chromascope-gui'):
                 (build / binary).write_bytes(b'fake binary')
             with self.assertRaisesRegex(pack.PackageError, 'OpenCV build marker'):

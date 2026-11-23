@@ -54,9 +54,9 @@ class P5WindowsCandidateTests(unittest.TestCase):
         with self.assertRaisesRegex(p5.CandidateError, 'Case-insensitive'):
             p5.validate_inventory(p5.REQUIRED | {'bin/CHROMASCOPE-GUI.EXE'})
 
-    def test_windows_specific_cmake_option_preserves_v100(self):
+    def test_windows_portable_mode_requires_msvc(self):
         src = (ROOT / 'CMakeLists.txt').read_text()
-        self.assertIn('project(ChromascopeIP VERSION 1.0.0 LANGUAGES CXX)', src)
+        self.assertIn('project(ChromascopeIP VERSION 1.0.1 LANGUAGES CXX)', src)
         self.assertIn('option(CHROMASCOPE_V101_P5_PORTABLE', src)
         self.assertIn('if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8 OR NOT MSVC)', src)
         self.assertIn('P3 and P5 portable modes are mutually exclusive', src)

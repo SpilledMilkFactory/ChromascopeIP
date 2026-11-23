@@ -13,20 +13,38 @@ of the original v1.0.0 five-package distribution workflow.
   static OpenCV, static Schannel libcurl, GLFW and the normal camera backends.
   The successful job completed 156/156 native CTests, decoder probes,
   package integrity and relocated CLI smoke. The Windows laptop has confirmed
-  image, recorded-video, live-camera and initial live HTTPS/HLS functionality.
-  A sustained stream/inference/Stop-Start/shutdown check remains pending.
+  image, recorded-video, live-camera and live HTTPS/HLS functionality.
+  Sustained streaming, inference, recording, Stop/Start, native Browse and
+  shutdown were subsequently verified by the operator.
 - Freeze the working decoder, transport, source-PTS scheduler and buffering
   behavior unless actual final-device evidence requires a correction.
+
+## Operator-tested P3/P5 candidates (pre-release-commit evidence)
+
+The maintainer reports extended functional acceptance of the P3 Linux and P5
+Windows application archives supplied for this preparation. These are hashes
+of the **inner application archives**, not the enclosing GitHub Actions
+artifact ZIP files:
+
+| Candidate archive | SHA-256 |
+| --- | --- |
+| `ChromascopeIP-1.0.1-Linux-x86_64.tar.gz` | `7779b1d5b74c3c2379fd44c6d2188a16508556ab20a27f2f37e6c4271a5697d4` |
+| `ChromascopeIP-1.0.1-Windows-x64.zip` | `b77beee5e810029a391c56e5ab43fb390c38a116478da6850f11adbef50ec1c6` |
+
+These are **not** the digests of future final-commit rebuilds. Both candidate
+reports still state that redistribution/release approval is false. Full
+release approval must be recorded separately with same-commit provenance,
+exact final payload hashes and outstanding source/security/license materials.
 
 ## P6 required acceptance gates
 
 | Gate | Evidence required | Current disposition |
 | --- | --- | --- |
-| Windows extended live HLS | Operator confirms uninterrupted ~20 min playback, toggles inference, Stop/Start, clean shutdown, and records failure symptoms if any | **PENDING** |
+| Windows extended live HLS | Operator reports sustained playback, inference on/off, recording on/off, Stop/Start, native Browse, and clean shutdown on the tested Windows laptop | **FUNCTIONALLY ACCEPTED by operator; record Windows OS version/build** |
 | Windows 10 and Windows 11 | Document actual OS versions/devices tested; do not infer dual-platform acceptance from one laptop | **VERSION-SPECIFIC EVIDENCE PENDING** |
-| Linux portable runtime | Exact release candidate digest and acceptance on Debian 12/13 and Ubuntu 24.04/26.04, including HLS, inference and shutdown | **P4 accepted baseline; final artifact identity to verify** |
+| Linux portable runtime | Same P3 candidate tested by operator on Debian 12, Ubuntu 24.04 and Ubuntu 26.04 with extended streaming, recording, inference, Browse, shutdown; prior Debian 13 evidence retained | **FUNCTIONALLY ACCEPTED; final commit/artifact parity remains** |
 | Source commit parity | Both portable archives produced from the identical final release-source commit | **PENDING** |
-| Automated qualification | Green Linux P3 and Windows P5 jobs, actual Windows CTests, runtime/PE/ELF closure, model and samples hash checks, relocated smoke | **P5 candidate passed; final same-commit reruns pending** |
+| Automated qualification | Green Linux P3 and Windows P5 jobs, actual Windows CTests, runtime/PE/ELF closure, model and samples hash checks, relocated smoke | **Candidate workflows passed; release-commit parity pending** |
 | Dependency security | Final vulnerability/CVE applicability review of FFmpeg/OpenCV, curl, bundled codecs, parsers, demuxers, and embedded dependencies | **PENDING final review** |
 | Redistributable rights and notices | Exact package license/NOTICE inventory, FFmpeg LGPL obligations including corresponding source and relinking, OpenCV/modification notices, curl license, model Apache-2.0, author-owned photos, VC143 rights | **PENDING final review** |
 | Provenance/SBOM | Exact FFmpeg/OpenCV/curl source revisions, build arguments, patches and applied source; two-artifact dependency inventory/SBOM with limitations stated | **PENDING** |
@@ -63,9 +81,10 @@ application builds.
 
 ## Source, CI and integrity procedure (manual-only)
 
-1. After the extended Windows soak, capture the actual elapsed time,
-   inference-on/off behavior, Start/Stop results, shutdown outcome and OS
-   version/build. Preserve failure diagnostics if anything regresses.
+1. Preserve the completed five-target functional acceptance notes and the
+   exact P3/P5 candidate hashes. Record the tested Windows laptop OS
+   version/build explicitly, rather than inferring both Windows versions
+   from one computer.
 2. Complete the README, NanoDet attribution, portable user docs and v1.0.1
    changelog/release-notes updates before selecting the final commit. Avoid
    introducing unreviewed multimedia behavior while closing P6.
@@ -110,6 +129,21 @@ application builds.
    payloads. Regenerate and independently verify `SHA256SUMS.txt` from the
    **final** files. Save the final source commit, artifact SHA-256s, package
    report and release approval record together.
+
+## Current project version and release links
+
+The normal CMake project is now `1.0.1` (not just the P3/P5 build flags).
+The README may predeclare the eventual
+`https://github.com/SpilledMilkFactory/ChromascopeIP/releases/tag/v1.0.1`
+URL and direct asset links, but GitHub returns a missing-release page until the
+release is published. Dynamic latest-release badges continue reporting the
+latest *published* version in the meantime. Never claim a draft or candidate
+is already public.
+
+The older `CMakeUserPresets.json.example` is retained: contributors can copy
+it to the ignored `CMakeUserPresets.json` to configure local OpenCV paths.
+Historical M11/M12 five-package scripts and workflows belong to the
+`v1.0.0` tag; do not run those jobs as the v1.0.1 two-archive release.
 
 ## Tagging and publishing — only after approval
 

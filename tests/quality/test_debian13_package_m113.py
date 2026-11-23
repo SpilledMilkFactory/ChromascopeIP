@@ -46,7 +46,7 @@ class Debian13PackagePolicyTests(unittest.TestCase):
                     'CHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                     'CMAKE_INSTALL_PREFIX:PATH=/usr\n'
                     'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                    'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n')
+                    'CMAKE_PROJECT_VERSION:STATIC=1.0.1\n')
             cases = [
                 (base.replace('CMAKE_BUILD_TYPE:STRING=Release',
                               'CMAKE_BUILD_TYPE:STRING=Debug'), 'Release'),
@@ -69,7 +69,7 @@ class Debian13PackagePolicyTests(unittest.TestCase):
                 'CMAKE_BUILD_TYPE:STRING=Release\nCHROMASCOPE_BUILD_GUI:BOOL=ON\n'
                 'CMAKE_INSTALL_PREFIX:PATH=/usr\n'
                 'CMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu\n'
-                'CMAKE_PROJECT_VERSION:STATIC=1.0.0\n')
+                'CMAKE_PROJECT_VERSION:STATIC=1.0.1\n')
             for name in ('chromascope-cli', 'chromascope-gui'):
                 (build / name).write_bytes(b'synthetic-executable')
             with self.assertRaisesRegex(pack.PackageError, 'OpenCV build marker'):

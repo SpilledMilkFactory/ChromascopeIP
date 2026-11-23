@@ -13,3 +13,7 @@ _matches = _PATTERN.findall((ROOT / 'CMakeLists.txt').read_text(encoding='utf-8'
 if len(_matches) != 1:
     raise RuntimeError('Exactly one literal project(ChromascopeIP VERSION x.y.z LANGUAGES CXX) is required')
 VERSION = _matches[0]
+
+# Historical five-package M11/M12 tooling targets the published v1.0.0 only.
+# Do not treat this as the current application version.
+LEGACY_VERSION = "1.0.0"

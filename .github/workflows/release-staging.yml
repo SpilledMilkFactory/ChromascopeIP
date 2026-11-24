@@ -46,54 +46,54 @@ jobs:
 
       # Raw v7 artifacts use their actual filenames, including extension.
       - name: Download Debian 12 candidate
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Debian12-amd64.deb
           path: build/m126-input/ChromascopeIP-1.0.0-Debian12-amd64
           skip-decompress: true
 
       - name: Download Debian 13 candidate
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Debian13-amd64.deb
           path: build/m126-input/ChromascopeIP-1.0.0-Debian13-amd64
           skip-decompress: true
 
       - name: Download Ubuntu 24.04 candidate
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb
           path: build/m126-input/ChromascopeIP-1.0.0-Ubuntu24.04-amd64
           skip-decompress: true
 
       - name: Download Ubuntu 26.04 candidate
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb
           path: build/m126-input/ChromascopeIP-1.0.0-Ubuntu26.04-amd64
           skip-decompress: true
 
       - name: Download Windows x64 candidate
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Windows-x64.zip
           path: build/m126-input/ChromascopeIP-1.0.0-Windows-x64
           skip-decompress: true
 
       - name: Download same-run package matrix report
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-M11.7-Matrix-Report
           path: build/m126-reports/matrix
 
       - name: Download same-run M11.9 SBOM drafts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-M11.9-SBOM-Drafts-REVIEW-REQUIRED
           path: build/m126-reports/sbom
 
       - name: Download same-run M12.2 RC report
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-M12.2-RC-Automated-Evidence
           path: build/m126-reports/rc

@@ -67,35 +67,35 @@ jobs:
       # A separate validated directory stem keeps the five inputs isolated.
       # No token, run-id override, pattern, or cross-run artifact lookup.
       - name: Download Debian 12 package from this run
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Debian12-amd64.deb
           path: build/package-matrix/ChromascopeIP-1.0.0-Debian12-amd64
           skip-decompress: true
 
       - name: Download Debian 13 package from this run
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Debian13-amd64.deb
           path: build/package-matrix/ChromascopeIP-1.0.0-Debian13-amd64
           skip-decompress: true
 
       - name: Download Ubuntu 24.04 package from this run
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Ubuntu24.04-amd64.deb
           path: build/package-matrix/ChromascopeIP-1.0.0-Ubuntu24.04-amd64
           skip-decompress: true
 
       - name: Download Ubuntu 26.04 package from this run
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Ubuntu26.04-amd64.deb
           path: build/package-matrix/ChromascopeIP-1.0.0-Ubuntu26.04-amd64
           skip-decompress: true
 
       - name: Download Windows x64 package from this run
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ChromascopeIP-1.0.0-Windows-x64.zip
           path: build/package-matrix/ChromascopeIP-1.0.0-Windows-x64
